@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+
+[project]
+name = "xvec"
+dynamic = ["version"]
+authors = [
+    {name = "Martin Fleischmann", email = "martin@martinfleischmann.net"},
+]
+maintainers = [
+    {name = "Xvec contributors"},
+]
+license = {text = "MIT"}
+description = "Vector data cubes for Xarray"
+keywords = ["GIS", "cartography", "pandas", "shapely"]
+readme = "Readme.md"
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "xarray >= 2022.11.0",
+    "shapely >= 2.0",
+]
+
+[project.urls]
+Home = "https://xvec.readthedocs.io"
+Repository = "https://github.com/martinfleis/xvec"
+
+[tool.setuptools.packages.find]
+include = [
+    "xvec",
+    "xvec.*",
+]
