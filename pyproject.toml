@@ -9,6 +9,7 @@ name = "xvec"
 dynamic = ["version"]
 authors = [
     {name = "Martin Fleischmann", email = "martin@martinfleischmann.net"},
+    {name = "Benoît Bovy", email = "benbovy@gmail.com"},
 ]
 maintainers = [
     {name = "Xvec contributors"},
