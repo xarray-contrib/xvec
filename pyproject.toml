@@ -40,3 +40,6 @@ include = [
     "xvec",
     "xvec.*",
 ]
+
+[tool.coverage.run]
+omit = ["xvec/tests/*"]
