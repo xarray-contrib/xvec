@@ -11,13 +11,13 @@ on:
     - cron: "59 23 * * 3"
 
 jobs:
-  # Linting:
-  #   runs-on: ubuntu-latest
+  Linting:
+    runs-on: ubuntu-latest
 
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #     - uses: actions/setup-python@v4
-  #     - uses: pre-commit/action@v3
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v4
+      - uses: pre-commit/action@v3
 
   Tests:
     name: ${{ matrix.os }}, ${{ matrix.environment-file }}
