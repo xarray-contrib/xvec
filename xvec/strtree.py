@@ -35,13 +35,6 @@ class ShapelySTRTreeIndex(Index):
         assert len(labels) == 1
         label = next(iter(labels.values()))
 
-        if method is not None and method != "nearest":
-            if not isinstance(label, shapely.Geometry):
-                raise ValueError(
-                    "selection with another method than nearest only supports "
-                    "a single geometry as input label."
-                )
-
         if isinstance(label, xarray.DataArray):
             label_array = label._variable._data
         elif isinstance(label, xarray.Variable):
@@ -62,6 +55,9 @@ class ShapelySTRTreeIndex(Index):
             indices = self._tree.nearest(label_array)
         else:
             indices = self._tree.query(label, predicate=method, distance=tolerance)
+
+            if indices.ndim == 2:
+                indices = indices[1]
 
         # attach dimension names and/or coordinates to positional indexer
         if isinstance(label, xarray.Variable):
