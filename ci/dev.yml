@@ -1,0 +1,17 @@
+name: xvec_dev
+channels:
+  - conda-forge
+  - conda-forge/label/shapely_dev
+dependencies:
+  - python
+  # to build from source
+  - cython
+  - geos
+  # testing
+  - pytest
+  - pytest-cov
+  - pytest-xdist
+  - pip
+  - pip:
+      - git+https://github.com/shapely/shapely.git@main
+      - git+https://github.com/pydata/xarray.git@main

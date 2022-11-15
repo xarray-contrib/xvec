@@ -1,0 +1,13 @@
+name: xvec
+channels:
+  - conda-forge
+  - conda-forge/label/shapely_dev
+dependencies:
+  - python
+  # required
+  - shapely=2
+  - xarray
+  # testing
+  - pytest
+  - pytest-cov
+  - pytest-xdist
