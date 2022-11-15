@@ -2,11 +2,11 @@ name: Tests
 
 on:
   push:
-    branches:
-      - "*"
+    branches: [main]
   pull_request:
     branches:
       - "*"
+
   schedule:
     - cron: "59 23 * * 3"
 
