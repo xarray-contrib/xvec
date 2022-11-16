@@ -15,3 +15,6 @@ repos:
     hooks:
       - id: isort
         language_version: python3
+
+ci:
+  autofix_prs: false

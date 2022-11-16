@@ -11,14 +11,6 @@ on:
     - cron: "59 23 * * 3"
 
 jobs:
-  Linting:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v4
-      - uses: pre-commit/action@v3.0.0
-
   Tests:
     name: ${{ matrix.os }}, ${{ matrix.environment-file }}
     runs-on: ${{ matrix.os }}
@@ -47,7 +39,7 @@ jobs:
       - name: Install xvec
         run: pip install .
 
-      - name: run tests - bash
+      - name: run tests
         run: pytest -v . -m "not request" --cov=xvec --cov-append --cov-report term-missing --cov-report xml --color=yes
 
       - uses: codecov/codecov-action@v3
