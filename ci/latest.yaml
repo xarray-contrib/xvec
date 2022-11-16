@@ -1,4 +1,4 @@
-name: xvec_dev
+name: xvec
 channels:
   - conda-forge
   - conda-forge/label/shapely_dev
@@ -11,14 +11,4 @@ dependencies:
   - pytest
   - pytest-cov
   - pytest-xdist
-  # documentation
-  - sphinx
-  - myst-nb
-  - sphinx-copybutton
-  - numpydoc
-  - pydata-sphinx-theme
-  - geopandas
-  # linting
-  - flake8
-  - black
-  - isort
+  - pytest-reportlog

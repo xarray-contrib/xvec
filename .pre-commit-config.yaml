@@ -1,0 +1,20 @@
+files: 'xvec\/'
+repos:
+  - repo: https://github.com/python/black
+    rev: 22.10.0
+    hooks:
+      - id: black
+        language_version: python3
+  - repo: https://github.com/pycqa/flake8
+    rev: 5.0.4
+    hooks:
+      - id: flake8
+        language: python_venv
+  - repo: https://github.com/pycqa/isort
+    rev: 5.10.1
+    hooks:
+      - id: isort
+        language_version: python3
+
+ci:
+  autofix_prs: false
