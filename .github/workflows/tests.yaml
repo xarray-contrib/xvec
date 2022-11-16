@@ -40,6 +40,16 @@ jobs:
         run: pip install .
 
       - name: run tests
-        run: pytest -v . -m "not request" --cov=xvec --cov-append --cov-report term-missing --cov-report xml --color=yes
+        run: pytest -v . -m "not request" --cov=xvec --cov-append --cov-report term-missing --cov-report xml --color=yes --report-log pytest-log.jsonl
 
       - uses: codecov/codecov-action@v3
+
+      - name: Generate and publish the report
+        if: |
+          failure()
+          && steps.status.outcome == 'failure'
+          && github.event_name == 'schedule'
+          && github.repository_owner == 'martinfleis'
+        uses: xarray-contrib/issue-from-pytest-log@v1
+        with:
+          log-path: pytest-log.jsonl
