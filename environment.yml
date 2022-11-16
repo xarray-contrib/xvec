@@ -21,3 +21,4 @@ dependencies:
   # linting
   - flake8
   - black
+  - isort
