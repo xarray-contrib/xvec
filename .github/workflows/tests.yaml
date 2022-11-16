@@ -29,6 +29,9 @@ jobs:
         include:
           - environment-file: ci/dev.yaml
             os: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
 
     steps:
       - name: checkout repo
@@ -42,23 +45,9 @@ jobs:
           channel-priority: "flexible"
 
       - name: Install xvec
-        shell: bash -l {0}
         run: pip install .
-        if: matrix.os != 'windows-latest'
-
-      - name: Install xvec
-        shell: powershell
-        run: pip install .
-        if: matrix.os == 'windows-latest'
 
       - name: run tests - bash
-        shell: bash -l {0}
         run: pytest -v . -m "not request" --cov=xvec --cov-append --cov-report term-missing --cov-report xml --color=yes
-        if: matrix.os != 'windows-latest'
-
-      - name: run tests - powershell
-        shell: powershell
-        run: pytest -v . -m "not request" --cov=xvec --cov-append --cov-report term-missing --cov-report xml --color=yes
-        if: matrix.os == 'windows-latest'
 
       - uses: codecov/codecov-action@v3
