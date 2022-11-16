@@ -1,0 +1,56 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches:
+      - "*"
+
+  schedule:
+    - cron: "59 23 * * 3"
+
+jobs:
+  Tests:
+    name: ${{ matrix.os }}, ${{ matrix.environment-file }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        environment-file: [ci/latest.yaml]
+        include:
+          - environment-file: ci/dev.yaml
+            os: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v2
+
+      - name: setup micromamba
+        uses: mamba-org/provision-with-micromamba@main
+        with:
+          environment-file: ${{ matrix.environment-file }}
+          micromamba-version: "latest"
+          channel-priority: "flexible"
+
+      - name: Install xvec
+        run: pip install .
+
+      - name: run tests
+        id: status
+        run: pytest -v . -m "not request" --cov=xvec --cov-append --cov-report term-missing --cov-report xml --color=yes --report-log pytest-log.jsonl
+
+      - uses: codecov/codecov-action@v3
+
+      - name: Generate and publish the report
+        if: |
+          failure()
+          && steps.status.outcome == 'failure'
+          && github.event_name == 'schedule'
+          && github.repository_owner == 'martinfleis'
+        uses: xarray-contrib/issue-from-pytest-log@v1
+        with:
+          log-path: pytest-log.jsonl
