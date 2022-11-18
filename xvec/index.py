@@ -12,7 +12,25 @@ from xarray.indexes import Index, PandasIndex
 
 
 class GeoVectorIndex(Index):
+    """An CRS-aware, Xarray-compatible index for vector geometries.
 
+    This index can be set from any 1-dimensional coordinate of
+    (shapely 2.0) :class:`shapely.Geometry` elements.
+
+    It provides all the basic functionality of an
+    :class:`xarray.indexes.PandasIndex`. In addition, it allows spatial
+    filtering based on geometries (powered by :class:`shapely.STRtree`).
+
+    Parameters
+    ----------
+    index : :class:`xarray.indexes.PandasIndex`
+        An Xarray (pandas) index built from an array-like of
+        :class:`shapely.Geometry` objects.
+    crs : object
+        The coordinate reference system. Any value accepted by
+        :meth:`pyproj.crs.CRS.from_user_input`.
+
+    """
     _index: PandasIndex
     _sindex: shapely.STRtree | None
     _crs: CRS
@@ -21,16 +39,23 @@ class GeoVectorIndex(Index):
         if not np.all(shapely.is_geometry(index.index)):
             raise ValueError("array must contain shapely.Geometry objects")
 
-        self._crs = crs
+        self._crs = CRS.from_user_input(crs)
         self._index = index
         self._sindex = None
 
     @property
     def crs(self) -> CRS:
+        """Returns the coordinate reference system of the index as a
+        :class:`pyproj.crs.CRS` object.
+        """
         return self._crs
 
     @property
-    def sindex(self):
+    def sindex(self) -> shapely.STRtree:
+        """Returns the spatial index, i.e., a :class:`shapely.STRtree` object.
+
+        It may build the index before returning it.
+        """
         if self._sindex is None:
             self._sindex = shapely.STRtree(self._index.index)
         return self._sindex
@@ -42,14 +67,12 @@ class GeoVectorIndex(Index):
         *,
         options: Mapping[str, Any],
     ):
-        # TODO: get CRS from coordinate attrs or GeometryArray
+        # TODO: try getting CRS from coordinate attrs or GeometryArray
         if "crs" not in options:
             raise ValueError("A CRS must be provided")
 
-        crs = CRS.from_user_input(options["crs"])
-
         index = PandasIndex.from_variables(variables, options={})
-        return cls(index, crs=crs)
+        return cls(index, crs=options["crs"])
 
     @classmethod
     def concat(
