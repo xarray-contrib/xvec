@@ -88,7 +88,7 @@ class GeoVectorIndex(Index):
         assert len(labels) == 1
         label = next(iter(labels.values()))
 
-        if method is not None and method != "nearest":
+        if method != "nearest":
             if not isinstance(label, shapely.Geometry):
                 raise ValueError(
                     "selection with another method than nearest only supports "
