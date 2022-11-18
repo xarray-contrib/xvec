@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Hashable, Iterable, Mapping, Sequence
 
-import shapely
 import numpy as np
 import pandas as pd
+import shapely
 from pyproj import CRS
 from xarray import DataArray, Variable
 from xarray.core.indexing import IndexSelResult
@@ -31,6 +31,7 @@ class GeoVectorIndex(Index):
         :meth:`pyproj.crs.CRS.from_user_input`.
 
     """
+
     _index: PandasIndex
     _sindex: shapely.STRtree | None
     _crs: CRS
@@ -147,7 +148,9 @@ class GeoVectorIndex(Index):
 
         return IndexSelResult({self._index.dim: indices})
 
-    def sel(self, labels: dict[Any, Any], method=None, tolerance=None) -> IndexSelResult:
+    def sel(
+        self, labels: dict[Any, Any], method=None, tolerance=None
+    ) -> IndexSelResult:
         if method is None:
             return self._index.sel(labels)
         else:
@@ -174,7 +177,9 @@ class GeoVectorIndex(Index):
     def reindex_like(
         self, other: GeoVectorIndex, method=None, tolerance=None
     ) -> dict[Hashable, Any]:
-        return self._index.reindex_like(other._index, method=method, tolerance=tolerance)
+        return self._index.reindex_like(
+            other._index, method=method, tolerance=tolerance
+        )
 
     def roll(self, shifts: Mapping[Any, int]) -> GeoVectorIndex:
         index = self._index.roll(shifts)
