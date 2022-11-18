@@ -70,7 +70,7 @@ class GeoVectorIndex(Index):
     ):
         # TODO: try getting CRS from coordinate attrs or GeometryArray
         if "crs" not in options:
-            raise ValueError("A CRS must be provided")
+            raise ValueError("a CRS must be provided")
 
         index = PandasIndex.from_variables(variables, options={})
         return cls(index, crs=options["crs"])
