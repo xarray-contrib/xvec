@@ -1,5 +1,6 @@
 from importlib.metadata import PackageNotFoundError, version
 
+from .index import GeoVectorIndex  # noqa
 from .strtree import ShapelySTRTreeIndex  # noqa
 
 try:
