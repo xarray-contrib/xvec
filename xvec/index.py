@@ -55,7 +55,7 @@ class GeoVectorIndex(Index):
     def sindex(self) -> shapely.STRtree:
         """Returns the spatial index, i.e., a :class:`shapely.STRtree` object.
 
-        It may build the index before returning it.
+        It may build the index before returning it if it hasn't been built before.
         """
         if self._sindex is None:
             self._sindex = shapely.STRtree(self._index.index)
