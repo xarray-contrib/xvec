@@ -137,5 +137,5 @@ def test_rename(geom_dataset):
 
 def test_repr_inline(geom_dataset):
     actual = geom_dataset.xindexes["geom"]._repr_inline_(70)
-    expected = "GeoVectorIndex(crs=EPSG:26915)"
+    expected = "GeoVectorIndex (crs=EPSG:26915)"
     assert actual == expected
