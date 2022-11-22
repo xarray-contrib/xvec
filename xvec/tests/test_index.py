@@ -47,15 +47,15 @@ def test_set_index(geom_dataset_no_index):
     # test `GeoVectorIndex.create_variables`
     assert ds.geom.variable._data.array is ds.xindexes["geom"]._index.index
 
-    with pytest.raises(ValueError, match="a CRS must be provided"):
-        geom_dataset_no_index.set_xindex("geom", GeoVectorIndex)
+    no_crs_ds = geom_dataset_no_index.set_xindex("geom", GeoVectorIndex)
+    assert no_crs_ds.xindexes["geom"].crs is None
 
     no_geom_ds = xr.Dataset(coords={"no_geom": ("x", [0, 1, 2])})
     with pytest.raises(ValueError, match="array must contain shapely.Geometry objects"):
         no_geom_ds.set_xindex("no_geom", GeoVectorIndex, crs=crs)
 
 
-def test_concat(geom_dataset, geom_array):
+def test_concat(geom_dataset, geom_array, geom_dataset_no_index):
     expected = (
         xr.Dataset(coords={"geom": np.concatenate([geom_array, geom_array])})
         .drop_indexes("geom")
@@ -63,6 +63,13 @@ def test_concat(geom_dataset, geom_array):
     )
     actual = xr.concat([geom_dataset, geom_dataset], "geom")
     xr.testing.assert_identical(actual, expected)
+
+    # different CRS
+    crs = CRS.from_user_input(4267)
+    geom_dataset_alt = geom_dataset_no_index.set_xindex("geom", GeoVectorIndex, crs=crs)
+
+    with pytest.raises(ValueError, match="conflicting CRS for coordinates to concat"):
+        xr.concat([geom_dataset, geom_dataset_alt], "geom")
 
 
 def test_to_pandas_index(geom_dataset):
@@ -113,10 +120,22 @@ def test_equals(geom_dataset, geom_dataset_no_index, first_geom_dataset):
     assert not geom_dataset.xindexes["geom"].equals(first_geom_dataset.xindexes["geom"])
 
 
-def test_align(geom_dataset, first_geom_dataset):
+def test_align(geom_dataset, first_geom_dataset, geom_dataset_no_index):
     # test GeoVectorIndex's `join` and `reindex_like`
     aligned = xr.align(geom_dataset, first_geom_dataset, join="inner")
     assert all(ds.identical(first_geom_dataset) for ds in aligned)
+
+    # test conflicting CRS
+    crs = CRS.from_user_input(4267)
+    geom_dataset_alt = geom_dataset_no_index.set_xindex("geom", GeoVectorIndex, crs=crs)
+
+    with pytest.raises(ValueError, match="conflicting CRS for left and right indexes"):
+        xr.align(geom_dataset_alt, first_geom_dataset, join="inner")
+
+    with pytest.raises(
+        ValueError, match="conflicting CRS between the current and new index"
+    ):
+        first_geom_dataset.reindex_like(geom_dataset_alt)
 
 
 def test_roll(geom_dataset, geom_array):

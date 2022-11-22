@@ -26,7 +26,7 @@ class GeoVectorIndex(Index):
     index : :class:`xarray.indexes.PandasIndex`
         An Xarray (pandas) index built from an array-like of
         :class:`shapely.Geometry` objects.
-    crs : object
+    crs : object, optional
         The coordinate reference system. Any value accepted by
         :meth:`pyproj.crs.CRS.from_user_input`.
 
@@ -34,18 +34,21 @@ class GeoVectorIndex(Index):
 
     _index: PandasIndex
     _sindex: shapely.STRtree | None
-    _crs: CRS
+    _crs: CRS | None
 
-    def __init__(self, index: PandasIndex, crs: CRS):
+    def __init__(self, index: PandasIndex, crs: CRS | None = None):
         if not np.all(shapely.is_geometry(index.index)):
             raise ValueError("array must contain shapely.Geometry objects")
 
-        self._crs = CRS.from_user_input(crs)
+        if crs is not None:
+            crs = CRS.from_user_input(crs)
+
+        self._crs = crs
         self._index = index
         self._sindex = None
 
     @property
-    def crs(self) -> CRS:
+    def crs(self) -> CRS | None:
         """Returns the coordinate reference system of the index as a
         :class:`pyproj.crs.CRS` object.
         """
@@ -69,11 +72,9 @@ class GeoVectorIndex(Index):
         options: Mapping[str, Any],
     ):
         # TODO: try getting CRS from coordinate attrs or GeometryArray or SRID
-        if "crs" not in options:
-            raise ValueError("a CRS must be provided")
 
         index = PandasIndex.from_variables(variables, options={})
-        return cls(index, crs=options["crs"])
+        return cls(index, crs=options.get("crs"))
 
     @classmethod
     def concat(
@@ -84,7 +85,7 @@ class GeoVectorIndex(Index):
     ) -> GeoVectorIndex:
         crss = [idx.crs for idx in indexes]
 
-        if any([s != crss[0] for s in crss]):
+        if any([s is not None and s != crss[0] for s in crss]):
             raise ValueError("conflicting CRS for coordinates to concat")
 
         indexes_ = [idx._index for idx in indexes]
@@ -130,7 +131,8 @@ class GeoVectorIndex(Index):
 
         # check for possible CRS of geometry labels
         # (by default assume same CRS than the index)
-        if hasattr(label_array, "crs") and label_array.crs != self.crs:
+        label_crs = getattr(label_array, "crs", None)
+        if label_crs is not None and label_crs != self.crs:
             raise ValueError("conflicting CRS for input geometries")
 
         assert np.all(shapely.is_geometry(label_array))
@@ -171,12 +173,18 @@ class GeoVectorIndex(Index):
     def join(
         self: GeoVectorIndex, other: GeoVectorIndex, how: str = "inner"
     ) -> GeoVectorIndex:
+        if other.crs is not None and other.crs != self.crs:
+            raise ValueError("conflicting CRS for left and right indexes to join")
+
         index = self._index.join(other._index, how=how)
         return type(self)(index, self.crs)
 
     def reindex_like(
         self, other: GeoVectorIndex, method=None, tolerance=None
     ) -> dict[Hashable, Any]:
+        if other.crs is not None and other.crs != self.crs:
+            raise ValueError("conflicting CRS between the current and new indexes")
+
         return self._index.reindex_like(
             other._index, method=method, tolerance=tolerance
         )
