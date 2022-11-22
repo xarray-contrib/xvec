@@ -190,4 +190,4 @@ class GeoVectorIndex(Index):
         return type(self)(index, self.crs)
 
     def _repr_inline_(self, max_width):
-        return f"{self.__class__.__name__}(crs={self.crs.to_string()})"
+        return f"{self.__class__.__name__} (crs={self.crs.to_string()})"
