@@ -4,7 +4,7 @@ import shapely
 import xarray as xr
 from pyproj import CRS
 
-from xvec import GeoVectorIndex
+from xvec import GeometryIndex
 
 
 @pytest.fixture(scope="session")
@@ -21,9 +21,9 @@ def geom_dataset_no_index(geom_array):
 
 @pytest.fixture(scope="session")
 def geom_dataset(geom_dataset_no_index):
-    # a dataset with a geometry coordinate baked by a GeoVectorIndex
+    # a dataset with a geometry coordinate baked by a GeometryIndex
     crs = CRS.from_user_input(26915)
-    return geom_dataset_no_index.set_xindex("geom", GeoVectorIndex, crs=crs)
+    return geom_dataset_no_index.set_xindex("geom", GeometryIndex, crs=crs)
 
 
 @pytest.fixture(scope="session")
@@ -31,42 +31,42 @@ def first_geom_dataset(geom_dataset, geom_array):
     return (
         xr.Dataset(coords={"geom": [geom_array[0]]})
         .drop_indexes("geom")
-        .set_xindex("geom", GeoVectorIndex, crs=geom_dataset.xindexes["geom"].crs)
+        .set_xindex("geom", GeometryIndex, crs=geom_dataset.xindexes["geom"].crs)
     )
 
 
 def test_set_index(geom_dataset_no_index):
     crs = CRS.from_user_input(26915)
-    ds = geom_dataset_no_index.set_xindex("geom", GeoVectorIndex, crs=crs)
+    ds = geom_dataset_no_index.set_xindex("geom", GeometryIndex, crs=crs)
 
     # test properties
-    assert isinstance(ds.xindexes["geom"], GeoVectorIndex)
+    assert isinstance(ds.xindexes["geom"], GeometryIndex)
     assert ds.xindexes["geom"].crs == crs
     np.testing.assert_array_equal(ds.xindexes["geom"].sindex.geometries, ds.geom.values)
 
-    # test `GeoVectorIndex.create_variables`
+    # test `GeometryIndex.create_variables`
     assert ds.geom.variable._data.array is ds.xindexes["geom"]._index.index
 
-    no_crs_ds = geom_dataset_no_index.set_xindex("geom", GeoVectorIndex)
+    no_crs_ds = geom_dataset_no_index.set_xindex("geom", GeometryIndex)
     assert no_crs_ds.xindexes["geom"].crs is None
 
     no_geom_ds = xr.Dataset(coords={"no_geom": ("x", [0, 1, 2])})
     with pytest.raises(ValueError, match="array must contain shapely.Geometry objects"):
-        no_geom_ds.set_xindex("no_geom", GeoVectorIndex, crs=crs)
+        no_geom_ds.set_xindex("no_geom", GeometryIndex, crs=crs)
 
 
 def test_concat(geom_dataset, geom_array, geom_dataset_no_index):
     expected = (
         xr.Dataset(coords={"geom": np.concatenate([geom_array, geom_array])})
         .drop_indexes("geom")
-        .set_xindex("geom", GeoVectorIndex, crs=geom_dataset.xindexes["geom"].crs)
+        .set_xindex("geom", GeometryIndex, crs=geom_dataset.xindexes["geom"].crs)
     )
     actual = xr.concat([geom_dataset, geom_dataset], "geom")
     xr.testing.assert_identical(actual, expected)
 
     # different CRS
     crs = CRS.from_user_input(4267)
-    geom_dataset_alt = geom_dataset_no_index.set_xindex("geom", GeoVectorIndex, crs=crs)
+    geom_dataset_alt = geom_dataset_no_index.set_xindex("geom", GeometryIndex, crs=crs)
 
     with pytest.raises(ValueError, match="conflicting CRS for coordinates to concat"):
         xr.concat([geom_dataset, geom_dataset_alt], "geom")
@@ -118,7 +118,7 @@ def test_equals(geom_dataset, geom_dataset_no_index, first_geom_dataset):
 
     # different CRS
     crs = CRS.from_user_input(4267)
-    other = geom_dataset_no_index.set_xindex("geom", GeoVectorIndex, crs=crs)
+    other = geom_dataset_no_index.set_xindex("geom", GeometryIndex, crs=crs)
     assert not geom_dataset.xindexes["geom"].equals(other.xindexes["geom"])
 
     # different geometries
@@ -126,13 +126,13 @@ def test_equals(geom_dataset, geom_dataset_no_index, first_geom_dataset):
 
 
 def test_align(geom_dataset, first_geom_dataset, geom_dataset_no_index):
-    # test GeoVectorIndex's `join` and `reindex_like`
+    # test GeometryIndex's `join` and `reindex_like`
     aligned = xr.align(geom_dataset, first_geom_dataset, join="inner")
     assert all(ds.identical(first_geom_dataset) for ds in aligned)
 
     # test conflicting CRS
     crs = CRS.from_user_input(4267)
-    geom_dataset_alt = geom_dataset_no_index.set_xindex("geom", GeoVectorIndex, crs=crs)
+    geom_dataset_alt = geom_dataset_no_index.set_xindex("geom", GeometryIndex, crs=crs)
 
     with pytest.raises(ValueError, match="conflicting CRS for left and right indexes"):
         xr.align(geom_dataset_alt, first_geom_dataset, join="inner")
@@ -147,7 +147,7 @@ def test_roll(geom_dataset, geom_array):
     expected = (
         xr.Dataset(coords={"geom": np.roll(geom_array, 1)})
         .drop_indexes("geom")
-        .set_xindex("geom", GeoVectorIndex, crs=geom_dataset.xindexes["geom"].crs)
+        .set_xindex("geom", GeometryIndex, crs=geom_dataset.xindexes["geom"].crs)
     )
     actual = geom_dataset.roll(geom=1, roll_coords=True)
     xr.testing.assert_identical(actual, expected)
@@ -161,5 +161,5 @@ def test_rename(geom_dataset):
 
 def test_repr_inline(geom_dataset):
     actual = geom_dataset.xindexes["geom"]._repr_inline_(70)
-    expected = "GeoVectorIndex (crs=EPSG:26915)"
+    expected = "GeometryIndex (crs=EPSG:26915)"
     assert actual == expected

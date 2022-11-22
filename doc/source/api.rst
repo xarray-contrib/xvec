@@ -12,6 +12,6 @@ Indexing
 .. autosummary::
    :toctree: generated/
 
-   GeoVectorIndex
-   GeoVectorIndex.crs
-   GeoVectorIndex.sindex
+   GeometryIndex
+   GeometryIndex.crs
+   GeometryIndex.sindex

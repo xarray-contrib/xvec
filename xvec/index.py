@@ -11,7 +11,7 @@ from xarray.core.indexing import IndexSelResult
 from xarray.indexes import Index, PandasIndex
 
 
-class GeoVectorIndex(Index):
+class GeometryIndex(Index):
     """An CRS-aware, Xarray-compatible index for vector geometries.
 
     This index can be set from any 1-dimensional coordinate of
@@ -79,10 +79,10 @@ class GeoVectorIndex(Index):
     @classmethod
     def concat(
         cls,
-        indexes: Sequence[GeoVectorIndex],
+        indexes: Sequence[GeometryIndex],
         dim: Hashable,
         positions: Iterable[Iterable[int]] | None = None,
-    ) -> GeoVectorIndex:
+    ) -> GeometryIndex:
         crss = [idx.crs for idx in indexes]
 
         if any([s is not None and s != crss[0] for s in crss]):
@@ -165,15 +165,15 @@ class GeoVectorIndex(Index):
             return self._sel_sindex(labels, method, tolerance)
 
     def equals(self, other: Index) -> bool:
-        if not isinstance(other, GeoVectorIndex):
+        if not isinstance(other, GeometryIndex):
             return False
         if other.crs != self.crs:
             return False
         return self._index.equals(other._index)
 
     def join(
-        self: GeoVectorIndex, other: GeoVectorIndex, how: str = "inner"
-    ) -> GeoVectorIndex:
+        self: GeometryIndex, other: GeometryIndex, how: str = "inner"
+    ) -> GeometryIndex:
         if other.crs is not None and other.crs != self.crs:
             raise ValueError("conflicting CRS for left and right indexes to join")
 
@@ -181,7 +181,7 @@ class GeoVectorIndex(Index):
         return type(self)(index, self.crs)
 
     def reindex_like(
-        self, other: GeoVectorIndex, method=None, tolerance=None
+        self, other: GeometryIndex, method=None, tolerance=None
     ) -> dict[Hashable, Any]:
         if other.crs is not None and other.crs != self.crs:
             raise ValueError("conflicting CRS between the current and new indexes")
@@ -190,7 +190,7 @@ class GeoVectorIndex(Index):
             other._index, method=method, tolerance=tolerance
         )
 
-    def roll(self, shifts: Mapping[Any, int]) -> GeoVectorIndex:
+    def roll(self, shifts: Mapping[Any, int]) -> GeometryIndex:
         index = self._index.roll(shifts)
         return type(self)(index, self.crs)
 
