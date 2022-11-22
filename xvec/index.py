@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import Any, Hashable, Iterable, Mapping, Sequence
 
 import numpy as np
@@ -9,6 +10,38 @@ from pyproj import CRS
 from xarray import DataArray, Variable
 from xarray.core.indexing import IndexSelResult
 from xarray.indexes import Index, PandasIndex
+
+
+def _format_crs(crs: CRS | None, max_width: int = 50) -> str:
+    if crs is not None:
+        srs = crs.to_string()
+    else:
+        srs = "None"
+
+    return srs if len(srs) <= max_width else " ".join([srs[:max_width], "..."])
+
+
+def _get_common_crs(crs_set: set[CRS | None]):
+    # code taken from geopandas (BSD-3 Licence)
+
+    crs_not_none = [crs for crs in crs_set if crs is not None]
+    names = [crs.name for crs in crs_not_none]
+
+    if len(crs_not_none) == 0:
+        return None
+    if len(crs_not_none) == 1:
+        if len(crs_set) != 1:
+            warnings.warn(
+                "CRS not set for some of the concatenation inputs. "
+                f"Setting output's CRS as {names[0]} "
+                "(the single non-null crs provided)."
+            )
+        return crs_not_none[0]
+
+    raise ValueError(
+        f"cannot determine common CRS for concatenation inputs, got {names}. "
+        # "Use `to_crs()` to transform geometries to the same CRS before merging."
+    )
 
 
 class GeometryIndex(Index):
@@ -64,6 +97,32 @@ class GeometryIndex(Index):
             self._sindex = shapely.STRtree(self._index.index)
         return self._sindex
 
+    def _check_crs(self, other_crs: CRS | None, allow_none: bool = False) -> bool:
+        """Check if the index's projection is the same than the given one.
+        If allow_none is True, empty CRS is treated as the same.
+        """
+        if allow_none:
+            if self.crs is None or other_crs is None:
+                return True
+        if not self.crs == other_crs:
+            return False
+        return True
+
+    def _crs_mismatch_warn(self, other_crs: CRS | None, stacklevel: int = 3):
+        """Raise a CRS mismatch warning with the information on the assigned CRS."""
+        srs = _format_crs(self.crs, max_width=50)
+        other_srs = _format_crs(other_crs, max_width=50)
+
+        # TODO: expand warning message with reproject suggestion
+        warnings.warn(
+            "CRS mismatch between the CRS of index geometries "
+            "and the CRS of input geometries.\n"
+            f"Index CRS: {srs}\n"
+            f"Input CRS: {other_srs}\n",
+            UserWarning,
+            stacklevel=stacklevel,
+        )
+
     @classmethod
     def from_variables(
         cls,
@@ -83,14 +142,12 @@ class GeometryIndex(Index):
         dim: Hashable,
         positions: Iterable[Iterable[int]] | None = None,
     ) -> GeometryIndex:
-        crss = [idx.crs for idx in indexes]
-
-        if any([s is not None and s != crss[0] for s in crss]):
-            raise ValueError("conflicting CRS for coordinates to concat")
+        crs_set = {idx.crs for idx in indexes}
+        crs = _get_common_crs(crs_set)
 
         indexes_ = [idx._index for idx in indexes]
         index = PandasIndex.concat(indexes_, dim, positions)
-        return cls(index, crss[0])
+        return cls(index, crs)
 
     def create_variables(
         self, variables: Mapping[Any, Variable] | None = None
@@ -132,8 +189,8 @@ class GeometryIndex(Index):
         # check for possible CRS of geometry labels
         # (by default assume same CRS than the index)
         label_crs = getattr(label_array, "crs", None)
-        if label_crs is not None and label_crs != self.crs:
-            raise ValueError("conflicting CRS for input geometries")
+        if label_crs is not None and not self._check_crs(label_crs, allow_none=True):
+            self._crs_mismatch_warn(label_crs, stacklevel=4)
 
         if not np.all(shapely.is_geometry(label_array)):
             raise ValueError("labels must be shapely.Geometry objects")
@@ -167,15 +224,17 @@ class GeometryIndex(Index):
     def equals(self, other: Index) -> bool:
         if not isinstance(other, GeometryIndex):
             return False
-        if other.crs != self.crs:
-            return False
+
+        if not self._check_crs(other.crs, allow_none=True):
+            self._crs_mismatch_warn(other.crs)
+
         return self._index.equals(other._index)
 
     def join(
         self: GeometryIndex, other: GeometryIndex, how: str = "inner"
     ) -> GeometryIndex:
-        if other.crs is not None and other.crs != self.crs:
-            raise ValueError("conflicting CRS for left and right indexes to join")
+        if not self._check_crs(other.crs, allow_none=True):
+            self._crs_mismatch_warn(other.crs)
 
         index = self._index.join(other._index, how=how)
         return type(self)(index, self.crs)
@@ -183,8 +242,8 @@ class GeometryIndex(Index):
     def reindex_like(
         self, other: GeometryIndex, method=None, tolerance=None
     ) -> dict[Hashable, Any]:
-        if other.crs is not None and other.crs != self.crs:
-            raise ValueError("conflicting CRS between the current and new indexes")
+        if not self._check_crs(other.crs, allow_none=True):
+            self._crs_mismatch_warn(other.crs)
 
         return self._index.reindex_like(
             other._index, method=method, tolerance=tolerance
@@ -198,5 +257,6 @@ class GeometryIndex(Index):
         index = self._index.rename(name_dict, dims_dict)
         return type(self)(index, self.crs)
 
-    def _repr_inline_(self, max_width):
-        return f"{self.__class__.__name__} (crs={self.crs.to_string()})"
+    def _repr_inline_(self, max_width: int):
+        srs = _format_crs(self.crs, max_width=max_width)
+        return f"{self.__class__.__name__} (crs={srs})"

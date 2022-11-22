@@ -68,7 +68,7 @@ def test_concat(geom_dataset, geom_array, geom_dataset_no_index):
     crs = CRS.from_user_input(4267)
     geom_dataset_alt = geom_dataset_no_index.set_xindex("geom", GeometryIndex, crs=crs)
 
-    with pytest.raises(ValueError, match="conflicting CRS for coordinates to concat"):
+    with pytest.raises(ValueError, match="cannot determine common CRS"):
         xr.concat([geom_dataset, geom_dataset_alt], "geom")
 
 
@@ -116,17 +116,18 @@ def test_equals(geom_dataset, geom_dataset_no_index, first_geom_dataset):
     other = xr.Dataset(coords={"geom": [0, 1]})
     assert not geom_dataset.xindexes["geom"].equals(other.xindexes["geom"])
 
-    # different CRS
+    # different CRS (just a warning)
     crs = CRS.from_user_input(4267)
     other = geom_dataset_no_index.set_xindex("geom", GeometryIndex, crs=crs)
-    assert not geom_dataset.xindexes["geom"].equals(other.xindexes["geom"])
+    with pytest.warns(UserWarning, match="CRS mismatch"):
+        assert geom_dataset.xindexes["geom"].equals(other.xindexes["geom"])
 
     # different geometries
     assert not geom_dataset.xindexes["geom"].equals(first_geom_dataset.xindexes["geom"])
 
 
 def test_align(geom_dataset, first_geom_dataset, geom_dataset_no_index):
-    # test GeometryIndex's `join` and `reindex_like`
+    # test both GeometryIndex's `join` and `reindex_like`
     aligned = xr.align(geom_dataset, first_geom_dataset, join="inner")
     assert all(ds.identical(first_geom_dataset) for ds in aligned)
 
@@ -134,12 +135,10 @@ def test_align(geom_dataset, first_geom_dataset, geom_dataset_no_index):
     crs = CRS.from_user_input(4267)
     geom_dataset_alt = geom_dataset_no_index.set_xindex("geom", GeometryIndex, crs=crs)
 
-    with pytest.raises(ValueError, match="conflicting CRS for left and right indexes"):
+    with pytest.warns(UserWarning, match="CRS mismatch"):
         xr.align(geom_dataset_alt, first_geom_dataset, join="inner")
 
-    with pytest.raises(
-        ValueError, match="conflicting CRS between the current and new index"
-    ):
+    with pytest.warns(UserWarning, match="CRS mismatch"):
         first_geom_dataset.reindex_like(geom_dataset_alt)
 
 
