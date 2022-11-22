@@ -68,7 +68,7 @@ class GeoVectorIndex(Index):
         *,
         options: Mapping[str, Any],
     ):
-        # TODO: try getting CRS from coordinate attrs or GeometryArray
+        # TODO: try getting CRS from coordinate attrs or GeometryArray or SRID
         if "crs" not in options:
             raise ValueError("a CRS must be provided")
 
