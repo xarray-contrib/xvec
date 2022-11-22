@@ -101,6 +101,11 @@ def test_sel_nearest(geom_dataset, geom_array, first_geom_dataset, label):
     xr.testing.assert_identical(actual, first_geom_dataset)
 
 
+def test_sel_nearest_error(geom_dataset):
+    with pytest.raises(ValueError, match="labels must be shapely.Geometry objects"):
+        geom_dataset.sel(geom=[0], method="nearest")
+
+
 def test_sel_query(geom_dataset, first_geom_dataset):
     actual = geom_dataset.sel(geom=shapely.box(0, 0, 2, 2), method="intersects")
     xr.testing.assert_identical(actual, first_geom_dataset)

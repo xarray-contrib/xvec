@@ -109,7 +109,7 @@ class GeoVectorIndex(Index):
             return None
 
     def _sel_sindex(self, labels, method, tolerance):
-        # only one coordinate supported
+        # only one entry expected
         assert len(labels) == 1
         label = next(iter(labels.values()))
 
@@ -135,7 +135,8 @@ class GeoVectorIndex(Index):
         if label_crs is not None and label_crs != self.crs:
             raise ValueError("conflicting CRS for input geometries")
 
-        assert np.all(shapely.is_geometry(label_array))
+        if not np.all(shapely.is_geometry(label_array)):
+            raise ValueError("labels must be shapely.Geometry objects")
 
         if method == "nearest":
             indices = self.sindex.nearest(label_array)
