@@ -26,7 +26,7 @@ class GeoVectorIndex(Index):
     index : :class:`xarray.indexes.PandasIndex`
         An Xarray (pandas) index built from an array-like of
         :class:`shapely.Geometry` objects.
-    crs : object, optional
+    crs : :class:`pyproj.crs.CRS` or any, optional
         The coordinate reference system. Any value accepted by
         :meth:`pyproj.crs.CRS.from_user_input`.
 
@@ -36,7 +36,7 @@ class GeoVectorIndex(Index):
     _sindex: shapely.STRtree | None
     _crs: CRS | None
 
-    def __init__(self, index: PandasIndex, crs: CRS | None = None):
+    def __init__(self, index: PandasIndex, crs: CRS | Any | None = None):
         if not np.all(shapely.is_geometry(index.index)):
             raise ValueError("array must contain shapely.Geometry objects")
 

@@ -29,6 +29,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "shapely": ("https://shapely.readthedocs.io/en/latest/", None),
     "pyproj": ("https://pyproj4.github.io/pyproj/latest/", None),
+    "xarray": ("https://docs.xarray.dev/en/latest/", None),
 }
 
 # -- Options for HTML output -------------------------------------------------
