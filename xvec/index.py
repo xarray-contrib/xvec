@@ -198,6 +198,8 @@ class GeometryIndex(Index):
         if indices.ndim == 2:
             indices = indices[1]
 
+            # indices = np.unique(indices[1])
+
         # attach dimension names and/or coordinates to positional indexer
         if isinstance(label, Variable):
             indices = Variable(label.dims, indices)
