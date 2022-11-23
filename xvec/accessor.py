@@ -29,7 +29,7 @@ class XvecAccessor:
         crs = CRS.from_user_input(crs)
 
         if data_crs.is_exact_same(crs):
-            return self
+            return self._obj
 
         transformer = Transformer.from_crs(data_crs, crs, always_xy=True)
 
