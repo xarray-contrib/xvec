@@ -177,13 +177,6 @@ class GeometryIndex(Index):
         assert len(labels) == 1
         label = next(iter(labels.values()))
 
-        if method != "nearest":
-            if not isinstance(label, shapely.Geometry):
-                raise ValueError(
-                    "selection with another method than nearest only supports "
-                    "a single geometry as input label."
-                )
-
         if isinstance(label, DataArray):
             label_array = label._variable._data
         elif isinstance(label, Variable):
@@ -200,6 +193,10 @@ class GeometryIndex(Index):
             indices = self.sindex.nearest(label_array)
         else:
             indices = self.sindex.query(label, predicate=method, distance=tolerance)
+
+        # if label is an array, we need to use only the second array returned
+        if indices.ndim == 2:
+            indices = indices[1]
 
         # attach dimension names and/or coordinates to positional indexer
         if isinstance(label, Variable):
