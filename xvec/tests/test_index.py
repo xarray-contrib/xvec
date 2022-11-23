@@ -27,6 +27,12 @@ def geom_dataset(geom_dataset_no_index):
 
 
 @pytest.fixture(scope="session")
+def geom_dataset_no_crs(geom_dataset_no_index):
+    # a dataset with a geometry coordinate baked by a GeometryIndex (no CRS)
+    return geom_dataset_no_index.set_xindex("geom", GeometryIndex)
+
+
+@pytest.fixture(scope="session")
 def first_geom_dataset(geom_dataset, geom_array):
     return (
         xr.Dataset(coords={"geom": [geom_array[0]]})
@@ -55,7 +61,7 @@ def test_set_index(geom_dataset_no_index):
         no_geom_ds.set_xindex("no_geom", GeometryIndex, crs=crs)
 
 
-def test_concat(geom_dataset, geom_array, geom_dataset_no_index):
+def test_concat(geom_dataset, geom_array, geom_dataset_no_index, geom_dataset_no_crs):
     expected = (
         xr.Dataset(coords={"geom": np.concatenate([geom_array, geom_array])})
         .drop_indexes("geom")
@@ -71,6 +77,21 @@ def test_concat(geom_dataset, geom_array, geom_dataset_no_index):
     with pytest.raises(ValueError, match="cannot determine common CRS"):
         xr.concat([geom_dataset, geom_dataset_alt], "geom")
 
+    # no CRS
+    expected = (
+        xr.Dataset(coords={"geom": np.concatenate([geom_array, geom_array])})
+        .drop_indexes("geom")
+        .set_xindex("geom", GeometryIndex)
+    )
+    actual = xr.concat([geom_dataset_no_crs, geom_dataset_no_crs], "geom")
+    xr.testing.assert_identical(actual, expected)
+
+    # mixed CRS / no CRS
+    with pytest.warns(
+        UserWarning, match="CRS not set for some of the concatenation inputs"
+    ):
+        xr.concat([geom_dataset, geom_dataset_no_crs], "geom")
+
 
 def test_to_pandas_index(geom_dataset):
     index = geom_dataset.xindexes["geom"]
@@ -80,6 +101,11 @@ def test_to_pandas_index(geom_dataset):
 def test_isel(geom_dataset, first_geom_dataset):
     actual = geom_dataset.isel(geom=[0])
     xr.testing.assert_identical(actual, first_geom_dataset)
+
+    # scalar selection
+    actual = geom_dataset.isel(geom=0)
+    assert len(actual.geom.dims) == 0
+    assert "geom" not in actual.xindexes
 
 
 def test_sel_strict(geom_dataset, geom_array, first_geom_dataset):
@@ -111,7 +137,9 @@ def test_sel_query(geom_dataset, first_geom_dataset):
     xr.testing.assert_identical(actual, first_geom_dataset)
 
 
-def test_equals(geom_dataset, geom_dataset_no_index, first_geom_dataset):
+def test_equals(
+    geom_dataset, geom_dataset_no_index, first_geom_dataset, geom_dataset_no_crs
+):
     assert geom_dataset.xindexes["geom"].equals(geom_dataset.xindexes["geom"])
 
     # different index types
@@ -124,7 +152,6 @@ def test_equals(geom_dataset, geom_dataset_no_index, first_geom_dataset):
     assert not geom_dataset.xindexes["geom"].equals(other.xindexes["geom"])
 
     # no CRS
-    geom_dataset_no_crs = geom_dataset_no_index.set_xindex("geom", GeometryIndex)
     assert geom_dataset_no_crs.xindexes["geom"].equals(
         geom_dataset_no_crs.xindexes["geom"]
     )
@@ -133,7 +160,9 @@ def test_equals(geom_dataset, geom_dataset_no_index, first_geom_dataset):
     assert not geom_dataset.xindexes["geom"].equals(first_geom_dataset.xindexes["geom"])
 
 
-def test_align(geom_dataset, first_geom_dataset, geom_dataset_no_index):
+def test_align(
+    geom_dataset, first_geom_dataset, geom_dataset_no_index, geom_dataset_no_crs
+):
     # test both GeometryIndex's `join` and `reindex_like`
     aligned = xr.align(geom_dataset, first_geom_dataset, join="inner")
     assert all([ds.identical(first_geom_dataset) for ds in aligned])
@@ -149,7 +178,6 @@ def test_align(geom_dataset, first_geom_dataset, geom_dataset_no_index):
         first_geom_dataset.reindex_like(geom_dataset_alt)
 
     # no CRS
-    geom_dataset_no_crs = geom_dataset_no_index.set_xindex("geom", GeometryIndex)
     first_geom_dataset_no_crs = geom_dataset_no_crs.isel(geom=[0])
     aligned = xr.align(geom_dataset_no_crs, first_geom_dataset_no_crs, join="inner")
     assert all([ds.identical(first_geom_dataset_no_crs) for ds in aligned])
@@ -171,7 +199,11 @@ def test_rename(geom_dataset):
     assert ds.xindexes["renamed"]._index.dim == "geom"
 
 
-def test_repr_inline(geom_dataset):
+def test_repr_inline(geom_dataset, geom_dataset_no_crs):
     actual = geom_dataset.xindexes["geom"]._repr_inline_(70)
     expected = "GeometryIndex (crs=EPSG:26915)"
+    assert actual == expected
+
+    actual = geom_dataset_no_crs.xindexes["geom"]._repr_inline_(70)
+    expected = "GeometryIndex (crs=None)"
     assert actual == expected
