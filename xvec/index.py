@@ -193,12 +193,6 @@ class GeometryIndex(Index):
         else:
             label_array = np.array(label)
 
-        # check for possible CRS of geometry labels
-        # (by default assume same CRS than the index)
-        label_crs = getattr(label_array, "crs", None)
-        if label_crs is not None and not self._check_crs(label_crs, allow_none=True):
-            self._crs_mismatch_raise(label_crs, warn=True, stacklevel=4)
-
         if not np.all(shapely.is_geometry(label_array)):
             raise ValueError("labels must be shapely.Geometry objects")
 
