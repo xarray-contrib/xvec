@@ -17,6 +17,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "numpydoc",
     "sphinx.ext.autosummary",
+    "sphinx.ext.intersphinx",
     "myst_nb",
     "sphinx_copybutton",
 ]
@@ -24,6 +25,12 @@ extensions = [
 templates_path = ["_templates"]
 exclude_patterns = []
 
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    "shapely": ("https://shapely.readthedocs.io/en/latest/", None),
+    "pyproj": ("https://pyproj4.github.io/pyproj/latest/", None),
+    "xarray": ("https://docs.xarray.dev/en/latest/", None),
+}
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
