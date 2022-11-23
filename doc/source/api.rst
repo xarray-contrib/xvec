@@ -12,6 +12,6 @@ Indexing
 .. autosummary::
    :toctree: generated/
 
-   ShapelySTRTreeIndex.__init__
-   ShapelySTRTreeIndex.from_variables
-   ShapelySTRTreeIndex.sel
+   GeometryIndex
+   GeometryIndex.crs
+   GeometryIndex.sindex

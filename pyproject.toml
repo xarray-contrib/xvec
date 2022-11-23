@@ -28,6 +28,7 @@ classifiers = [
 requires-python = ">=3.8"
 dependencies = [
     "xarray >= 2022.11.0",
+    "pyproj >= 3.0.0",
     "shapely >= 2.0b1",
 ]
 
