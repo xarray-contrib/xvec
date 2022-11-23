@@ -34,7 +34,7 @@ def _get_common_crs(crs_set: set[CRS | None]):
             warnings.warn(
                 "CRS not set for some of the concatenation inputs. "
                 f"Setting output's CRS as {names[0]} "
-                "(the single non-null crs provided)."
+                "(the single non-null CRS provided)."
             )
         return crs_not_none[0]
 
@@ -108,20 +108,27 @@ class GeometryIndex(Index):
             return False
         return True
 
-    def _crs_mismatch_warn(self, other_crs: CRS | None, stacklevel: int = 3):
-        """Raise a CRS mismatch warning with the information on the assigned CRS."""
+    def _crs_mismatch_raise(
+        self, other_crs: CRS | None, warn: bool = False, stacklevel: int = 3
+    ):
+        """Raise a CRS mismatch error or warning with the information
+        on the assigned CRS.
+        """
         srs = _format_crs(self.crs, max_width=50)
         other_srs = _format_crs(other_crs, max_width=50)
 
-        # TODO: expand warning message with reproject suggestion
-        warnings.warn(
+        # TODO: expand message with reproject suggestion
+        msg = (
             "CRS mismatch between the CRS of index geometries "
             "and the CRS of input geometries.\n"
             f"Index CRS: {srs}\n"
-            f"Input CRS: {other_srs}\n",
-            UserWarning,
-            stacklevel=stacklevel,
+            f"Input CRS: {other_srs}\n"
         )
+
+        if warn:
+            warnings.warn(msg, UserWarning, stacklevel=stacklevel)
+        else:
+            raise ValueError(msg)
 
     @classmethod
     def from_variables(
@@ -190,7 +197,7 @@ class GeometryIndex(Index):
         # (by default assume same CRS than the index)
         label_crs = getattr(label_array, "crs", None)
         if label_crs is not None and not self._check_crs(label_crs, allow_none=True):
-            self._crs_mismatch_warn(label_crs, stacklevel=4)
+            self._crs_mismatch_raise(label_crs, warn=True, stacklevel=4)
 
         if not np.all(shapely.is_geometry(label_array)):
             raise ValueError("labels must be shapely.Geometry objects")
@@ -224,17 +231,15 @@ class GeometryIndex(Index):
     def equals(self, other: Index) -> bool:
         if not isinstance(other, GeometryIndex):
             return False
-
         if not self._check_crs(other.crs, allow_none=True):
-            self._crs_mismatch_warn(other.crs)
-
+            return False
         return self._index.equals(other._index)
 
     def join(
         self: GeometryIndex, other: GeometryIndex, how: str = "inner"
     ) -> GeometryIndex:
         if not self._check_crs(other.crs, allow_none=True):
-            self._crs_mismatch_warn(other.crs)
+            self._crs_mismatch_raise(other.crs)
 
         index = self._index.join(other._index, how=how)
         return type(self)(index, self.crs)
@@ -243,7 +248,7 @@ class GeometryIndex(Index):
         self, other: GeometryIndex, method=None, tolerance=None
     ) -> dict[Hashable, Any]:
         if not self._check_crs(other.crs, allow_none=True):
-            self._crs_mismatch_warn(other.crs)
+            self._crs_mismatch_raise(other.crs)
 
         return self._index.reindex_like(
             other._index, method=method, tolerance=tolerance

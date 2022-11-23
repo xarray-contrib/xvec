@@ -96,7 +96,7 @@ def test_sel_strict(geom_dataset, geom_array, first_geom_dataset):
         xr.DataArray([shapely.Point(1, 1)], dims="geom"),
     ],
 )
-def test_sel_nearest(geom_dataset, geom_array, first_geom_dataset, label):
+def test_sel_nearest(geom_dataset, first_geom_dataset, label):
     actual = geom_dataset.sel(geom=label, method="nearest")
     xr.testing.assert_identical(actual, first_geom_dataset)
 
@@ -112,15 +112,22 @@ def test_sel_query(geom_dataset, first_geom_dataset):
 
 
 def test_equals(geom_dataset, geom_dataset_no_index, first_geom_dataset):
+    assert geom_dataset.xindexes["geom"].equals(geom_dataset.xindexes["geom"])
+
     # different index types
     other = xr.Dataset(coords={"geom": [0, 1]})
     assert not geom_dataset.xindexes["geom"].equals(other.xindexes["geom"])
 
-    # different CRS (just a warning)
+    # different CRS
     crs = CRS.from_user_input(4267)
     other = geom_dataset_no_index.set_xindex("geom", GeometryIndex, crs=crs)
-    with pytest.warns(UserWarning, match="CRS mismatch"):
-        assert geom_dataset.xindexes["geom"].equals(other.xindexes["geom"])
+    assert not geom_dataset.xindexes["geom"].equals(other.xindexes["geom"])
+
+    # no CRS
+    geom_dataset_no_crs = geom_dataset_no_index.set_xindex("geom", GeometryIndex)
+    assert geom_dataset_no_crs.xindexes["geom"].equals(
+        geom_dataset_no_crs.xindexes["geom"]
+    )
 
     # different geometries
     assert not geom_dataset.xindexes["geom"].equals(first_geom_dataset.xindexes["geom"])
@@ -129,17 +136,23 @@ def test_equals(geom_dataset, geom_dataset_no_index, first_geom_dataset):
 def test_align(geom_dataset, first_geom_dataset, geom_dataset_no_index):
     # test both GeometryIndex's `join` and `reindex_like`
     aligned = xr.align(geom_dataset, first_geom_dataset, join="inner")
-    assert all(ds.identical(first_geom_dataset) for ds in aligned)
+    assert all([ds.identical(first_geom_dataset) for ds in aligned])
 
     # test conflicting CRS
     crs = CRS.from_user_input(4267)
     geom_dataset_alt = geom_dataset_no_index.set_xindex("geom", GeometryIndex, crs=crs)
 
-    with pytest.warns(UserWarning, match="CRS mismatch"):
+    with pytest.raises(ValueError, match="CRS mismatch"):
         xr.align(geom_dataset_alt, first_geom_dataset, join="inner")
 
-    with pytest.warns(UserWarning, match="CRS mismatch"):
+    with pytest.raises(ValueError, match="CRS mismatch"):
         first_geom_dataset.reindex_like(geom_dataset_alt)
+
+    # no CRS
+    geom_dataset_no_crs = geom_dataset_no_index.set_xindex("geom", GeometryIndex)
+    first_geom_dataset_no_crs = geom_dataset_no_crs.isel(geom=[0])
+    aligned = xr.align(geom_dataset_no_crs, first_geom_dataset_no_crs, join="inner")
+    assert all([ds.identical(first_geom_dataset_no_crs) for ds in aligned])
 
 
 def test_roll(geom_dataset, geom_array):
