@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import shapely
 from pyproj import CRS
-from xarray import DataArray, Variable
+from xarray import DataArray, Variable, get_options
 from xarray.core.indexing import IndexSelResult
 from xarray.indexes import Index, PandasIndex
 
@@ -263,5 +263,9 @@ class GeometryIndex(Index):
         return type(self)(index, self.crs)
 
     def _repr_inline_(self, max_width: int):
+        # TODO: remove when fixed in XArray
+        if max_width is None:
+            max_width = get_options()["display_width"]
+
         srs = _format_crs(self.crs, max_width=max_width)
         return f"{self.__class__.__name__} (crs={srs})"
