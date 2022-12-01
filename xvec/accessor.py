@@ -1,4 +1,4 @@
-from typing import Any, Hashable, Union
+from typing import Any, Mapping, Union
 
 import numpy as np
 import shapely
@@ -14,46 +14,68 @@ class XvecAccessor:
     def __init__(self, xarray_obj: Union[xr.Dataset, xr.DataArray]):
         self._obj = xarray_obj
 
-    def coords_to_crs(self, coords: Hashable, crs: Any):
-
-        data = self._obj[coords]
-        data_crs = self._obj.xindexes[coords].crs
-
-        # transformation code taken from geopandas (BSD 3-clause license)
-        if data_crs is None:
+    def coords_to_crs(
+        self,
+        coords: Mapping[Any, Any] | None = None,
+        **coords_kwargs: Any,
+    ):
+        if coords and coords_kwargs:
             raise ValueError(
-                "Cannot transform naive geometries. "
-                "Please set a CRS on the object first."
+                "cannot specify both keyword and positional arguments to "
+                ".xvec.coords_to_crs"
             )
 
-        crs = CRS.from_user_input(crs)
+        _obj = self._obj.copy(deep=False)
 
-        if data_crs.is_exact_same(crs):
-            return self._obj
+        if coords_kwargs:
+            coords = coords_kwargs
 
-        transformer = Transformer.from_crs(data_crs, crs, always_xy=True)
+        transformed = {}
 
-        has_z = shapely.has_z(data)
+        for key, crs in coords.items():
 
-        result = np.empty_like(data)
+            data = _obj[key]
+            data_crs = self._obj.xindexes[key].crs
 
-        coordinates = shapely.get_coordinates(data[~has_z], include_z=False)
-        new_coords_z = transformer.transform(coordinates[:, 0], coordinates[:, 1])
-        result[~has_z] = shapely.set_coordinates(
-            data[~has_z].copy(), np.array(new_coords_z).T
-        )
+            # transformation code taken from geopandas (BSD 3-clause license)
+            if data_crs is None:
+                raise ValueError(
+                    "Cannot transform naive geometries. "
+                    f"Please set a CRS on the '{key}' coordinates first."
+                )
 
-        coords_z = shapely.get_coordinates(data[has_z], include_z=True)
-        new_coords_z = transformer.transform(
-            coords_z[:, 0], coords_z[:, 1], coords_z[:, 2]
-        )
-        result[has_z] = shapely.set_coordinates(
-            data[has_z].copy(), np.array(new_coords_z).T
-        )
+            crs = CRS.from_user_input(crs)
 
-        # return result
-        return (
-            self._obj.assign_coords({coords: result})
-            .drop_indexes(coords)
-            .set_xindex(coords, GeometryIndex, crs=crs)
-        )
+            if data_crs.is_exact_same(crs):
+                pass
+
+            transformer = Transformer.from_crs(data_crs, crs, always_xy=True)
+
+            has_z = shapely.has_z(data)
+
+            result = np.empty_like(data)
+
+            coordinates = shapely.get_coordinates(data[~has_z], include_z=False)
+            new_coords_z = transformer.transform(coordinates[:, 0], coordinates[:, 1])
+            result[~has_z] = shapely.set_coordinates(
+                data[~has_z].copy(), np.array(new_coords_z).T
+            )
+
+            coords_z = shapely.get_coordinates(data[has_z], include_z=True)
+            new_coords_z = transformer.transform(
+                coords_z[:, 0], coords_z[:, 1], coords_z[:, 2]
+            )
+            result[has_z] = shapely.set_coordinates(
+                data[has_z].copy(), np.array(new_coords_z).T
+            )
+
+            transformed[key] = (result, crs)
+
+        for key, (result, crs) in transformed.items():
+            _obj = (
+                _obj.assign_coords({key: result})
+                .drop_indexes(key)
+                .set_xindex(key, GeometryIndex, crs=crs)
+            )
+
+        return _obj
