@@ -83,24 +83,9 @@ class XvecAccessor:
         for key, (result, crs) in transformed.items():
             _obj = _obj.assign_coords({key: result})
 
-        # TODO: use this instead of what is below once pydata/xarray#7347 is released
-        # _obj = _obj.drop_indexes(variable_crs.keys())
+        _obj = _obj.drop_indexes(variable_crs.keys())
 
-        # for key, crs in variable_crs.items():
-        #     _obj = _obj.set_xindex(key, GeometryIndex, crs=crs)
-
-        # this until return is a workaround for pydata/xarray#7347
-        unchanged_geom_coords = {
-            name: self._obj.xindexes[name].crs
-            for name in self.geom_coords_names
-            if name not in variable_crs
-        }
-
-        all_geom_coords = {**unchanged_geom_coords, **variable_crs}
-
-        _obj = _obj.drop_indexes(all_geom_coords.keys())
-
-        for key, crs in all_geom_coords.items():
+        for key, crs in variable_crs.items():
             _obj = _obj.set_xindex(key, GeometryIndex, crs=crs)
 
         return _obj
