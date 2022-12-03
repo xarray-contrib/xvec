@@ -13,7 +13,7 @@ from .index import GeometryIndex
 class XvecAccessor:
     def __init__(self, xarray_obj: Union[xr.Dataset, xr.DataArray]):
         self._obj = xarray_obj
-        self._geom_coord_names = [
+        self._geom_coords_names = [
             name
             for name, index in self._obj.xindexes.items()
             if isinstance(index, GeometryIndex)
@@ -21,7 +21,7 @@ class XvecAccessor:
 
     @property
     def geom_coords_names(self) -> List:
-        return self._geom_coord_names
+        return self._geom_coords_names
 
     def to_crs(
         self,
@@ -30,8 +30,8 @@ class XvecAccessor:
     ):
         if variable_crs and variable_crs_kwargs:
             raise ValueError(
-                "cannot specify both keyword and positional arguments to "
-                ".xvec.to_crs"
+                "Cannot specify both keyword and positional arguments to "
+                "'.xvec.to_crs'."
             )
 
         _obj = self._obj.copy(deep=False)
@@ -99,8 +99,8 @@ class XvecAccessor:
 
         if variable_crs and variable_crs_kwargs:
             raise ValueError(
-                "cannot specify both keyword and positional arguments to "
-                ".xvec.set_crs"
+                "Cannot specify both keyword and positional arguments to "
+                ".xvec.set_crs."
             )
 
         _obj = self._obj.copy(deep=False)
@@ -120,9 +120,9 @@ class XvecAccessor:
                     "want to transform the geometries, use '.xvec.to_crs' instead."
                 )
 
-        _obj = _obj.drop_indexes(variable_crs_kwargs.keys())
+        _obj = _obj.drop_indexes(variable_crs.keys())
 
-        for key, crs in variable_crs_kwargs.items():
+        for key, crs in variable_crs.items():
             _obj = _obj.set_xindex(key, GeometryIndex, crs=crs)
 
         return _obj

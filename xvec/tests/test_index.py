@@ -7,40 +7,6 @@ from pyproj import CRS
 from xvec import GeometryIndex
 
 
-@pytest.fixture(scope="session")
-def geom_array():
-    return np.array([shapely.Point(1, 2), shapely.Point(3, 4)])
-
-
-@pytest.fixture(scope="session")
-def geom_dataset_no_index(geom_array):
-    # a dataset with a geometry coordinate but no index
-    ds = xr.Dataset(coords={"geom": geom_array})
-    return ds.drop_indexes("geom")
-
-
-@pytest.fixture(scope="session")
-def geom_dataset(geom_dataset_no_index):
-    # a dataset with a geometry coordinate baked by a GeometryIndex
-    crs = CRS.from_user_input(26915)
-    return geom_dataset_no_index.set_xindex("geom", GeometryIndex, crs=crs)
-
-
-@pytest.fixture(scope="session")
-def geom_dataset_no_crs(geom_dataset_no_index):
-    # a dataset with a geometry coordinate baked by a GeometryIndex (no CRS)
-    return geom_dataset_no_index.set_xindex("geom", GeometryIndex)
-
-
-@pytest.fixture(scope="session")
-def first_geom_dataset(geom_dataset, geom_array):
-    return (
-        xr.Dataset(coords={"geom": [geom_array[0]]})
-        .drop_indexes("geom")
-        .set_xindex("geom", GeometryIndex, crs=geom_dataset.xindexes["geom"].crs)
-    )
-
-
 def test_set_index(geom_dataset_no_index):
     crs = CRS.from_user_input(26915)
     ds = geom_dataset_no_index.set_xindex("geom", GeometryIndex, crs=crs)
