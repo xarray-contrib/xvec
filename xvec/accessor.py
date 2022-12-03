@@ -11,7 +11,13 @@ from .index import GeometryIndex
 @xr.register_dataarray_accessor("xvec")
 @xr.register_dataset_accessor("xvec")
 class XvecAccessor:
+    """Access geometry-based methods for DataArrays and Datasets with Shapely geometry.
+
+    Currently works on coordinates with :class:`xvec.GeometryIndex`.
+    """
+
     def __init__(self, xarray_obj: Union[xr.Dataset, xr.DataArray]):
+        """xvec init, nothing to be done here."""
         self._obj = xarray_obj
         self._geom_coords_names = [
             name
@@ -21,6 +27,42 @@ class XvecAccessor:
 
     @property
     def geom_coords_names(self) -> List:
+        """Returns a list of coordinates using :class:`~xvec.GeometryIndex`.
+
+        Returns
+        -------
+        List
+            list of strings representing names of coordinates
+
+        Examples
+        --------
+        >>> ds = (
+        ...     xr.Dataset(
+        ...         coords={
+        ...             "geom": np.array([shapely.Point(1, 2), shapely.Point(3, 4)]),
+        ...             "geom_z": np.array(
+        ...                 [shapely.Point(10, 20, 30), shapely.Point(30, 40, 50)]
+        ...             ),
+        ...         }
+        ...     )
+        ...     .drop_indexes(["geom", "geom_z"])
+        ...     .set_xindex("geom", xvec.GeometryIndex, crs=26915)
+        ...     .set_xindex("geom_z", xvec.GeometryIndex, crs=26915)
+        ... )
+        >>> ds
+        <xarray.Dataset>
+        Dimensions:  (geom: 2, geom_z: 2)
+        Coordinates:
+        * geom     (geom) object POINT (1 2) POINT (3 4)
+        * geom_z   (geom_z) object POINT Z (10 20 30) POINT Z (30 40 50)
+        Data variables:
+            *empty*
+        Indexes:
+            geom     GeometryIndex (crs=EPSG:26915)
+            geom_z   GeometryIndex (crs=EPSG:26915)
+        >>> ds.xvec.geom_coords_names
+        ['geom', 'geom_z']
+        """
         return self._geom_coords_names
 
     def to_crs(
@@ -28,6 +70,112 @@ class XvecAccessor:
         variable_crs: Mapping[Any, Any] | None = None,
         **variable_crs_kwargs: Any,
     ):
+        """
+        Transform :class:`shapely.Geometry` objects of a variable to a new coordinate
+        reference system.
+
+        Returns a new object with all the original data in addition to the transformed
+        variable. The CRS the current array must be set using
+        :class:`~xvec.GeometryIndex`.
+
+        This method will transform all points in all objects. It has no notion or
+        projecting entire geometries. All segments joining points are assumed to be
+        lines in the current projection, not geodesics. Objects crossing the dateline
+        (or other projection boundary) will have undesirable behavior.
+
+        Parameters
+        ----------
+        variable_crs : dict-like or None, optional
+            A dict where the keys are the names of the coordinates and values target
+            CRS in any format accepted by
+            :meth:`pyproj.CRS.from_user_input() <pyproj.crs.CRS.from_user_input>` such
+            as an authority string (e.g. ``"EPSG:4326"``), EPSG code (e.g. ``4326``) or
+            a WKT string.
+        **variable_crs_kwargs : optional
+            The keyword arguments form of ``variable_crs``.
+            One of ``variable_crs`` or ``variable_crs_kwargs`` must be provided.
+
+        Returns
+        -------
+        assigned : same type as caller
+            A new object with the variables transformed to target CRSs.
+
+        See also
+        --------
+        set_crs
+
+        Examples
+        --------
+        Transform coordinates backed by :class:`~xvec.GeometryIndex` from `EPSG:4326`
+        to `ESPG:3857`.
+
+        >>> da = (
+        ...     xr.DataArray(
+        ...         np.random.rand(2),
+        ...         coords={"geom": [shapely.Point(1, 2), shapely.Point(3, 4)]},
+        ...         dims="geom",
+        ...     )
+        ...     .drop_indexes("geom")
+        ...     .set_xindex("geom", xvec.GeometryIndex, crs=4326)
+        ... )
+        >>> da
+        <xarray.DataArray (geom: 2)>
+        array([0.47575118, 0.09271935])
+        Coordinates:
+        * geom     (geom) object POINT (1 2) POINT (3 4)
+        Indexes:
+            geom     GeometryIndex (crs=EPSG:4326)
+        >>> da.xvec.to_crs(geom=3857)
+        <xarray.DataArray (geom: 2)>
+        array([0.47575118, 0.09271935])
+        Coordinates:
+        * geom     (geom) object POINT (111319.49079327357 222684.20850554405) POIN...
+        Indexes:
+            geom     GeometryIndex (crs=EPSG:3857)
+
+        The same can be done using dictionary arguments.
+
+        >>> da.xvec.to_crs({"geom": 3857})
+        <xarray.DataArray (geom: 2)>
+        array([0.47575118, 0.09271935])
+        Coordinates:
+        * geom     (geom) object POINT (111319.49079327357 222684.20850554405) POIN...
+        Indexes:
+            geom     GeometryIndex (crs=EPSG:3857)
+
+        The same applies to a :class:`xarray.Dataset`.
+
+        >>> ds = (
+        ...     xr.Dataset(coords={"geom": [shapely.Point(1, 2), shapely.Point(3, 4)]})
+        ...     .drop_indexes("geom")
+        ...     .set_xindex("geom", xvec.GeometryIndex, crs=4326)
+        ... )
+        >>> ds
+        <xarray.Dataset>
+        Dimensions:  (geom: 2)
+        Coordinates:
+        * geom     (geom) object POINT (1 2) POINT (3 4)
+        Data variables:
+            *empty*
+        Indexes:
+            geom     GeometryIndex (crs=EPSG:4326)
+        >>> ds.xvec.to_crs(geom=3857)
+        <xarray.Dataset>
+        Dimensions:  (geom: 2)
+        Coordinates:
+        * geom     (geom) object POINT (111319.49079327357 222684.20850554405) POIN...
+        Data variables:
+            *empty*
+        Indexes:
+            geom     GeometryIndex (crs=EPSG:3857)
+
+        Notes
+        -----
+        Currently supports only :class:`xarray.Variable` objects that are set as
+        coordinates with :class:`~xvec.GeometryIndex` assigned. The implementation
+        currently wraps :meth:`Dataset.assign_coords <xarray.Dataset.assign_coords>`
+        or :meth:`DataArray.assign_coords <xarray.DataArray.assign_coords>`.
+        """
         if variable_crs and variable_crs_kwargs:
             raise ValueError(
                 "Cannot specify both keyword and positional arguments to "
@@ -96,6 +244,99 @@ class XvecAccessor:
         allow_override=False,
         **variable_crs_kwargs: Any,
     ):
+        """Set the Coordinate Reference System (CRS) of coordinates backed by
+        :class:`~xvec.GeometryIndex`.
+
+        Parameters
+        ----------
+        variable_crs : dict-like or None, optional
+            A dict where the keys are the names of the coordinates and values target
+            CRS in any format accepted by
+            :meth:`pyproj.CRS.from_user_input() <pyproj.crs.CRS.from_user_input>` such
+            as an authority string (e.g. ``"EPSG:4326"``), EPSG code (e.g. ``4326``) or
+            a WKT string.
+        allow_override : bool, default False
+            If the the :class:`~xvec.GeometryIndex` already has a CRS,
+            allow to replace the existing CRS, even when both are not equal.
+        **variable_crs_kwargs : optional
+            The keyword arguments form of ``variable_crs``.
+            One of ``variable_crs`` or ``variable_crs_kwargs`` must be provided.
+
+        Returns
+        -------
+        assigned : same type as caller
+            A new object with the assigned target CRS.
+
+        See also
+        --------
+        to_crs
+
+        Examples
+        --------
+        The method is the most useful, when there is no CRS assigned (illustrated on
+        a :class:`xarray.Dataset` but the same is applicable on
+        a :class:`xarray.DataArray`).
+
+        >>> ds = (
+        ...     xr.Dataset(coords={"geom": [shapely.Point(1, 2), shapely.Point(3, 4)]})
+        ...     .drop_indexes("geom")
+        ...     .set_xindex("geom", xvec.GeometryIndex)
+        ... )
+        >>> ds
+        <xarray.Dataset>
+        Dimensions:  (geom: 2)
+        Coordinates:
+        * geom     (geom) object POINT (1 2) POINT (3 4)
+        Data variables:
+            *empty*
+        Indexes:
+            geom     GeometryIndex (crs=None)
+        >>> ds.xvec.set_crs(geom=4326)
+        <xarray.Dataset>
+        Dimensions:  (geom: 2)
+        Coordinates:
+        * geom     (geom) object POINT (1 2) POINT (3 4)
+        Data variables:
+            *empty*
+        Indexes:
+            geom     GeometryIndex (crs=EPSG:4326)
+
+        It can also be used to overwrite the existing CRS. Note, that in most cases
+        you probably want to use the :meth:`to_crs` instead is such a case.
+
+        >>> ds = (
+        ...     xr.Dataset(coords={"geom": [shapely.Point(1, 2), shapely.Point(3, 4)]})
+        ...     .drop_indexes("geom")
+        ...     .set_xindex("geom", xvec.GeometryIndex, crs=4326)
+        ... )
+        >>> ds
+        <xarray.Dataset>
+        Dimensions:  (geom: 2)
+        Coordinates:
+        * geom     (geom) object POINT (1 2) POINT (3 4)
+        Data variables:
+            *empty*
+        Indexes:
+            geom     GeometryIndex (crs=EPSG:4326)
+        >>> ds.xvec.set_crs(geom=3857, allow_override=True)
+        <xarray.Dataset>
+        Dimensions:  (geom: 2)
+        Coordinates:
+        * geom     (geom) object POINT (1 2) POINT (3 4)
+        Data variables:
+            *empty*
+        Indexes:
+            geom     GeometryIndex (crs=EPSG:3857)
+
+        See that only the CRS has changed, not the geometries.
+
+
+        Notes
+        -----
+        The underlying geometries are not transformed to this CRS. To
+        transform the geometries to a new CRS, use the :meth:`to_crs`
+        method.
+        """
 
         if variable_crs and variable_crs_kwargs:
             raise ValueError(
