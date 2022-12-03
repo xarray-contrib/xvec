@@ -50,7 +50,7 @@ def test_geom_coords_names(multi_geom_dataset):
     assert multi_geom_dataset.xvec._geom_coords_names == ["geom", "geom_z"]
     assert multi_geom_dataset.xvec.geom_coords_names == ["geom", "geom_z"]
 
-    with pytest.raises(AttributeError, match="can't set attribute 'geom_coords_names'"):
+    with pytest.raises(AttributeError):
         multi_geom_dataset.xvec.geom_coords_names = ["a", "b"]
 
 
