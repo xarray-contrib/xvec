@@ -1,4 +1,4 @@
-from typing import Any, List, Mapping, Union
+from typing import Any, Hashable, Mapping, Union
 
 import numpy as np
 import shapely
@@ -19,20 +19,86 @@ class XvecAccessor:
     def __init__(self, xarray_obj: Union[xr.Dataset, xr.DataArray]):
         """xvec init, nothing to be done here."""
         self._obj = xarray_obj
-        self._geom_coords_names = [
+        self._geom_coords_all = [
             name
-            for name, index in self._obj.xindexes.items()
-            if isinstance(index, GeometryIndex)
+            for name in self._obj.coords
+            if self.is_geom_variable(name, has_index=False)
+        ]
+        self._geom_indexes = [
+            name
+            for name in self._obj.coords
+            if self.is_geom_variable(name, has_index=True)
         ]
 
-    @property
-    def geom_coords_names(self) -> List:
-        """Returns a list of coordinates using :class:`~xvec.GeometryIndex`.
+    def is_geom_variable(self, name: Hashable, has_index: bool = True):
+        """Check if coordinate variable is composed of :class:`shapely.Geometry`.
+
+        Can return all such variables or only those using :class:`~xvec.GeometryIndex`.
+
+        Parameters
+        ----------
+        name : coordinate variable name
+        has_index : bool, optional
+            control if all variables are returned (``False``) or only those that have
+            :class:`xvec.GeometryIndex` assigned (``True``). By default ``False``
 
         Returns
         -------
-        List
-            list of strings representing names of coordinates
+        bool
+
+        Examples
+        --------
+
+        >>> ds = (
+        ...     xr.Dataset(
+        ...         coords={
+        ...             "geom": np.array([shapely.Point(1, 2), shapely.Point(3, 4)]),
+        ...             "geom2": np.array([shapely.Point(1, 2), shapely.Point(3, 4)]),
+        ...             "foo": np.array([1, 2]),
+        ...         }
+        ...     )
+        ...     .drop_indexes(["geom"])
+        ...     .set_xindex("geom", xvec.GeometryIndex, crs=26915)
+        ... )
+        >>> ds
+        <xarray.Dataset>
+        Dimensions:  (geom: 2, geom2: 2, foo: 2)
+        Coordinates:
+          * geom     (geom) object POINT (1 2) POINT (3 4)
+          * geom2    (geom2) object POINT (1 2) POINT (3 4)
+          * foo      (foo) int64 1 2
+        Data variables:
+            *empty*
+        Indexes:
+            geom     GeometryIndex (crs=EPSG:26915)
+        >>> ds.xvec.is_geom_variable("geom")
+        True
+        >>> ds.xvec.is_geom_variable("foo")
+        False
+        >>> ds.xvec.is_geom_variable("geom2")
+        False
+        >>> ds.xvec.is_geom_variable("geom2", has_index=False)
+        True
+
+        See also
+        --------
+        geom_coords
+        geom_coords_indexed
+        """
+        if isinstance(self._obj.xindexes.get(name), GeometryIndex):
+            return True
+        if not has_index:
+            if self._obj[name].dtype is np.dtype("O"):
+                # try first on a small subset
+                subset = self._obj[name].data[0:10]
+                if np.all(shapely.is_valid_input(subset)):
+                    return np.all(shapely.is_valid_input(self._obj[name].data))
+        return False
+
+    @property
+    def geom_coords(self) -> Mapping[Hashable, xr.DataArray]:
+        """Returns a dictionary of xarray.DataArray objects corresponding to
+        coordinate variables composed of :class:`shapely.Geometry` objects.
 
         Examples
         --------
@@ -43,6 +109,9 @@ class XvecAccessor:
         ...             "geom_z": np.array(
         ...                 [shapely.Point(10, 20, 30), shapely.Point(30, 40, 50)]
         ...             ),
+        ...             "geom_no_index": np.array(
+        ...                 [shapely.Point(1, 2), shapely.Point(3, 4)]
+        ...             ),
         ...         }
         ...     )
         ...     .drop_indexes(["geom", "geom_z"])
@@ -51,19 +120,77 @@ class XvecAccessor:
         ... )
         >>> ds
         <xarray.Dataset>
-        Dimensions:  (geom: 2, geom_z: 2)
+        Dimensions:        (geom: 2, geom_z: 2, geom_no_index: 2)
         Coordinates:
-        * geom     (geom) object POINT (1 2) POINT (3 4)
-        * geom_z   (geom_z) object POINT Z (10 20 30) POINT Z (30 40 50)
+          * geom           (geom) object POINT (1 2) POINT (3 4)
+          * geom_z         (geom_z) object POINT Z (10 20 30) POINT Z (30 40 50)
+          * geom_no_index  (geom_no_index) object POINT (1 2) POINT (3 4)
         Data variables:
             *empty*
         Indexes:
-            geom     GeometryIndex (crs=EPSG:26915)
-            geom_z   GeometryIndex (crs=EPSG:26915)
-        >>> ds.xvec.geom_coords_names
-        ['geom', 'geom_z']
+            geom           GeometryIndex (crs=EPSG:26915)
+            geom_z         GeometryIndex (crs=EPSG:26915)
+        >>> ds.xvec.geom_coords
+        Coordinates:
+          * geom           (geom) object POINT (1 2) POINT (3 4)
+          * geom_z         (geom_z) object POINT Z (10 20 30) POINT Z (30 40 50)
+          * geom_no_index  (geom_no_index) object POINT (1 2) POINT (3 4)
+
+        See also
+        --------
+        geom_coords_indexed
+        is_geom_variable
         """
-        return self._geom_coords_names
+        return self._obj[self._geom_coords_all].coords
+
+    @property
+    def geom_coords_indexed(self) -> Mapping[Hashable, xr.DataArray]:
+        """Returns a dictionary of xarray.DataArray objects corresponding to
+        coordinate variables using :class:`~xvec.GeometryIndex`.
+
+        Examples
+        --------
+        >>> ds = (
+        ...     xr.Dataset(
+        ...         coords={
+        ...             "geom": np.array([shapely.Point(1, 2), shapely.Point(3, 4)]),
+        ...             "geom_z": np.array(
+        ...                 [shapely.Point(10, 20, 30), shapely.Point(30, 40, 50)]
+        ...             ),
+        ...             "geom_no_index": np.array(
+        ...                 [shapely.Point(1, 2), shapely.Point(3, 4)]
+        ...             ),
+        ...         }
+        ...     )
+        ...     .drop_indexes(["geom", "geom_z"])
+        ...     .set_xindex("geom", xvec.GeometryIndex, crs=26915)
+        ...     .set_xindex("geom_z", xvec.GeometryIndex, crs=26915)
+        ... )
+        >>> ds
+        <xarray.Dataset>
+        Dimensions:        (geom: 2, geom_z: 2, geom_no_index: 2)
+        Coordinates:
+          * geom           (geom) object POINT (1 2) POINT (3 4)
+          * geom_z         (geom_z) object POINT Z (10 20 30) POINT Z (30 40 50)
+          * geom_no_index  (geom_no_index) object POINT (1 2) POINT (3 4)
+        Data variables:
+            *empty*
+        Indexes:
+            geom           GeometryIndex (crs=EPSG:26915)
+            geom_z         GeometryIndex (crs=EPSG:26915)
+        >>> ds.xvec.geom_coords_indexed
+        >>> ds.xvec.geom_coords_indexed
+        Coordinates:
+          * geom     (geom) object POINT (1 2) POINT (3 4)
+          * geom_z   (geom_z) object POINT Z (10 20 30) POINT Z (30 40 50)
+
+        See also
+        --------
+        geom_coords
+        is_geom_variable
+
+        """
+        return self._obj[self._geom_indexes].coords
 
     def to_crs(
         self,
@@ -122,14 +249,14 @@ class XvecAccessor:
         <xarray.DataArray (geom: 2)>
         array([0.47575118, 0.09271935])
         Coordinates:
-        * geom     (geom) object POINT (1 2) POINT (3 4)
+          * geom     (geom) object POINT (1 2) POINT (3 4)
         Indexes:
             geom     GeometryIndex (crs=EPSG:4326)
         >>> da.xvec.to_crs(geom=3857)
         <xarray.DataArray (geom: 2)>
         array([0.47575118, 0.09271935])
         Coordinates:
-        * geom     (geom) object POINT (111319.49079327357 222684.20850554405) POIN...
+          * geom     (geom) object POINT (111319.49079327357 222684.20850554405) POIN...
         Indexes:
             geom     GeometryIndex (crs=EPSG:3857)
 
@@ -163,7 +290,7 @@ class XvecAccessor:
         <xarray.Dataset>
         Dimensions:  (geom: 2)
         Coordinates:
-        * geom     (geom) object POINT (111319.49079327357 222684.20850554405) POIN...
+          * geom     (geom) object POINT (111319.49079327357 222684.20850554405) POIN...
         Data variables:
             *empty*
         Indexes:
@@ -286,7 +413,7 @@ class XvecAccessor:
         <xarray.Dataset>
         Dimensions:  (geom: 2)
         Coordinates:
-        * geom     (geom) object POINT (1 2) POINT (3 4)
+          * geom     (geom) object POINT (1 2) POINT (3 4)
         Data variables:
             *empty*
         Indexes:
@@ -295,7 +422,7 @@ class XvecAccessor:
         <xarray.Dataset>
         Dimensions:  (geom: 2)
         Coordinates:
-        * geom     (geom) object POINT (1 2) POINT (3 4)
+          * geom     (geom) object POINT (1 2) POINT (3 4)
         Data variables:
             *empty*
         Indexes:

@@ -34,7 +34,8 @@ Properties
    :toctree: generated/
    :template: autosummary/accessor_attribute.rst
 
-    Dataset.xvec.geom_coords_names
+    Dataset.xvec.geom_coords
+    Dataset.xvec.geom_coords_indexed
 
 
 .. _dsmeth:
@@ -46,6 +47,7 @@ Methods
    :toctree: generated/
    :template: autosummary/accessor_method.rst
 
+    Dataset.xvec.is_geom_variable
     Dataset.xvec.set_crs
     Dataset.xvec.to_crs
 
@@ -62,7 +64,8 @@ Properties
    :toctree: generated/
    :template: autosummary/accessor_attribute.rst
 
-    DataArray.xvec.geom_coords_names
+    DataArray.xvec.geom_coords
+    DataArray.xvec.geom_coords_indexed
 
 
 .. _dameth:
@@ -74,5 +77,6 @@ Methods
    :toctree: generated/
    :template: autosummary/accessor_method.rst
 
+    DataArray.xvec.is_geom_variable
     DataArray.xvec.to_crs
     DataArray.xvec.set_crs

@@ -59,3 +59,34 @@ def multi_geom_dataset(geom_array, geom_array_z):
         .set_xindex("geom", GeometryIndex, crs=26915)
         .set_xindex("geom_z", GeometryIndex, crs=26915)
     )
+
+
+@pytest.fixture(scope="session")
+def multi_geom_no_index_dataset(geom_array, geom_array_z):
+    return (
+        xr.Dataset(
+            coords={
+                "geom": geom_array,
+                "geom_z": geom_array_z,
+                "geom_no_ix": geom_array,
+            }
+        )
+        .drop_indexes(["geom", "geom_z"])
+        .set_xindex("geom", GeometryIndex, crs=26915)
+        .set_xindex("geom_z", GeometryIndex, crs=26915)
+    )
+
+
+@pytest.fixture(scope="session")
+def multi_geom_one_ix_foo(geom_array):
+    return (
+        xr.Dataset(
+            coords={
+                "geom": geom_array,
+                "geom2": geom_array,
+                "foo": np.array([1, 2]),
+            }
+        )
+        .drop_indexes(["geom"])
+        .set_xindex("geom", GeometryIndex, crs=26915)
+    )

@@ -43,15 +43,58 @@ def test_accessor(multi_geom_dataset):
     xr.testing.assert_identical(multi_geom_dataset.xvec._obj, multi_geom_dataset)
 
 
-# Test .xvec geom_coords_names
+# Test .xvec geom_coords
 
 
-def test_geom_coords_names(multi_geom_dataset):
-    assert multi_geom_dataset.xvec._geom_coords_names == ["geom", "geom_z"]
-    assert multi_geom_dataset.xvec.geom_coords_names == ["geom", "geom_z"]
+def test_geom_coords(multi_geom_no_index_dataset):
+    assert multi_geom_no_index_dataset.xvec._geom_coords_all == [
+        "geom",
+        "geom_z",
+        "geom_no_ix",
+    ]
 
+    actual = multi_geom_no_index_dataset.xvec.geom_coords
+    expected = multi_geom_no_index_dataset.coords
+    actual.keys() == expected.keys()
+
+    # check assignment
     with pytest.raises(AttributeError):
-        multi_geom_dataset.xvec.geom_coords_names = ["a", "b"]
+        multi_geom_no_index_dataset.xvec.geom_coords = (
+            multi_geom_no_index_dataset.coords
+        )
+
+
+def test_geom_coords_indexed(multi_geom_no_index_dataset):
+    assert multi_geom_no_index_dataset.xvec._geom_indexes == ["geom", "geom_z"]
+
+    actual = multi_geom_no_index_dataset.xvec.geom_coords_indexed
+    expected = multi_geom_no_index_dataset.coords
+    actual.keys() == expected.keys()
+
+    # check assignment
+    with pytest.raises(AttributeError):
+        multi_geom_no_index_dataset.xvec.geom_coords = (
+            multi_geom_no_index_dataset.coords
+        )
+
+
+# Test .xvec.is_geom_variable
+@pytest.mark.parametrize(
+    "label,has_index,expected",
+    [
+        ("geom", True, True),
+        ("geom", False, True),
+        ("geom2", True, False),
+        ("geom2", False, True),
+        ("foo", True, False),
+        ("foo", False, False),
+    ],
+)
+def test_is_geom_variable(multi_geom_one_ix_foo, label, has_index, expected):
+    assert (
+        multi_geom_one_ix_foo.xvec.is_geom_variable(label, has_index=has_index)
+        == expected
+    )
 
 
 # Test .xvec.to_crs
