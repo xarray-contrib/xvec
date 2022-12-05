@@ -23,7 +23,7 @@ Indexing
 .. currentmodule:: xarray
 
 Dataset.xvec
---------------
+------------
 
 .. _dsattr:
 
