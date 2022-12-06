@@ -4,6 +4,9 @@
 API reference
 =============
 
+The API reference provides an overview of all public objects, functions and
+methods and Xarray accessors implemented in Xvec.
+
 Indexing
 --------
 
@@ -15,3 +18,65 @@ Indexing
    GeometryIndex
    GeometryIndex.crs
    GeometryIndex.sindex
+
+
+.. currentmodule:: xarray
+
+Dataset.xvec
+------------
+
+.. _dsattr:
+
+Properties
+~~~~~~~~~~
+
+.. autosummary::
+   :toctree: generated/
+   :template: autosummary/accessor_attribute.rst
+
+    Dataset.xvec.geom_coords
+    Dataset.xvec.geom_coords_indexed
+
+
+.. _dsmeth:
+
+Methods
+~~~~~~~
+
+.. autosummary::
+   :toctree: generated/
+   :template: autosummary/accessor_method.rst
+
+    Dataset.xvec.is_geom_variable
+    Dataset.xvec.set_crs
+    Dataset.xvec.to_crs
+
+
+DataArray.xvec
+--------------
+
+.. _daattr:
+
+Properties
+~~~~~~~~~~
+
+.. autosummary::
+   :toctree: generated/
+   :template: autosummary/accessor_attribute.rst
+
+    DataArray.xvec.geom_coords
+    DataArray.xvec.geom_coords_indexed
+
+
+.. _dameth:
+
+Methods
+~~~~~~~
+
+.. autosummary::
+   :toctree: generated/
+   :template: autosummary/accessor_method.rst
+
+    DataArray.xvec.is_geom_variable
+    DataArray.xvec.to_crs
+    DataArray.xvec.set_crs

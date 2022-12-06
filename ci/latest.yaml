@@ -7,6 +7,7 @@ dependencies:
   # required
   - shapely=2
   - xarray
+  - pyproj
   # testing
   - pytest
   - pytest-cov

@@ -1,5 +1,6 @@
 from importlib.metadata import PackageNotFoundError, version
 
+from .accessor import XvecAccessor  # noqa
 from .index import GeometryIndex  # noqa
 
 try:

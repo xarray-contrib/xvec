@@ -22,3 +22,6 @@ dependencies:
   - flake8
   - black
   - isort
+  - pip
+  - pip:
+      - sphinx_autosummary_accessors
