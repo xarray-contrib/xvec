@@ -500,6 +500,119 @@ class XvecAccessor:
 
         return _obj
 
+    def query(
+        self,
+        coord_name: str,
+        geometry: shapely.Geometry | Sequence[shapely.Geometry],
+        predicate: str = None,
+        distance: float | Sequence[float] = None,
+        unique=False,
+    ):
+        """Return a subset of a DataArray/Dataset filtered using a spatial query on
+        :class:`~xvec.GeometryIndex`.
+
+        Return the subset where the bounding box of each input geometry intersects the
+        bounding box of a geometry in an :class:`~xvec.GeometryIndex`. If a predicate is
+        provided, the tree geometries are first queried based on the bounding box of the
+        input geometry and then are further filtered to those that meet the predicate
+        when comparing the input geometry to the tree geometry: predicate(geometry,
+        index_geometry)
+
+        Bounding boxes are limited to two dimensions and are axis-aligned (equivalent to
+        the bounds property of a geometry); any Z values present in input geometries are
+        ignored when querying the tree.
+
+
+        Parameters
+        ----------
+        coord_name : str
+            name of the coordinate axis backed by :class:`~xvec.GeometryIndex`
+        geometry : shapely.Geometry | Sequence[shapely.Geometry]
+            Input geometries to query the :class:`~xvec.GeometryIndex` and filter
+            results using the optional predicate.
+        predicate : str, optional
+            The predicate to use for testing geometries from the
+            :class:`~xvec.GeometryIndex` that are within the input geometry’s bounding
+            box, by default None. Any predicate supported by
+            :meth:`shapely.STRtree.query` is a valid input.
+        distance : float | Sequence[float], optional
+            Distances around each input geometry within which to query the tree for the
+            ``dwithin`` predicate. If array_like, shape must be broadcastable to shape
+            of geometry. Required if ``predicate=’dwithin’``, by default None
+        unique : bool, optional
+            Keep only unique geometries from the :class:`~xvec.GeometryIndex` in a
+            result. If False, index geometries that match the query for multiple input
+            geometries are duplicated for each match. If False, such geometries are
+            returned only once. By default False
+
+        Returns
+        -------
+        filtered : same type as caller
+            A new object filtered according to the query
+
+        Examples
+        --------
+        >>> da = (
+        ...     xr.DataArray(
+        ...         np.random.rand(2),
+        ...         coords={"geom": [shapely.Point(1, 2), shapely.Point(3, 4)]},
+        ...         dims="geom",
+        ...     )
+        ...     .xvec.set_geom_indexes("geom", crs=4326)
+        ... )
+        >>> da
+        <xarray.DataArray (geom: 2)>
+        array([0.76385513, 0.2312171 ])
+        Coordinates:
+          * geom     (geom) object POINT (1 2) POINT (3 4)
+        Indexes:
+            geom     GeometryIndex (crs=EPSG:4326)
+
+        >>> da.xvec.query("geom", shapely.box(0, 0, 2.4, 2.2))
+        <xarray.DataArray (geom: 1)>
+        array([0.76385513])
+        Coordinates:
+          * geom     (geom) object POINT (1 2)
+        Indexes:
+            geom     GeometryIndex (crs=EPSG:4326)
+
+        >>> da.xvec.query(
+        ...     "geom", [shapely.box(0, 0, 2.4, 2.2), shapely.Point(2, 2).buffer(1)]
+        ... )
+        <xarray.DataArray (geom: 2)>
+        array([0.76385513, 0.76385513])
+        Coordinates:
+          * geom     (geom) object POINT (1 2) POINT (1 2)
+        Indexes:
+            geom     GeometryIndex (crs=EPSG:4326)
+
+        >>> da.xvec.query(
+        ...     "geom",
+        ...     [shapely.box(0, 0, 2.4, 2.2), shapely.Point(2, 2).buffer(1)],
+        ...     unique=True,
+        ... )
+        <xarray.DataArray (geom: 1)>
+        array([0.76385513])
+        Coordinates:
+          * geom     (geom) object POINT (1 2)
+        Indexes:
+            geom     GeometryIndex (crs=EPSG:4326)
+
+        """
+        if isinstance(geometry, shapely.Geometry):
+            ilocs = self._obj.xindexes[coord_name].sindex.query(
+                geometry, predicate=predicate, distance=distance
+            )
+
+        else:
+            _, ilocs = self._obj.xindexes[coord_name].sindex.query(
+                geometry, predicate=predicate, distance=distance
+            )
+            if unique:
+                ilocs = np.unique(ilocs)
+
+        return self._obj.isel({coord_name: ilocs})
+
     def set_geom_indexes(
         self,
         coord_names: str | Sequence[Hashable],
@@ -510,7 +623,6 @@ class XvecAccessor:
         """Set a new  :class:`~xvec.GeometryIndex` for one or more existing
         coordinate(s). One :class:`~xvec.GeometryIndex` is set per coordinate. Only
         1-dimensional coordinates are supported.
-
         Parameters
         ----------
         coord_names : str or list
@@ -523,12 +635,10 @@ class XvecAccessor:
         allow_override : bool, default False
             If the coordinate(s) already have a :class:`~xvec.GeometryIndex`,
             allow to replace the existing CRS, even when both are not equal.
-
         Returns
         -------
         assigned : same type as caller
             A new object with the same data and new index(es)
-
         Examples
         --------
         >>> da = (
@@ -550,7 +660,6 @@ class XvecAccessor:
           * geom     (geom) object POINT (1 2) POINT (3 4)
         Indexes:
             geom     GeometryIndex (crs=EPSG:4326)
-
         """
         _obj = self._obj.copy(deep=False)
 

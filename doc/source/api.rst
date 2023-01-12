@@ -51,6 +51,7 @@ Methods
     Dataset.xvec.is_geom_variable
     Dataset.xvec.set_crs
     Dataset.xvec.to_crs
+    Dataset.xvec.query
 
 
 DataArray.xvec
@@ -82,3 +83,4 @@ Methods
     DataArray.xvec.is_geom_variable
     DataArray.xvec.to_crs
     DataArray.xvec.set_crs
+    DataArray.xvec.query

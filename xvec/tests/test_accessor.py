@@ -237,3 +237,65 @@ def test_set_geom_indexes_override(first_geom_dataset):
 def test_set_geom_indexes_mismatch(first_geom_dataset):
     with pytest.raises(ValueError, match="The index 'geom' already has a CRS"):
         first_geom_dataset.xvec.set_geom_indexes("geom", crs=4326, allow_override=False)
+
+
+# Test .xvec.query
+
+
+def test_query(multi_geom_dataset):
+    expected = multi_geom_dataset.isel(geom=[0])
+    actual = multi_geom_dataset.xvec.query("geom", shapely.box(0, 0, 2.4, 2.2))
+    xr.testing.assert_identical(expected, actual)
+
+
+@pytest.mark.parametrize(
+    "predicate,expected",
+    [
+        (None, [0]),
+        ("intersects", [0]),
+        ("within", []),
+        ("contains", [0]),
+        ("overlaps", []),
+        ("crosses", []),
+        ("touches", []),
+        ("covers", [0]),
+        ("covered_by", []),
+        ("contains_properly", [0]),
+    ],
+)
+def test_query_predicate(multi_geom_dataset, predicate, expected):
+    expected = multi_geom_dataset.isel(geom=expected)
+    actual = multi_geom_dataset.xvec.query(
+        "geom", shapely.box(0, 0, 2.4, 2.2), predicate=predicate
+    )
+    xr.testing.assert_identical(expected, actual)
+
+
+@pytest.mark.parametrize(
+    "distance,expected",
+    [
+        (10, [0, 1]),
+        (0.1, [0]),
+    ],
+)
+def test_query_dwithin(multi_geom_dataset, distance, expected):
+    expected = multi_geom_dataset.isel(geom=expected)
+    actual = multi_geom_dataset.xvec.query(
+        "geom", shapely.box(0, 0, 2.4, 2.2), predicate="dwithin", distance=distance
+    )
+    xr.testing.assert_identical(expected, actual)
+
+
+@pytest.mark.parametrize(
+    "unique,expected",
+    [
+        (False, [0, 0, 0]),
+        (True, [0]),
+    ],
+)
+def test_query_array(multi_geom_dataset, unique, expected):
+    expected = multi_geom_dataset.isel(geom=expected)
+    actual = multi_geom_dataset.xvec.query(
+        "geom", [shapely.box(0, 0, 2.4, 2.2)] * 3, unique=unique
+    )
+    xr.testing.assert_identical(expected, actual)
