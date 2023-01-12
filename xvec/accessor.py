@@ -497,7 +497,7 @@ class XvecAccessor:
 
     def query(
         self,
-        indexer: str,
+        coord_name: str,
         geometry: shapely.Geometry | Sequence[shapely.Geometry],
         predicate: str = None,
         distance: float | Sequence[float] = None,
@@ -520,7 +520,7 @@ class XvecAccessor:
 
         Parameters
         ----------
-        indexer : str
+        coord_name : str
             name of the coordinate axis backed by :class:`~xvec.GeometryIndex`
         geometry : shapely.Geometry | Sequence[shapely.Geometry]
             Input geometries to query the :class:`~xvec.GeometryIndex` and filter
@@ -596,15 +596,15 @@ class XvecAccessor:
 
         """
         if isinstance(geometry, shapely.Geometry):
-            ilocs = self._obj.xindexes[indexer].sindex.query(
+            ilocs = self._obj.xindexes[coord_name].sindex.query(
                 geometry, predicate=predicate, distance=distance
             )
 
         else:
-            _, ilocs = self._obj.xindexes[indexer].sindex.query(
+            _, ilocs = self._obj.xindexes[coord_name].sindex.query(
                 geometry, predicate=predicate, distance=distance
             )
             if unique:
                 ilocs = np.unique(ilocs)
 
-        return self._obj.isel({indexer: ilocs})
+        return self._obj.isel({coord_name: ilocs})
