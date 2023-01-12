@@ -18,6 +18,12 @@ def geom_array_z():
 
 
 @pytest.fixture(scope="session")
+def dataset_w_geom(geom_array):
+    # a dataset with a geometry coordinate and default index
+    return xr.Dataset(coords={"geom": geom_array})
+
+
+@pytest.fixture(scope="session")
 def geom_dataset_no_index(geom_array):
     # a dataset with a geometry coordinate but no index
     ds = xr.Dataset(coords={"geom": geom_array})
@@ -43,6 +49,16 @@ def first_geom_dataset(geom_dataset, geom_array):
         xr.Dataset(coords={"geom": [geom_array[0]]})
         .drop_indexes("geom")
         .set_xindex("geom", GeometryIndex, crs=geom_dataset.xindexes["geom"].crs)
+    )
+
+
+@pytest.fixture(scope="session")
+def multi_dataset(geom_array, geom_array_z):
+    return xr.Dataset(
+        coords={
+            "geom": geom_array,
+            "geom_z": geom_array_z,
+        }
     )
 
 

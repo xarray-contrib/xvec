@@ -47,6 +47,7 @@ Methods
    :toctree: generated/
    :template: autosummary/accessor_method.rst
 
+    Dataset.xvec.set_geom_indexes
     Dataset.xvec.is_geom_variable
     Dataset.xvec.set_crs
     Dataset.xvec.to_crs
@@ -78,6 +79,7 @@ Methods
    :toctree: generated/
    :template: autosummary/accessor_method.rst
 
+    DataArray.xvec.set_geom_indexes
     DataArray.xvec.is_geom_variable
     DataArray.xvec.to_crs
     DataArray.xvec.set_crs

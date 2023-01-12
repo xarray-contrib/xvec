@@ -57,8 +57,7 @@ class XvecAccessor:
         ...             "foo": np.array([1, 2]),
         ...         }
         ...     )
-        ...     .drop_indexes(["geom"])
-        ...     .set_xindex("geom", xvec.GeometryIndex, crs=26915)
+        ...     .xvec.set_geom_indexes("geom", crs=26915)
         ... )
         >>> ds
         <xarray.Dataset>
@@ -114,9 +113,7 @@ class XvecAccessor:
         ...             ),
         ...         }
         ...     )
-        ...     .drop_indexes(["geom", "geom_z"])
-        ...     .set_xindex("geom", xvec.GeometryIndex, crs=26915)
-        ...     .set_xindex("geom_z", xvec.GeometryIndex, crs=26915)
+        ...     .xvec.set_geom_indexes(["geom", "geom_z"], crs=26915)
         ... )
         >>> ds
         <xarray.Dataset>
@@ -162,9 +159,7 @@ class XvecAccessor:
         ...             ),
         ...         }
         ...     )
-        ...     .drop_indexes(["geom", "geom_z"])
-        ...     .set_xindex("geom", xvec.GeometryIndex, crs=26915)
-        ...     .set_xindex("geom_z", xvec.GeometryIndex, crs=26915)
+        ...     .xvec.set_geom_indexes(["geom", "geom_z"], crs=26915)
         ... )
         >>> ds
         <xarray.Dataset>
@@ -242,8 +237,7 @@ class XvecAccessor:
         ...         coords={"geom": [shapely.Point(1, 2), shapely.Point(3, 4)]},
         ...         dims="geom",
         ...     )
-        ...     .drop_indexes("geom")
-        ...     .set_xindex("geom", xvec.GeometryIndex, crs=4326)
+        ...     .xvec.set_geom_indexes("geom", crs=4326)
         ... )
         >>> da
         <xarray.DataArray (geom: 2)>
@@ -274,8 +268,7 @@ class XvecAccessor:
 
         >>> ds = (
         ...     xr.Dataset(coords={"geom": [shapely.Point(1, 2), shapely.Point(3, 4)]})
-        ...     .drop_indexes("geom")
-        ...     .set_xindex("geom", xvec.GeometryIndex, crs=4326)
+        ...     .xvec.set_geom_indexes("geom", crs=4326)
         ... )
         >>> ds
         <xarray.Dataset>
@@ -317,6 +310,13 @@ class XvecAccessor:
         transformed = {}
 
         for key, crs in variable_crs.items():
+
+            if not isinstance(self._obj.xindexes[key], GeometryIndex):
+                raise ValueError(
+                    f"The index '{key}' is not an xvec.GeometryIndex. "
+                    "Set the xvec.GeometryIndex using '.xvec.set_geom_indexes' before "
+                    "handling projection information."
+                )
 
             data = _obj[key]
             data_crs = self._obj.xindexes[key].crs
@@ -383,7 +383,7 @@ class XvecAccessor:
             as an authority string (e.g. ``"EPSG:4326"``), EPSG code (e.g. ``4326``) or
             a WKT string.
         allow_override : bool, default False
-            If the the :class:`~xvec.GeometryIndex` already has a CRS,
+            If the :class:`~xvec.GeometryIndex` already has a CRS,
             allow to replace the existing CRS, even when both are not equal.
         **variable_crs_kwargs : optional
             The keyword arguments form of ``variable_crs``.
@@ -406,8 +406,7 @@ class XvecAccessor:
 
         >>> ds = (
         ...     xr.Dataset(coords={"geom": [shapely.Point(1, 2), shapely.Point(3, 4)]})
-        ...     .drop_indexes("geom")
-        ...     .set_xindex("geom", xvec.GeometryIndex)
+        ...     .xvec.set_geom_indexes("geom")
         ... )
         >>> ds
         <xarray.Dataset>
@@ -433,8 +432,7 @@ class XvecAccessor:
 
         >>> ds = (
         ...     xr.Dataset(coords={"geom": [shapely.Point(1, 2), shapely.Point(3, 4)]})
-        ...     .drop_indexes("geom")
-        ...     .set_xindex("geom", xvec.GeometryIndex, crs=4326)
+        ...     .xvec.set_geom_indexes("geom", crs=4326)
         ... )
         >>> ds
         <xarray.Dataset>
@@ -477,6 +475,13 @@ class XvecAccessor:
             variable_crs = variable_crs_kwargs
 
         for key, crs in variable_crs.items():
+
+            if not isinstance(self._obj.xindexes[key], GeometryIndex):
+                raise ValueError(
+                    f"The index '{key}' is not an xvec.GeometryIndex. "
+                    "Set the xvec.GeometryIndex using '.xvec.set_geom_indexes' before "
+                    "handling projection information."
+                )
 
             data_crs = self._obj.xindexes[key].crs
 
@@ -553,8 +558,7 @@ class XvecAccessor:
         ...         coords={"geom": [shapely.Point(1, 2), shapely.Point(3, 4)]},
         ...         dims="geom",
         ...     )
-        ...     .drop_indexes("geom")
-        ...     .set_xindex("geom", xvec.GeometryIndex, crs=4326)
+        ...     .xvec.set_geom_indexes("geom", crs=4326)
         ... )
         >>> da
         <xarray.DataArray (geom: 2)>
@@ -608,3 +612,75 @@ class XvecAccessor:
                 ilocs = np.unique(ilocs)
 
         return self._obj.isel({coord_name: ilocs})
+
+    def set_geom_indexes(
+        self,
+        coord_names: str | Sequence[Hashable],
+        crs: Any = None,
+        allow_override: bool = False,
+        **kwargs,
+    ):
+        """Set a new  :class:`~xvec.GeometryIndex` for one or more existing
+        coordinate(s). One :class:`~xvec.GeometryIndex` is set per coordinate. Only
+        1-dimensional coordinates are supported.
+        Parameters
+        ----------
+        coord_names : str or list
+            Name(s) of the coordinate(s) used to build the index.
+        crs : Any, optional
+            CRS in any format accepted by
+            :meth:`pyproj.CRS.from_user_input() <pyproj.crs.CRS.from_user_input>` such
+            as an authority string (e.g. ``"EPSG:4326"``), EPSG code (e.g. ``4326``) or
+            a WKT string.
+        allow_override : bool, default False
+            If the coordinate(s) already have a :class:`~xvec.GeometryIndex`,
+            allow to replace the existing CRS, even when both are not equal.
+        Returns
+        -------
+        assigned : same type as caller
+            A new object with the same data and new index(es)
+        Examples
+        --------
+        >>> da = (
+        ...     xr.DataArray(
+        ...         np.random.rand(2),
+        ...         coords={"geom": [shapely.Point(1, 2), shapely.Point(3, 4)]},
+        ...         dims="geom",
+        ...     )
+        ... )
+        >>> da
+        <xarray.DataArray (geom: 2)>
+        array([0.06610343, 0.03144603])
+        Coordinates:
+          * geom     (geom) object POINT (1 2) POINT (3 4)
+        >>> da.xvec.set_geom_indexes("geom", crs=4326)
+        <xarray.DataArray (geom: 2)>
+        array([0.06610343, 0.03144603])
+        Coordinates:
+          * geom     (geom) object POINT (1 2) POINT (3 4)
+        Indexes:
+            geom     GeometryIndex (crs=EPSG:4326)
+        """
+        _obj = self._obj.copy(deep=False)
+
+        if isinstance(coord_names, str):
+            coord_names = [coord_names]
+
+        for coord in coord_names:
+            if isinstance(self._obj.xindexes[coord], GeometryIndex):
+                data_crs = self._obj.xindexes[coord].crs
+
+                if not allow_override and data_crs is not None and not data_crs == crs:
+                    raise ValueError(
+                        f"The index '{coord}' already has a CRS which is not equal to "
+                        "the passed CRS. Specify 'allow_override=True' to allow "
+                        "replacing the existing CRS without doing any transformation. "
+                        "If you actually want to transform the geometries, use "
+                        "'.xvec.to_crs' instead."
+                    )
+        _obj = _obj.drop_indexes(coord_names)
+
+        for coord in coord_names:
+            _obj = _obj.set_xindex(coord, GeometryIndex, crs=crs, **kwargs)
+
+        return _obj

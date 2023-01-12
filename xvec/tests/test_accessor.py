@@ -149,6 +149,13 @@ def test_to_crs_mixed_geom_dims(mixed_geom_dims_dataset, geom_array_mixed_4326):
     assert transformed.xindexes["geom"].crs.equals(4326)
 
 
+def test_to_crs_no_GeometryIndex(dataset_w_geom):
+    with pytest.raises(
+        ValueError, match="The index 'geom' is not an xvec.GeometryIndex."
+    ):
+        dataset_w_geom.xvec.to_crs(geom=4326)
+
+
 # Test .xvec.set_crs
 
 
@@ -183,10 +190,56 @@ def test_set_crs_override(geom_dataset, geom_array):
     ).all()
 
 
+def test_set_crs_no_GeometryIndex(dataset_w_geom):
+    with pytest.raises(
+        ValueError, match="The index 'geom' is not an xvec.GeometryIndex."
+    ):
+        dataset_w_geom.xvec.set_crs(geom=4326)
+
+
 def test_set_crs_multiple(multi_geom_dataset):
     with_crs = multi_geom_dataset.xvec.to_crs(geom=4326, geom_z=4326)
     assert with_crs.xindexes["geom"].crs.equals(4326)
     assert with_crs.xindexes["geom_z"].crs.equals(4326)
+
+
+# Test .xvec.set_geom_indexes
+
+
+def test_set_geom_indexes(dataset_w_geom):
+    result = dataset_w_geom.xvec.set_geom_indexes("geom")
+    assert "geom" in result.xvec.geom_coords_indexed
+    assert result.xindexes["geom"].crs is None
+
+
+def test_set_geom_indexes_crs(dataset_w_geom):
+    result = dataset_w_geom.xvec.set_geom_indexes("geom", crs=4326)
+    assert "geom" in result.xvec.geom_coords_indexed
+    assert result.xindexes["geom"].crs.equals(4326)
+
+
+def test_set_geom_indexes_multi(multi_dataset):
+    result = multi_dataset.xvec.set_geom_indexes(["geom", "geom_z"], crs=4326)
+    assert "geom" in result.xvec.geom_coords_indexed
+    assert "geom_z" in result.xvec.geom_coords_indexed
+    assert result.xindexes["geom"].crs.equals(4326)
+    assert result.xindexes["geom_z"].crs.equals(4326)
+
+
+def test_set_geom_indexes_override(first_geom_dataset):
+    result = first_geom_dataset.xvec.set_geom_indexes(
+        "geom", crs=4326, allow_override=True
+    )
+    assert "geom" in result.xvec.geom_coords_indexed
+    assert result.xindexes["geom"].crs.equals(4326)
+
+
+def test_set_geom_indexes_mismatch(first_geom_dataset):
+    with pytest.raises(ValueError, match="The index 'geom' already has a CRS"):
+        first_geom_dataset.xvec.set_geom_indexes("geom", crs=4326, allow_override=False)
+
+
+# Test .xvec.query
 
 
 def test_query(multi_geom_dataset):
