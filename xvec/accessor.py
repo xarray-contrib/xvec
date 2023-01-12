@@ -508,13 +508,13 @@ class XvecAccessor:
         **kwargs,
     ):
         """Set a new  :class:`~xvec.GeometryIndex` for one or more existing
-        coordinate(s).
+        coordinate(s). One :class:`~xvec.GeometryIndex` is set per coordinate. Only
+        1-dimensional coordinates are supported.
 
         Parameters
         ----------
         coord_names : str or list
             Name(s) of the coordinate(s) used to build the index.
-            If several names are given, their order matters.
         crs : Any, optional
             CRS in any format accepted by
             :meth:`pyproj.CRS.from_user_input() <pyproj.crs.CRS.from_user_input>` such
