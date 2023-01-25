@@ -365,6 +365,7 @@ class XvecAccessor:
         _obj = _obj.drop_indexes(variable_crs.keys())
 
         for key, crs in variable_crs.items():
+            _obj[key].attrs["crs"] = CRS.from_user_input(crs)
             _obj = _obj.set_xindex(key, GeometryIndex, crs=crs)
 
         return _obj
@@ -500,6 +501,7 @@ class XvecAccessor:
         _obj = _obj.drop_indexes(variable_crs.keys())
 
         for key, crs in variable_crs.items():
+            _obj[key].attrs["crs"] = CRS.from_user_input(crs)
             _obj = _obj.set_xindex(key, GeometryIndex, crs=crs)
 
         return _obj
@@ -685,6 +687,7 @@ class XvecAccessor:
         _obj = _obj.drop_indexes(coord_names)
 
         for coord in coord_names:
+            _obj[coord].attrs["crs"] = CRS.from_user_input(crs)
             _obj = _obj.set_xindex(coord, GeometryIndex, crs=crs, **kwargs)
 
         return _obj
@@ -747,19 +750,28 @@ class XvecAccessor:
 
         # Dataset
         gdf = self._obj.to_pandas()
+
         # ensure CRS of all columns is preserved
-        # TODO: requires CRS to be stored on attrs level
         for c in gdf.columns:
-            print(c)
-            if c in self._geom_indexes:
-                print(c)
-                gdf[c] = gpd.GeoSeries(gdf[c], crs=self._obj.xindexes[c].crs)
+            if c in self._geom_coords_all:
+                gdf[c] = gpd.GeoSeries(gdf[c], crs=self._obj[c].attrs.get("crs", None))
+
         # if geometry is an index, reset and assign as active
         index_name = gdf.index.name
-        if index_name in self._geom_indexes:
+        if index_name in self._geom_coords_all:
             return gdf.reset_index().set_geometry(
-                index_name, crs=self._obj.xindexes[index_name].crs
+                index_name, crs=self._obj[index_name].attrs.get("crs", None)
             )
+        else:
+            warnings.warn(
+                "No active geometry column to be set. The resulting object "
+                "will be a pandas.DataFrame with geopandas.GeometryArray(s) containing "
+                "geometry and CRS information. Use `.set_geometry()` to set an active"
+                "geometry and upcast to the geopandas.GeoDataFrame manually.",
+                UserWarning,
+                stacklevel=2,
+            )
+
         return gdf
 
     def to_geodataframe(self):
