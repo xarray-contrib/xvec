@@ -88,9 +88,12 @@ class XvecAccessor:
             return True
         if not has_index:
             if self._obj[name].dtype is np.dtype("O"):
-                # try first on a small subset
-                subset = self._obj[name].data[0:10]
-                if np.all(shapely.is_valid_input(subset)):
+                if self._obj[name].ndim > 0 and len(self._obj[name].data) > 10:
+                    # try first on a small subset
+                    subset = self._obj[name].data[0:10]
+                    if np.all(shapely.is_valid_input(subset)):
+                        return np.all(shapely.is_valid_input(self._obj[name].data))
+                else:
                     return np.all(shapely.is_valid_input(self._obj[name].data))
         return False
 
@@ -684,3 +687,20 @@ class XvecAccessor:
             _obj = _obj.set_xindex(coord, GeometryIndex, crs=crs, **kwargs)
 
         return _obj
+
+    def to_geopandas(self):
+        if len(self._geom_indexes) > 1:
+            raise
+        if self._obj.ndim == 1:
+            gdf = self._obj.to_pandas()
+        elif self._obj.ndim == 2:
+            gdf = self._obj.to_pandas()
+            if gdf.columns.name == self._geom_indexes[0]:
+                gdf = gdf.T
+        else:
+            raise
+        return (
+            gdf.reset_index()
+            .set_geometry(self._geom_indexes[0])
+            .set_crs(self._obj.xindexes[self._geom_indexes[0]].crs)
+        )
