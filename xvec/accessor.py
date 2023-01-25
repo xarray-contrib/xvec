@@ -1,3 +1,4 @@
+import warnings
 from typing import Any, Hashable, Mapping, Sequence, Union
 
 import numpy as np
@@ -689,18 +690,79 @@ class XvecAccessor:
         return _obj
 
     def to_geopandas(self):
+        """Convert this array into a GeoPandas GeoDataFrame without changing the number
+        of dimensions
+
+        Returns a GeoPandas GeoDataFrame with coordinates based on a
+        :class:`~xvec.GeometryIndex` set as an active geometry. The array needs to
+        contain only a single geometry-based coordinate axis and can be 1D or 2D. Other
+        cases are not supported.
+
+        Unlike :meth:`~xarray.DataArray.to_pandas`, this always returns a GeoDataFrame
+        with a single geometry column and one (1D array) or multiple (2D array) variable
+        columns.
+
+        Only works for arrays with 2 or fewer dimensions.
+
+        Returns
+        -------
+        GeoDataFrame
+            GeoPandas GeoDataFrame with coordinates based on GeometryIndex
+            set as an active geometry
+        """
+        try:
+            import geopandas as gpd
+        except ImportError:
+            raise ImportError("GeoPandas needed.")
         if len(self._geom_indexes) > 1:
-            raise
-        if self._obj.ndim == 1:
-            gdf = self._obj.to_pandas()
-        elif self._obj.ndim == 2:
-            gdf = self._obj.to_pandas()
-            if gdf.columns.name == self._geom_indexes[0]:
-                gdf = gdf.T
-        else:
-            raise
-        return (
-            gdf.reset_index()
-            .set_geometry(self._geom_indexes[0])
-            .set_crs(self._obj.xindexes[self._geom_indexes[0]].crs)
-        )
+            raise ValueError(
+                "Multiple coordinates based on a xvec.GeometryIndex are not supported "
+                "as GeoPandas.GeoDataFrame cannot be indexed by geometry."
+            )
+
+        # DataArray
+        if isinstance(self._obj, xr.DataArray):
+            if len(self._geom_indexes):
+                if self._obj.ndim == 1:
+                    gdf = self._obj.to_pandas()
+                elif self._obj.ndim == 2:
+                    gdf = self._obj.to_pandas()
+                    if gdf.columns.name == self._geom_indexes[0]:
+                        gdf = gdf.T
+                else:
+                    raise ValueError(
+                        f"Cannot convert arrays with {self._obj.ndim} dimensions into "
+                        "GeoPandas objects. Requires 1 or 2 dimensions."
+                    )
+                return gdf.reset_index().set_geometry(
+                    self._geom_indexes[0],
+                    crs=self._obj.xindexes[self._geom_indexes[0]].crs,
+                )
+            warnings.warn(
+                "No geometry to return, falling back to DataArray.to_pandas().",
+                UserWarning,
+                stacklevel=2,
+            )
+            return self._obj.to_pandas()
+
+        # Dataset
+        gdf = self._obj.to_pandas()
+        # ensure CRS of all columns is preserved
+        # TODO: requires CRS to be stored on attrs level
+        for c in gdf.columns:
+            print(c)
+            if c in self._geom_indexes:
+                print(c)
+                gdf[c] = gpd.GeoSeries(gdf[c], crs=self._obj.xindexes[c].crs)
+        # if geometry is an index, reset and assign as active
+        index_name = gdf.index.name
+        if index_name in self._geom_indexes:
+            return gdf.reset_index().set_geometry(
+                index_name, crs=self._obj.xindexes[index_name].crs
+            )
+        return gdf
+
+    def to_geodataframe(self):
+        # TODO: DataArray.to_geodataframe
+        # TODO: DataSet.to_geodataframe
+        pass
