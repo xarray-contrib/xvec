@@ -2,6 +2,7 @@ import warnings
 from typing import Any, Hashable, Mapping, Sequence, Union
 
 import numpy as np
+import pandas as pd
 import shapely
 import xarray as xr
 from pyproj import CRS, Transformer
@@ -629,6 +630,7 @@ class XvecAccessor:
         """Set a new  :class:`~xvec.GeometryIndex` for one or more existing
         coordinate(s). One :class:`~xvec.GeometryIndex` is set per coordinate. Only
         1-dimensional coordinates are supported.
+
         Parameters
         ----------
         coord_names : str or list
@@ -641,10 +643,12 @@ class XvecAccessor:
         allow_override : bool, default False
             If the coordinate(s) already have a :class:`~xvec.GeometryIndex`,
             allow to replace the existing CRS, even when both are not equal.
+
         Returns
         -------
         assigned : same type as caller
             A new object with the same data and new index(es)
+
         Examples
         --------
         >>> da = (
@@ -659,6 +663,7 @@ class XvecAccessor:
         array([0.06610343, 0.03144603])
         Coordinates:
           * geom     (geom) object POINT (1 2) POINT (3 4)
+
         >>> da.xvec.set_geom_indexes("geom", crs=4326)
         <xarray.DataArray (geom: 2)>
         array([0.06610343, 0.03144603])
@@ -693,30 +698,39 @@ class XvecAccessor:
         return _obj
 
     def to_geopandas(self):
-        """Convert this array into a GeoPandas GeoDataFrame without changing the number
-        of dimensions
+        """Convert this array into a GeoPandas :class:`~geopandas.GeoDataFrame`
 
-        Returns a GeoPandas GeoDataFrame with coordinates based on a
+        Returns a :class:`~geopandas.GeoDataFrame` with coordinates based on a
         :class:`~xvec.GeometryIndex` set as an active geometry. The array needs to
         contain only a single geometry-based coordinate axis and can be 1D or 2D. Other
         cases are not supported.
 
-        Unlike :meth:`~xarray.DataArray.to_pandas`, this always returns a GeoDataFrame
-        with a single geometry column and one (1D array) or multiple (2D array) variable
-        columns.
+        Unlike :meth:`~xarray.DataArray.to_pandas`, this always returns a
+        :class:`~geopandas.GeoDataFrame` with a single geometry column and one
+        (1D array) or multiple (2D array) variable columns.
 
         Only works for arrays with 2 or fewer dimensions.
 
         Returns
         -------
-        GeoDataFrame
-            GeoPandas GeoDataFrame with coordinates based on GeometryIndex
-            set as an active geometry
+        GeoDataFrame | DataFrame
+            :class:`~geopandas.GeoDataFrame` with coordinates based on
+            :class:`~xvec.GeometryIndex` set as an active geometry
+            or pandas DataFrame with GeometryArrays
+
+        See also
+        --------
+        to_geodataframe
         """
         try:
             import geopandas as gpd
         except ImportError:
-            raise ImportError("GeoPandas needed.")
+            raise ImportError(
+                "The geopandas package is required for `xvec.to_geodataframe()`. "
+                "You can install it using 'conda install -c conda-forge geopandas' or "
+                "'pip install geopandas'."
+            )
+
         if len(self._geom_indexes) > 1:
             raise ValueError(
                 "Multiple coordinates based on a xvec.GeometryIndex are not supported "
@@ -762,19 +776,108 @@ class XvecAccessor:
             return gdf.reset_index().set_geometry(
                 index_name, crs=self._obj[index_name].attrs.get("crs", None)
             )
-        else:
-            warnings.warn(
-                "No active geometry column to be set. The resulting object "
-                "will be a pandas.DataFrame with geopandas.GeometryArray(s) containing "
-                "geometry and CRS information. Use `.set_geometry()` to set an active"
-                "geometry and upcast to the geopandas.GeoDataFrame manually.",
-                UserWarning,
-                stacklevel=2,
-            )
+
+        warnings.warn(
+            "No active geometry column to be set. The resulting object "
+            "will be a pandas.DataFrame with geopandas.GeometryArray(s) containing "
+            "geometry and CRS information. Use `.set_geometry()` to set an active"
+            "geometry and upcast to the geopandas.GeoDataFrame manually.",
+            UserWarning,
+            stacklevel=2,
+        )
 
         return gdf
 
-    def to_geodataframe(self):
-        # TODO: DataArray.to_geodataframe
-        # TODO: DataSet.to_geodataframe
-        pass
+    def to_geodataframe(
+        self,
+        *,
+        name: Hashable | None = None,
+        dim_order: Sequence[Hashable] | None = None,
+        geometry: Hashable | None = None,
+    ):
+        """Convert this array and its coordinates into a tidy geopandas.GeoDataFrame.
+
+        The GeoDataFrame is indexed by the Cartesian product of index coordinates
+        (in the form of a :class:`pandas.MultiIndex`) excluding geometry coordinates.
+        Other coordinates are included as columns in the GeoDataFrame.
+        For 1D and 2D DataArrays, see also :meth:`to_geopandas` which
+        doesn't rely on a MultiIndex to build the GeoDataFrame.
+
+        Geometry coordinates are forcibly removed from the index and stored as columns.
+
+        If there is only a single geometry coordinate axis, it is set as active
+        geometry of the GeoDataFrame. If there are mutptiple or none in coordinates,
+        ``geometry`` must be passed to set an active geometry column.
+
+        Parameters
+        ----------
+        name : Hashable or None, optional
+            Name to give to this array (required if unnamed).
+            Applies only if the object is DataArray, otherwise ignored.
+        dim_order : Sequence of Hashable or None, optional
+            Hierarchical dimension order for the resulting dataframe.
+            Array content is transposed to this order and then written out as flat
+            vectors in contiguous order, so the last dimension in this list
+            will be contiguous in the resulting DataFrame. This has a major
+            influence on which operations are efficient on the resulting
+            dataframe.
+            If provided, must include all dimensions of this DataArray. By default,
+            dimensions are sorted according to the DataArray dimensions order.
+        geometry : Hashable, optional
+            A key of a geometry coordinates to be used as an active geometry of the
+            resulting GeoDataFrame.
+
+        Returns
+        -------
+        GeoDataFrame | DataFrame
+            GeoPandas GeoDataFrame with coordinates based on GeometryIndex
+            set as an active geometry or pandas DataFrame with GeometryArrays
+
+        See also
+        --------
+        to_geopandas
+        """
+
+        try:
+            import geopandas as gpd
+        except ImportError:
+            raise ImportError(
+                "The geopandas package is required for `xvec.to_geodataframe()`. "
+                "You can install it using 'conda install -c conda-forge geopandas' or "
+                "'pip install geopandas'."
+            )
+
+        if isinstance(self._obj, xr.Dataset):
+            df = self._obj.to_dataframe(dim_order=dim_order)
+        else:
+            df = self._obj.to_dataframe(name=name, dim_order=dim_order)
+
+        if isinstance(df.index, pd.MultiIndex):
+            to_reset = [g for g in self._geom_coords_all if g in df.index.names]
+            if to_reset:
+                df = df.reset_index(to_reset)
+            if len(to_reset) == 1 and geometry is None:
+                geometry = to_reset[0]
+        else:
+            if df.index.name in self._geom_coords_all:
+                if geometry is None:
+                    geometry = df.index.name
+                df = df.reset_index()
+
+        # ensure CRS of all columns is preserved
+        for c in df.columns:
+            if c in self._geom_coords_all:
+                df[c] = gpd.GeoSeries(df[c], crs=self._obj[c].attrs.get("crs", None))
+
+        if geometry is not None:
+            return df.set_geometry(geometry)
+
+        warnings.warn(
+            "No active geometry column to be set. The resulting object "
+            "will be a pandas.DataFrame with geopandas.GeometryArray(s) containing "
+            "geometry and CRS information. Use `.set_geometry()` to set an active"
+            "geometry and upcast to the geopandas.GeoDataFrame manually.",
+            UserWarning,
+            stacklevel=2,
+        )
+        return df
