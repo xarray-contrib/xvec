@@ -28,11 +28,9 @@ def test_set_index(geom_dataset_no_index):
 
 
 def test_concat(geom_dataset, geom_array, geom_dataset_no_index, geom_dataset_no_crs):
-    expected = (
-        xr.Dataset(coords={"geom": np.concatenate([geom_array, geom_array])})
-        .drop_indexes("geom")
-        .set_xindex("geom", GeometryIndex, crs=geom_dataset.xindexes["geom"].crs)
-    )
+    expected = xr.Dataset(
+        coords={"geom": np.concatenate([geom_array, geom_array])}
+    ).xvec.set_geom_indexes("geom", crs=geom_dataset.xindexes["geom"].crs)
     actual = xr.concat([geom_dataset, geom_dataset], "geom")
     xr.testing.assert_identical(actual, expected)
 
@@ -155,6 +153,7 @@ def test_roll(geom_dataset, geom_array):
         .drop_indexes("geom")
         .set_xindex("geom", GeometryIndex, crs=geom_dataset.xindexes["geom"].crs)
     )
+    expected["geom"].attrs["crs"] = geom_dataset.xindexes["geom"].crs
     actual = geom_dataset.roll(geom=1, roll_coords=True)
     xr.testing.assert_identical(actual, expected)
 

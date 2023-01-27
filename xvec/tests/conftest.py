@@ -34,8 +34,9 @@ def geom_dataset_no_index(geom_array):
 def geom_dataset(geom_dataset_no_index):
     # a dataset with a geometry coordinate baked by a GeometryIndex
     crs = CRS.from_user_input(26915)
-    geom_dataset_no_index["geom"].attrs["crs"] = crs
-    return geom_dataset_no_index.set_xindex("geom", GeometryIndex, crs=crs)
+    ds = geom_dataset_no_index.copy()
+    ds["geom"].attrs["crs"] = crs
+    return ds.set_xindex("geom", GeometryIndex, crs=crs)
 
 
 @pytest.fixture(scope="session")
@@ -46,11 +47,13 @@ def geom_dataset_no_crs(geom_dataset_no_index):
 
 @pytest.fixture(scope="session")
 def first_geom_dataset(geom_dataset, geom_array):
-    return (
+    fg = (
         xr.Dataset(coords={"geom": [geom_array[0]]})
         .drop_indexes("geom")
         .set_xindex("geom", GeometryIndex, crs=geom_dataset.xindexes["geom"].crs)
     )
+    fg["geom"].attrs["crs"] = CRS.from_user_input(26915)
+    return fg
 
 
 @pytest.fixture(scope="session")
