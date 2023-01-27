@@ -34,6 +34,7 @@ def geom_dataset_no_index(geom_array):
 def geom_dataset(geom_dataset_no_index):
     # a dataset with a geometry coordinate baked by a GeometryIndex
     crs = CRS.from_user_input(26915)
+    geom_dataset_no_index["geom"].attrs["crs"] = crs
     return geom_dataset_no_index.set_xindex("geom", GeometryIndex, crs=crs)
 
 
