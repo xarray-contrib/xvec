@@ -366,7 +366,8 @@ class XvecAccessor:
         _obj = _obj.drop_indexes(variable_crs.keys())
 
         for key, crs in variable_crs.items():
-            _obj[key].attrs["crs"] = CRS.from_user_input(crs)
+            if crs:
+                _obj[key].attrs["crs"] = CRS.from_user_input(crs)
             _obj = _obj.set_xindex(key, GeometryIndex, crs=crs)
 
         return _obj
@@ -502,7 +503,8 @@ class XvecAccessor:
         _obj = _obj.drop_indexes(variable_crs.keys())
 
         for key, crs in variable_crs.items():
-            _obj[key].attrs["crs"] = CRS.from_user_input(crs)
+            if crs:
+                _obj[key].attrs["crs"] = CRS.from_user_input(crs)
             _obj = _obj.set_xindex(key, GeometryIndex, crs=crs)
 
         return _obj
@@ -692,7 +694,8 @@ class XvecAccessor:
         _obj = _obj.drop_indexes(coord_names)
 
         for coord in coord_names:
-            _obj[coord].attrs["crs"] = CRS.from_user_input(crs)
+            if crs:
+                _obj[coord].attrs["crs"] = CRS.from_user_input(crs)
             _obj = _obj.set_xindex(coord, GeometryIndex, crs=crs, **kwargs)
 
         return _obj
