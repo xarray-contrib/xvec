@@ -401,6 +401,7 @@ def test_to_geopandas_dataset(traffic_dataset, geom_array):
         }
     ).set_geometry("destination", crs=26915)
     expected["origin"] = gpd.GeoSeries(expected["origin"], crs=26915)
+    expected["hour"] = expected["hour"].astype("int64")
 
     actual = traffic_dataset.sel(
         origin=shapely.Point(1, 2), hour=0, day="2023-01-01", mode="car"
