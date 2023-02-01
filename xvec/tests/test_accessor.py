@@ -1,7 +1,11 @@
+import geopandas as gpd
 import numpy as np
+import pandas as pd
 import pytest
 import shapely
 import xarray as xr
+from geopandas.testing import assert_geodataframe_equal
+from pandas.testing import assert_frame_equal
 
 import xvec  # noqa
 from xvec import GeometryIndex
@@ -299,3 +303,130 @@ def test_query_array(multi_geom_dataset, unique, expected):
         "geom", [shapely.box(0, 0, 2.4, 2.2)] * 3, unique=unique
     )
     xr.testing.assert_identical(expected, actual)
+
+
+def test_to_geopandas_array(traffic_counts_array, geom_array):
+    with pytest.raises(ValueError, match="Cannot convert arrays"):
+        traffic_counts_array.xvec.to_geopandas()
+
+    with pytest.raises(ValueError, match="Multiple coordinates based on"):
+        traffic_counts_array.sel(
+            mode="car", hour=1, day="2023-01-01"
+        ).xvec.to_geopandas()
+
+    expected = pd.DataFrame(
+        {
+            "destination": geom_array,
+            0: [
+                1.0,
+                1.0,
+            ],
+            1: [
+                1.0,
+                1.0,
+            ],
+        },
+    )
+    expected.columns.name = "hour"
+    expected = expected.set_geometry("destination", crs=26915)
+
+    # transposition needed
+    actual = traffic_counts_array.sel(
+        mode="car", day="2023-01-01", origin=shapely.Point(1, 2)
+    ).xvec.to_geopandas()
+
+    assert_geodataframe_equal(expected, actual)
+
+    expected = pd.DataFrame(
+        {
+            "destination": geom_array,
+            "car": [
+                1.0,
+                1.0,
+            ],
+            "bike": [
+                1.0,
+                1.0,
+            ],
+            "walk": [
+                1.0,
+                1.0,
+            ],
+        },
+    )
+    expected.columns.name = "mode"
+    expected = expected.set_geometry("destination", crs=26915)
+    actual = traffic_counts_array.sel(
+        origin=shapely.Point(1, 2), hour=0, day="2023-01-01"
+    ).xvec.to_geopandas()
+
+    assert_geodataframe_equal(expected, actual)
+
+    # upcast Series
+    expected = pd.DataFrame(
+        {
+            "destination": geom_array,
+            0: [
+                1.0,
+                1.0,
+            ],
+        },
+    ).set_geometry("destination", crs=26915)
+
+    actual = traffic_counts_array.sel(
+        origin=shapely.Point(1, 2), hour=0, day="2023-01-01", mode="car"
+    ).xvec.to_geopandas()
+
+    assert_geodataframe_equal(expected, actual)
+
+    with pytest.warns(UserWarning, match="No geometry"):
+        traffic_counts_array.sel(
+            destination=geom_array[0],
+            origin=geom_array[0],
+            mode="car",
+            day="2023-01-01",
+        ).xvec.to_geopandas()
+
+
+def test_to_geopandas_dataset(traffic_dataset, geom_array):
+    expected = pd.DataFrame(
+        {
+            "destination": geom_array,
+            "count": [1.0, 1.0],
+            "time": [1.0, 1.0],
+            "mode": ["car", "car"],
+            "origin": [geom_array[0], geom_array[0]],
+            "hour": [0, 0],
+            "day": pd.to_datetime(["2023-01-01", "2023-01-01"]),
+        }
+    ).set_geometry("destination", crs=26915)
+    expected["origin"] = gpd.GeoSeries(expected["origin"], crs=26915)
+
+    actual = traffic_dataset.sel(
+        origin=shapely.Point(1, 2), hour=0, day="2023-01-01", mode="car"
+    ).xvec.to_geopandas()
+
+    assert_geodataframe_equal(expected, actual)
+
+    expected = traffic_dataset.sel(
+        hour=0,
+        day="2023-01-01",
+        destination=shapely.Point(3, 4),
+        origin=shapely.Point(1, 2),
+    ).to_pandas()
+    expected["origin"] = gpd.array.GeometryArray(expected["origin"].values, crs=26915)
+    expected["destination"] = gpd.array.GeometryArray(
+        expected["destination"].values, crs=26915
+    )
+
+    with pytest.warns(UserWarning, match="No active geometry column to be set"):
+        actual = traffic_dataset.sel(
+            hour=0,
+            day="2023-01-01",
+            destination=shapely.Point(3, 4),
+            origin=shapely.Point(1, 2),
+        ).xvec.to_geopandas()
+
+    assert_frame_equal(expected, actual)
+    assert actual.origin.array.crs == 26915
+    assert actual.destination.array.crs == 26915

@@ -734,10 +734,17 @@ class XvecAccessor:
                 "'pip install geopandas'."
             )
 
+        if isinstance(self._obj, xr.DataArray) and self._obj.ndim > 2:
+            raise ValueError(
+                f"Cannot convert arrays with {self._obj.ndim} dimensions into pandas "
+                "objects. Requires 2 or fewer dimensions."
+            )
+
         if len(self._geom_indexes) > 1:
             raise ValueError(
-                "Multiple coordinates based on a xvec.GeometryIndex are not supported "
-                "as GeoPandas.GeoDataFrame cannot be indexed by geometry."
+                "Multiple coordinates based on xvec.GeometryIndex are not supported "
+                "as GeoPandas.GeoDataFrame cannot be indexed by geometry. Try using "
+                "`.xvec.to_geodataframe()` instead."
             )
 
         # DataArray
@@ -749,11 +756,6 @@ class XvecAccessor:
                     gdf = self._obj.to_pandas()
                     if gdf.columns.name == self._geom_indexes[0]:
                         gdf = gdf.T
-                else:
-                    raise ValueError(
-                        f"Cannot convert arrays with {self._obj.ndim} dimensions into "
-                        "GeoPandas objects. Requires 1 or 2 dimensions."
-                    )
                 return gdf.reset_index().set_geometry(
                     self._geom_indexes[0],
                     crs=self._obj.xindexes[self._geom_indexes[0]].crs,

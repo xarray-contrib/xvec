@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import pytest
 import shapely
 import xarray as xr
@@ -110,3 +111,52 @@ def multi_geom_one_ix_foo(geom_array):
         .drop_indexes(["geom"])
         .set_xindex("geom", GeometryIndex, crs=26915)
     )
+
+
+@pytest.fixture(scope="session")
+def traffic_counts_array(geom_array):
+    return xr.DataArray(
+        np.ones((3, 10, 2, 2, 2)),
+        coords={
+            "mode": ["car", "bike", "walk"],
+            "day": pd.date_range("2023-01-01", periods=10),
+            "hour": range(2),
+            "origin": geom_array,
+            "destination": geom_array,
+        },
+    ).xvec.set_geom_indexes(["origin", "destination"], crs=26915)
+
+
+@pytest.fixture(scope="session")
+def traffic_counts_array_named(traffic_counts_array):
+    traffic_counts_array.name = "traffic_counts"
+    return traffic_counts_array
+
+
+@pytest.fixture(scope="session")
+def traffic_dataset(geom_array):
+    count = np.ones((3, 10, 2, 2, 2))
+    time = np.ones((3, 10, 2, 2, 2))
+
+    return xr.Dataset(
+        {
+            "count": (
+                [
+                    "mode",
+                    "day",
+                    "hour",
+                    "origin",
+                    "destination",
+                ],
+                count,
+            ),
+            "time": (["mode", "day", "hour", "origin", "destination"], time),
+        },
+        coords={
+            "mode": ["car", "bike", "walk"],
+            "origin": geom_array,
+            "destination": geom_array,
+            "hour": range(2),
+            "day": pd.date_range("2023-01-01", periods=10),
+        },
+    ).xvec.set_geom_indexes(["origin", "destination"], crs=26915)
