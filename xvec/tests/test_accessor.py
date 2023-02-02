@@ -94,11 +94,23 @@ def test_geom_coords_indexed(multi_geom_no_index_dataset):
         ("foo", False, False),
     ],
 )
-def test_is_geom_variable(multi_geom_one_ix_foo, label, has_index, expected):
+def test_is_geom_variable(
+    multi_geom_one_ix_foo, label, has_index, expected, geom_array
+):
     assert (
         multi_geom_one_ix_foo.xvec.is_geom_variable(label, has_index=has_index)
         == expected
     )
+
+    # test array longer than 10 items
+    arr = xr.DataArray(
+        coords={
+            "geom": np.repeat(geom_array, 10),
+        },
+        dims=["geom"],
+    ).xvec.set_geom_indexes(["geom"], crs=26915)
+
+    assert arr.xvec.is_geom_variable("geom")
 
 
 # Test .xvec.to_crs
