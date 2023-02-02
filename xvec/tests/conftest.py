@@ -116,11 +116,10 @@ def multi_geom_one_ix_foo(geom_array):
 @pytest.fixture(scope="session")
 def traffic_counts_array(geom_array):
     return xr.DataArray(
-        np.ones((3, 10, 2, 2, 2)),
+        np.ones((3, 10, 2, 2)),
         coords={
             "mode": ["car", "bike", "walk"],
             "day": pd.date_range("2023-01-01", periods=10),
-            "hour": range(2),
             "origin": geom_array,
             "destination": geom_array,
         },
@@ -135,8 +134,8 @@ def traffic_counts_array_named(traffic_counts_array):
 
 @pytest.fixture(scope="session")
 def traffic_dataset(geom_array):
-    count = np.ones((3, 10, 2, 2, 2))
-    time = np.ones((3, 10, 2, 2, 2))
+    count = np.ones((3, 10, 2, 2))
+    time = np.ones((3, 10, 2, 2))
 
     return xr.Dataset(
         {
@@ -144,19 +143,17 @@ def traffic_dataset(geom_array):
                 [
                     "mode",
                     "day",
-                    "hour",
                     "origin",
                     "destination",
                 ],
                 count,
             ),
-            "time": (["mode", "day", "hour", "origin", "destination"], time),
+            "time": (["mode", "day", "origin", "destination"], time),
         },
         coords={
             "mode": ["car", "bike", "walk"],
             "origin": geom_array,
             "destination": geom_array,
-            "hour": range(2),
             "day": pd.date_range("2023-01-01", periods=10),
         },
     ).xvec.set_geom_indexes(["origin", "destination"], crs=26915)

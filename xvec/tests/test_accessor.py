@@ -310,9 +310,7 @@ def test_to_geopandas_array(traffic_counts_array, geom_array):
         traffic_counts_array.xvec.to_geopandas()
 
     with pytest.raises(ValueError, match="Multiple coordinates based on"):
-        traffic_counts_array.sel(
-            mode="car", hour=1, day="2023-01-01"
-        ).xvec.to_geopandas()
+        traffic_counts_array.sel(mode="car", day="2023-01-01").xvec.to_geopandas()
 
     expected = pd.DataFrame(
         {
@@ -321,13 +319,8 @@ def test_to_geopandas_array(traffic_counts_array, geom_array):
                 1.0,
                 1.0,
             ],
-            1: [
-                1.0,
-                1.0,
-            ],
         },
     )
-    expected.columns.name = "hour"
     expected = expected.set_geometry("destination", crs=26915)
 
     # transposition needed
@@ -357,7 +350,7 @@ def test_to_geopandas_array(traffic_counts_array, geom_array):
     expected.columns.name = "mode"
     expected = expected.set_geometry("destination", crs=26915)
     actual = traffic_counts_array.sel(
-        origin=shapely.Point(1, 2), hour=0, day="2023-01-01"
+        origin=shapely.Point(1, 2), day="2023-01-01"
     ).xvec.to_geopandas()
 
     assert_geodataframe_equal(expected, actual)
@@ -374,7 +367,7 @@ def test_to_geopandas_array(traffic_counts_array, geom_array):
     ).set_geometry("destination", crs=26915)
 
     actual = traffic_counts_array.sel(
-        origin=shapely.Point(1, 2), hour=0, day="2023-01-01", mode="car"
+        origin=shapely.Point(1, 2), day="2023-01-01", mode="car"
     ).xvec.to_geopandas()
 
     assert_geodataframe_equal(expected, actual)
@@ -396,21 +389,18 @@ def test_to_geopandas_dataset(traffic_dataset, geom_array):
             "time": [1.0, 1.0],
             "mode": ["car", "car"],
             "origin": [geom_array[0], geom_array[0]],
-            "hour": [0, 0],
             "day": pd.to_datetime(["2023-01-01", "2023-01-01"]),
         }
     ).set_geometry("destination", crs=26915)
     expected["origin"] = gpd.GeoSeries(expected["origin"], crs=26915)
 
     actual = traffic_dataset.sel(
-        origin=shapely.Point(1, 2), hour=0, day="2023-01-01", mode="car"
+        origin=shapely.Point(1, 2), day="2023-01-01", mode="car"
     ).xvec.to_geopandas()
-    actual["hour"] = actual["hour"].astype("int64")  # win fix
 
     assert_geodataframe_equal(expected, actual)
 
     expected = traffic_dataset.sel(
-        hour=0,
         day="2023-01-01",
         destination=shapely.Point(3, 4),
         origin=shapely.Point(1, 2),
@@ -422,7 +412,6 @@ def test_to_geopandas_dataset(traffic_dataset, geom_array):
 
     with pytest.warns(UserWarning, match="No active geometry column to be set"):
         actual = traffic_dataset.sel(
-            hour=0,
             day="2023-01-01",
             destination=shapely.Point(3, 4),
             origin=shapely.Point(1, 2),
@@ -442,7 +431,6 @@ def test_to_geodataframe_array(
             "destination": geom_array.take([0, 1, 0, 1]),
             "mode": ["car"] * 4,
             "day": pd.to_datetime(["2023-01-01"] * 4),
-            "hour": [0] * 4,
             "traffic_counts": [1.0] * 4,
         }
     )
@@ -452,10 +440,8 @@ def test_to_geodataframe_array(
     )
     with pytest.warns(UserWarning, match="No active geometry"):
         actual = traffic_counts_array_named.sel(
-            mode="car", hour=0, day="2023-01-01"
+            mode="car", day="2023-01-01"
         ).xvec.to_geodataframe()
-
-    actual["hour"] = actual["hour"].astype("int64")  # win fix
 
     assert_frame_equal(expected, actual)
 
@@ -464,7 +450,6 @@ def test_to_geodataframe_array(
             "origin": geom_array,
             "mode": ["car"] * 2,
             "day": pd.to_datetime(["2023-01-01"] * 2),
-            "hour": [0] * 2,
             "destination": geom_array.take([0, 0]),
             "traffic_counts": [1.0] * 2,
         }
@@ -472,36 +457,34 @@ def test_to_geodataframe_array(
     expected["destination"] = gpd.GeoSeries(expected["destination"], crs=26915)
 
     actual = traffic_counts_array_named.sel(
-        mode="car", hour=0, day="2023-01-01", destination=geom_array[0]
+        mode="car", day="2023-01-01", destination=geom_array[0]
     ).xvec.to_geodataframe()
-
-    actual["hour"] = actual["hour"].astype("int64")  # win fix
 
     assert_geodataframe_equal(expected, actual)
 
     # unnamed
     actual = traffic_counts_array.sel(
-        mode="car", hour=0, day="2023-01-01", destination=geom_array[0]
+        mode="car", day="2023-01-01", destination=geom_array[0]
     ).xvec.to_geodataframe(name="traffic_counts")
 
     assert_geodataframe_equal(expected, actual)
 
     with pytest.warns(UserWarning, match="No active geometry"):
         reordered = traffic_counts_array_named.xvec.to_geodataframe(
-            dim_order=["day", "hour", "mode", "origin", "destination"]
+            dim_order=["day", "mode", "origin", "destination"]
         )
-    assert reordered.index.names == ["day", "hour", "mode"]
+    assert reordered.index.names == ["day", "mode"]
     assert (reordered.columns == ["origin", "destination", "traffic_counts"]).all()
 
 
-def test_to_geodataframe_dataset(traffic_dataset, geom_array):
+def test_to_geodataframe_dataset(traffic_dataset):
     with pytest.warns(UserWarning, match="No active geometry"):
         actual = traffic_dataset.xvec.to_geodataframe()
     assert actual.origin.values.crs == 26915
     assert actual.destination.values.crs == 26915
 
     actual = traffic_dataset.xvec.to_geodataframe(
-        dim_order=["origin", "hour", "mode", "day", "destination"],
+        dim_order=["origin", "mode", "day", "destination"],
         geometry="destination",
     )
     assert actual.geometry.name == "destination"
