@@ -785,7 +785,7 @@ class XvecAccessor:
         warnings.warn(
             "No active geometry column to be set. The resulting object "
             "will be a pandas.DataFrame with geopandas.GeometryArray(s) containing "
-            "geometry and CRS information. Use `.set_geometry()` to set an active"
+            "geometry and CRS information. Use `.set_geometry()` to set an active "
             "geometry and upcast to the geopandas.GeoDataFrame manually.",
             UserWarning,
             stacklevel=2,
@@ -880,7 +880,7 @@ class XvecAccessor:
         warnings.warn(
             "No active geometry column to be set. The resulting object "
             "will be a pandas.DataFrame with geopandas.GeometryArray(s) containing "
-            "geometry and CRS information. Use `.set_geometry()` to set an active"
+            "geometry and CRS information. Use `.set_geometry()` to set an active "
             "geometry and upcast to the geopandas.GeoDataFrame manually.",
             UserWarning,
             stacklevel=2,
