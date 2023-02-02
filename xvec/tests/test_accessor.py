@@ -431,3 +431,78 @@ def test_to_geopandas_dataset(traffic_dataset, geom_array):
     assert_frame_equal(expected, actual)
     assert actual.origin.array.crs == 26915
     assert actual.destination.array.crs == 26915
+
+
+def test_to_geodataframe_array(
+    traffic_counts_array, traffic_counts_array_named, geom_array
+):
+    expected = pd.DataFrame(
+        {
+            "origin": geom_array.take([0, 0, 1, 1]),
+            "destination": geom_array.take([0, 1, 0, 1]),
+            "mode": ["car"] * 4,
+            "day": pd.to_datetime(["2023-01-01"] * 4),
+            "hour": [0] * 4,
+            "traffic_counts": [1.0] * 4,
+        }
+    )
+    expected["origin"] = gpd.array.GeometryArray(expected["origin"].values, crs=26915)
+    expected["destination"] = gpd.array.GeometryArray(
+        expected["destination"].values, crs=26915
+    )
+    with pytest.warns(UserWarning, match="No active geometry"):
+        actual = traffic_counts_array_named.sel(
+            mode="car", hour=0, day="2023-01-01"
+        ).xvec.to_geodataframe()
+
+    assert_frame_equal(expected, actual)
+
+    expected = pd.DataFrame(
+        {
+            "origin": geom_array,
+            "mode": ["car"] * 2,
+            "day": pd.to_datetime(["2023-01-01"] * 2),
+            "hour": [0] * 2,
+            "destination": geom_array.take([0, 0]),
+            "traffic_counts": [1.0] * 2,
+        }
+    ).set_geometry("origin", crs=26915)
+    expected["destination"] = gpd.GeoSeries(expected["destination"], crs=26915)
+
+    actual = traffic_counts_array_named.sel(
+        mode="car", hour=0, day="2023-01-01", destination=geom_array[0]
+    ).xvec.to_geodataframe()
+
+    assert_geodataframe_equal(expected, actual)
+
+    # unnamed
+    actual = traffic_counts_array.sel(
+        mode="car", hour=0, day="2023-01-01", destination=geom_array[0]
+    ).xvec.to_geodataframe(name="traffic_counts")
+
+    assert_geodataframe_equal(expected, actual)
+
+    reordered = traffic_counts_array_named.xvec.to_geodataframe(
+        dim_order=["day", "hour", "mode", "origin", "destination"]
+    )
+    assert reordered.index.names == ["day", "hour", "mode"]
+    assert (reordered.columns == ["origin", "destination", "traffic_counts"]).all()
+
+
+def test_to_geodataframe_dataset(traffic_dataset, geom_array):
+    with pytest.warns(UserWarning, match="No active geometry"):
+        actual = traffic_dataset.xvec.to_geodataframe()
+    assert actual.origin.values.crs == 26915
+    assert actual.destination.values.crs == 26915
+
+    actual = traffic_dataset.xvec.to_geodataframe(
+        dim_order=["origin", "hour", "mode", "day", "destination"],
+        geometry="destination",
+    )
+    assert actual.geometry.name == "destination"
+    assert actual.crs == 26915
+    assert actual.origin.crs == 26915
+
+    actual = traffic_dataset.drop("origin").xvec.to_geodataframe()
+    assert actual.geometry.name == "destination"
+    assert actual.crs == 26915
