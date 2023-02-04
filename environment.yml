@@ -16,12 +16,11 @@ dependencies:
   - myst-nb
   - sphinx-copybutton
   - numpydoc
-  - pydata-sphinx-theme
+  - sphinx-book-theme
   - geopandas
   # linting
-  - flake8
+  - ruff
   - black
-  - isort
   - pip
   - pip:
       - sphinx_autosummary_accessors
