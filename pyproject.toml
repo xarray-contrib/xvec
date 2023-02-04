@@ -48,6 +48,6 @@ omit = ["xvec/tests/*"]
 [tool.ruff]
 line-length = 88
 select = ["E", "F", "W", "I", "UP", "B", "A", "C4", "Q"]
-exclude = ["clustergram/test_clustergram.py", "doc"]
+exclude = ["doc"]
 target-version = "py38"
 ignore = ["B006"]
