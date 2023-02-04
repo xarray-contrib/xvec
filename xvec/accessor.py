@@ -310,7 +310,6 @@ class XvecAccessor:
         transformed = {}
 
         for key, crs in variable_crs.items():
-
             if not isinstance(self._obj.xindexes[key], GeometryIndex):
                 raise ValueError(
                     f"The index '{key}' is not an xvec.GeometryIndex. "
@@ -355,7 +354,7 @@ class XvecAccessor:
 
             transformed[key] = (result, crs)
 
-        for key, (result, crs) in transformed.items():
+        for key, (result, _crs) in transformed.items():
             _obj = _obj.assign_coords({key: result})
 
         _obj = _obj.drop_indexes(variable_crs.keys())
@@ -475,7 +474,6 @@ class XvecAccessor:
             variable_crs = variable_crs_kwargs
 
         for key, crs in variable_crs.items():
-
             if not isinstance(self._obj.xindexes[key], GeometryIndex):
                 raise ValueError(
                     f"The index '{key}' is not an xvec.GeometryIndex. "
