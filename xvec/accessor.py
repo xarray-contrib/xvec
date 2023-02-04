@@ -315,7 +315,6 @@ class XvecAccessor:
         transformed = {}
 
         for key, crs in variable_crs.items():
-
             if not isinstance(self._obj.xindexes[key], GeometryIndex):
                 raise ValueError(
                     f"The index '{key}' is not an xvec.GeometryIndex. "
@@ -360,7 +359,7 @@ class XvecAccessor:
 
             transformed[key] = (result, crs)
 
-        for key, (result, crs) in transformed.items():
+        for key, (result, _crs) in transformed.items():
             _obj = _obj.assign_coords({key: result})
 
         _obj = _obj.drop_indexes(variable_crs.keys())
@@ -482,7 +481,6 @@ class XvecAccessor:
             variable_crs = variable_crs_kwargs
 
         for key, crs in variable_crs.items():
-
             if not isinstance(self._obj.xindexes[key], GeometryIndex):
                 raise ValueError(
                     f"The index '{key}' is not an xvec.GeometryIndex. "
@@ -727,12 +725,12 @@ class XvecAccessor:
         """
         try:
             import geopandas as gpd
-        except ImportError:
+        except ImportError as err:
             raise ImportError(
                 "The geopandas package is required for `xvec.to_geodataframe()`. "
                 "You can install it using 'conda install -c conda-forge geopandas' or "
                 "'pip install geopandas'."
-            )
+            ) from err
 
         if isinstance(self._obj, xr.DataArray) and self._obj.ndim > 2:
             raise ValueError(
@@ -845,12 +843,12 @@ class XvecAccessor:
 
         try:
             import geopandas as gpd
-        except ImportError:
+        except ImportError as err:
             raise ImportError(
                 "The geopandas package is required for `xvec.to_geodataframe()`. "
                 "You can install it using 'conda install -c conda-forge geopandas' or "
                 "'pip install geopandas'."
-            )
+            ) from err
 
         if isinstance(self._obj, xr.Dataset):
             df = self._obj.to_dataframe(dim_order=dim_order)
