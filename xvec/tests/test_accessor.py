@@ -46,7 +46,7 @@ def test_accessor(multi_geom_dataset):
 # Test .xvec geom_coords
 
 
-def test_geom_coords(multi_geom_no_index_dataset):
+def test_geom_coords(multi_geom_no_index_dataset, traffic_counts_array, geom_array):
     assert multi_geom_no_index_dataset.xvec._geom_coords_all == [
         "geom",
         "geom_z",
@@ -63,8 +63,15 @@ def test_geom_coords(multi_geom_no_index_dataset):
             multi_geom_no_index_dataset.coords
         )
 
+    actual = traffic_counts_array.xvec.geom_coords
+    expected = xr.DataArray(
+        coords={"origin": geom_array, "destination": geom_array},
+        dims=("origin", "destination"),
+    ).coords
+    assert actual.keys() == expected.keys()
 
-def test_geom_coords_indexed(multi_geom_dataset):
+
+def test_geom_coords_indexed(multi_geom_dataset, traffic_counts_array, geom_array):
     assert multi_geom_dataset.xvec._geom_indexes == ["geom", "geom_z"]
 
     actual = multi_geom_dataset.xvec.geom_coords_indexed
@@ -74,6 +81,13 @@ def test_geom_coords_indexed(multi_geom_dataset):
     # check assignment
     with pytest.raises(AttributeError):
         multi_geom_dataset.xvec.geom_coords = multi_geom_dataset.coords
+
+    actual = traffic_counts_array.xvec.geom_coords
+    expected = xr.DataArray(
+        coords={"origin": geom_array, "destination": geom_array},
+        dims=("origin", "destination"),
+    ).coords
+    assert actual.keys() == expected.keys()
 
 
 # Test .xvec.is_geom_variable
