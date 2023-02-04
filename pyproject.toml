@@ -50,4 +50,3 @@ line-length = 88
 select = ["E", "F", "W", "I", "UP", "B", "A", "C4", "Q"]
 exclude = ["doc"]
 target-version = "py38"
-ignore = ["B006"]
