@@ -16,7 +16,6 @@ dependencies:
   - myst-nb
   - sphinx-copybutton
   - numpydoc
-  - sphinx-book-theme
   - geopandas
   # linting
   - ruff
@@ -24,3 +23,4 @@ dependencies:
   - pip
   - pip:
       - sphinx_autosummary_accessors
+      - sphinx-book-theme
