@@ -64,18 +64,16 @@ def test_geom_coords(multi_geom_no_index_dataset):
         )
 
 
-def test_geom_coords_indexed(multi_geom_no_index_dataset):
-    assert multi_geom_no_index_dataset.xvec._geom_indexes == ["geom", "geom_z"]
+def test_geom_coords_indexed(multi_geom_dataset):
+    assert multi_geom_dataset.xvec._geom_indexes == ["geom", "geom_z"]
 
-    actual = multi_geom_no_index_dataset.xvec.geom_coords_indexed
-    expected = multi_geom_no_index_dataset.coords
+    actual = multi_geom_dataset.xvec.geom_coords_indexed
+    expected = multi_geom_dataset.coords
     assert actual.keys() == expected.keys()
 
     # check assignment
     with pytest.raises(AttributeError):
-        multi_geom_no_index_dataset.xvec.geom_coords = (
-            multi_geom_no_index_dataset.coords
-        )
+        multi_geom_dataset.xvec.geom_coords = multi_geom_dataset.coords
 
 
 # Test .xvec.is_geom_variable
