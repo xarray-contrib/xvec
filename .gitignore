@@ -139,3 +139,6 @@ dmypy.json
 
 # sphinx
 doc/source/generated
+
+# ruff
+.ruff_cache

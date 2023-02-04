@@ -310,7 +310,6 @@ class XvecAccessor:
         transformed = {}
 
         for key, crs in variable_crs.items():
-
             if not isinstance(self._obj.xindexes[key], GeometryIndex):
                 raise ValueError(
                     f"The index '{key}' is not an xvec.GeometryIndex. "
@@ -355,7 +354,7 @@ class XvecAccessor:
 
             transformed[key] = (result, crs)
 
-        for key, (result, crs) in transformed.items():
+        for key, (result, _crs) in transformed.items():
             _obj = _obj.assign_coords({key: result})
 
         _obj = _obj.drop_indexes(variable_crs.keys())
@@ -475,7 +474,6 @@ class XvecAccessor:
             variable_crs = variable_crs_kwargs
 
         for key, crs in variable_crs.items():
-
             if not isinstance(self._obj.xindexes[key], GeometryIndex):
                 raise ValueError(
                     f"The index '{key}' is not an xvec.GeometryIndex. "
@@ -623,6 +621,7 @@ class XvecAccessor:
         """Set a new  :class:`~xvec.GeometryIndex` for one or more existing
         coordinate(s). One :class:`~xvec.GeometryIndex` is set per coordinate. Only
         1-dimensional coordinates are supported.
+
         Parameters
         ----------
         coord_names : str or list
@@ -635,10 +634,12 @@ class XvecAccessor:
         allow_override : bool, default False
             If the coordinate(s) already have a :class:`~xvec.GeometryIndex`,
             allow to replace the existing CRS, even when both are not equal.
+
         Returns
         -------
         assigned : same type as caller
             A new object with the same data and new index(es)
+
         Examples
         --------
         >>> da = (
@@ -653,6 +654,7 @@ class XvecAccessor:
         array([0.06610343, 0.03144603])
         Coordinates:
           * geom     (geom) object POINT (1 2) POINT (3 4)
+
         >>> da.xvec.set_geom_indexes("geom", crs=4326)
         <xarray.DataArray (geom: 2)>
         array([0.06610343, 0.03144603])

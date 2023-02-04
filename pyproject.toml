@@ -44,3 +44,9 @@ include = [
 
 [tool.coverage.run]
 omit = ["xvec/tests/*"]
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "W", "I", "UP", "B", "A", "C4", "Q"]
+exclude = ["doc"]
+target-version = "py38"
