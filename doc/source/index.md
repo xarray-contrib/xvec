@@ -11,4 +11,5 @@ Xvec is in an early stage of development and we do not advise to use it yet as t
 :caption: Documentation
 quickstart.ipynb
 api.rst
+GitHub <https://github.com/martinfleis/xvec>
 ```
