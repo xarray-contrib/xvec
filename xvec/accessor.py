@@ -127,6 +127,7 @@ class XvecAccessor:
         Indexes:
             geom           GeometryIndex (crs=EPSG:26915)
             geom_z         GeometryIndex (crs=EPSG:26915)
+
         >>> ds.xvec.geom_coords
         Coordinates:
           * geom           (geom) object POINT (1 2) POINT (3 4)
@@ -138,7 +139,11 @@ class XvecAccessor:
         geom_coords_indexed
         is_geom_variable
         """
-        return self._obj[self._geom_coords_all].coords
+        # TODO: use xarray.Coordinates constructor instead once available in xarray
+        return xr.DataArray(
+            coords={c: self._obj[c] for c in self._geom_coords_all},
+            dims=self._geom_coords_all,
+        ).coords
 
     @property
     def geom_coords_indexed(self) -> Mapping[Hashable, xr.DataArray]:
@@ -173,7 +178,7 @@ class XvecAccessor:
         Indexes:
             geom           GeometryIndex (crs=EPSG:26915)
             geom_z         GeometryIndex (crs=EPSG:26915)
-        >>> ds.xvec.geom_coords_indexed
+
         >>> ds.xvec.geom_coords_indexed
         Coordinates:
           * geom     (geom) object POINT (1 2) POINT (3 4)
@@ -185,7 +190,10 @@ class XvecAccessor:
         is_geom_variable
 
         """
-        return self._obj[self._geom_indexes].coords
+        # TODO: use xarray.Coordinates constructor instead once available in xarray
+        return self._obj.drop_vars(
+            [c for c in self._obj.coords if c not in self._geom_indexes]
+        ).coords
 
     def to_crs(
         self,
