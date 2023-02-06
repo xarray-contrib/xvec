@@ -139,8 +139,10 @@ class XvecAccessor:
         geom_coords_indexed
         is_geom_variable
         """
-        return self._obj.drop_vars(
-            [c for c in self._obj.coords if c not in self._geom_coords_all]
+        # TODO: use xarray.Coordinates constructor instead once available in xarray
+        return xr.DataArray(
+            coords={c: self._obj[c] for c in self._geom_coords_all},
+            dims=self._geom_coords_all,
         ).coords
 
     @property
@@ -188,6 +190,7 @@ class XvecAccessor:
         is_geom_variable
 
         """
+        # TODO: use xarray.Coordinates constructor instead once available in xarray
         return self._obj.drop_vars(
             [c for c in self._obj.coords if c not in self._geom_indexes]
         ).coords
