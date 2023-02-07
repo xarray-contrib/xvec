@@ -45,6 +45,12 @@ include = [
 [tool.coverage.run]
 omit = ["xvec/tests/*"]
 
+[tool.coverage.report]
+exclude_lines = [
+    "except ImportError",
+    "except PackageNotFoundError",
+]
+
 [tool.ruff]
 line-length = 88
 select = ["E", "F", "W", "I", "UP", "B", "A", "C4", "Q"]

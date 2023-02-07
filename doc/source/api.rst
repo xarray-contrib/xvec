@@ -52,6 +52,8 @@ Methods
     Dataset.xvec.set_crs
     Dataset.xvec.to_crs
     Dataset.xvec.query
+    Dataset.xvec.to_geodataframe
+    Dataset.xvec.to_geopandas
 
 
 DataArray.xvec
@@ -84,3 +86,5 @@ Methods
     DataArray.xvec.to_crs
     DataArray.xvec.set_crs
     DataArray.xvec.query
+    DataArray.xvec.to_geodataframe
+    DataArray.xvec.to_geopandas

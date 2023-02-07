@@ -41,7 +41,7 @@ jobs:
 
       - name: run tests
         id: status
-        run: pytest -v . -m "not request" --cov=xvec --cov-append --cov-report term-missing --cov-report xml --color=yes --report-log pytest-log.jsonl
+        run: pytest -v . --cov=xvec --cov-append --cov-report term-missing --cov-report xml --color=yes --report-log pytest-log.jsonl
 
       - uses: codecov/codecov-action@v3
 

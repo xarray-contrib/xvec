@@ -42,6 +42,8 @@ intersphinx_mapping = {
     "shapely": ("https://shapely.readthedocs.io/en/latest/", None),
     "pyproj": ("https://pyproj4.github.io/pyproj/latest/", None),
     "xarray": ("https://docs.xarray.dev/en/latest/", None),
+    "geopandas": ("https://geopandas.org/en/latest", None),
+    "pandas": ("https://pandas.pydata.org/docs", None),
 }
 
 # -- Options for HTML output -------------------------------------------------

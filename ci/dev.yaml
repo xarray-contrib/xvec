@@ -13,6 +13,7 @@ dependencies:
   - pytest-cov
   - pytest-xdist
   - pytest-reportlog
+  - geopandas-base
   - pip
   - pip:
       - git+https://github.com/shapely/shapely.git@main
