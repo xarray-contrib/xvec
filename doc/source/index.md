@@ -9,7 +9,11 @@ Xvec is in an early stage of development and we do not advise to use it yet as t
 ```{toctree}
 :hidden:
 :caption: Documentation
-quickstart.ipynb
-api.rst
+intro
+indexing
+projections
+io
+quickstart
+api
 GitHub <https://github.com/martinfleis/xvec>
 ```
