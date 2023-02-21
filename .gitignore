@@ -142,3 +142,5 @@ doc/source/generated
 
 # ruff
 .ruff_cache
+doc/source/cube.joblib.compressed
+doc/source/cube.pickle
