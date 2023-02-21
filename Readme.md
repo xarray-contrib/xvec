@@ -2,12 +2,18 @@
 
 > Where raster data cubes refer to data cubes with raster (x- and y-, or lon- and lat-) dimensions, vector data cubes are n-D arrays that have (at least) a single spatial dimension that maps to a set of (2-D) vector geometries. ([Edzer Pebesma](https://r-spatial.org/r/2022/09/12/vdc.html))
 
-Xvec combines [Xarray](http://xarray.pydata.org) n-D arrays and [shapely 2.0](https://shapely.readthedocs.io/en/latest/) planar vector geometries to create a support for vector data cubes in Python. See [this post](https://r-spatial.org/r/2022/09/12/vdc.html) by Edzer Pebesma on an introduction of the concept.
+Xvec combines [Xarray](http://xarray.pydata.org) n-D arrays and [shapely 2](https://shapely.readthedocs.io/en/latest/) planar vector geometries to create a support for vector data cubes in Python. See [this post](https://r-spatial.org/r/2022/09/12/vdc.html) by Edzer Pebesma on an introduction of the concept or the introduction of their implementation in Xvec in our [documentation](https://xvec.readthedocs.io/en/latest/intro.html).
 
-Xvec is in an early stage of development and we do not advise to use it yet as the API will likely change.
+## Installing
 
-## Resources
+Xvec is not released yet and can be installed from GitHub.
 
-- <https://github.com/corteva/rioxarray/issues/588>
-- <https://github.com/dcherian/crsindex/blob/main/crsindex.ipynb>
-- <https://hackmd.io/Zxw_zCa7Rbynx_iJu6Y3LA?view>
+```sh
+pip install git+https://github.com/martinfleis/xvec.git
+```
+
+We recommend installing its dependencies using `mamba` or `conda` before.
+
+```sh
+mamba install xarray shapely pyproj -c conda-forge
+```
