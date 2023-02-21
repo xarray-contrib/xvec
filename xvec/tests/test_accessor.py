@@ -501,6 +501,71 @@ def test_to_geodataframe_array(
     assert (reordered.columns == ["origin", "destination", "traffic_counts"]).all()
 
 
+def test_to_geodataframe_wide(geom_array):
+    # DataArray
+    arr = xr.DataArray(
+        np.ones((3, 10, 2)),
+        coords={
+            "mode": ["car", "bike", "walk"],
+            "day": range(10),
+            "origin": geom_array,
+        },
+        name="arr",
+    ).xvec.set_geom_indexes(
+        [
+            "origin",
+        ],
+        crs=26915,
+    )
+
+    expected = pd.DataFrame(
+        columns=pd.MultiIndex.from_product(
+            [["car", "bike", "walk"], range(10)], names=["mode", "day"]
+        ),
+        index=["arr", "arr"],
+    ).fillna(1.0)
+    expected["origin"] = geom_array
+    expected = expected.set_geometry("origin")
+
+    actual = arr.xvec.to_geodataframe(long=False)
+    assert_geodataframe_equal(expected, actual, check_like=True)
+
+    # Dataset
+    count = np.ones((3, 10, 2))
+    time = np.ones((3, 10, 2))
+
+    ds = xr.Dataset(
+        {
+            "count": (
+                [
+                    "mode",
+                    "day",
+                    "origin",
+                ],
+                count,
+            ),
+            "time": (["mode", "day", "origin"], time),
+        },
+        coords={
+            "mode": ["car", "bike", "walk"],
+            "origin": geom_array,
+            "day": range(10),
+        },
+    ).xvec.set_geom_indexes(["origin"], crs=26915)
+
+    expected = pd.DataFrame(
+        index=["count", "count", "time", "time"],
+        columns=pd.MultiIndex.from_product(
+            [["car", "bike", "walk"], range(10)], names=["mode", "day"]
+        ),
+    ).fillna(1.0)
+    expected["origin"] = np.tile(geom_array, 2)
+    expected = expected.set_geometry("origin")
+
+    actual = ds.xvec.to_geodataframe(long=False)
+    assert_geodataframe_equal(expected, actual, check_like=True)
+
+
 def test_to_geodataframe_dataset(traffic_dataset):
     with pytest.warns(UserWarning, match="No active geometry"):
         actual = traffic_dataset.xvec.to_geodataframe()
