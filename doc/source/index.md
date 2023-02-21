@@ -7,8 +7,8 @@
 intro
 indexing
 projections
-io
 geopandas
+io
 ```
 
 ```{toctree}
