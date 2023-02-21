@@ -501,7 +501,7 @@ def test_to_geodataframe_array(
     assert (reordered.columns == ["origin", "destination", "traffic_counts"]).all()
 
 
-def test_to_geodataframe_wide(geom_array):
+def test_to_geodataframe_wide(geom_array, traffic_counts_array_named):
     # DataArray
     arr = xr.DataArray(
         np.ones((3, 10, 2)),
@@ -564,6 +564,9 @@ def test_to_geodataframe_wide(geom_array):
 
     actual = ds.xvec.to_geodataframe(long=False)
     assert_geodataframe_equal(expected, actual, check_like=True)
+
+    with pytest.raises(ValueError, match="Creating a wide form"):
+        traffic_counts_array_named.xvec.to_geodataframe(long=False)
 
 
 def test_to_geodataframe_dataset(traffic_dataset):
