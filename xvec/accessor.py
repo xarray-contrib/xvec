@@ -842,8 +842,7 @@ class XvecAccessor:
             A form of the table. If True, creates a long form as
             ``DataArray.to_dataframe``. If False, creates a wide form with MultiIndex
             columns (as if you would call ``.unstack()``). A wide form supports objects
-            with only a single dimension of geometries. Creating a wide form
-            GeoDataFrame with `long=False` from an `xarray.Dataset` is not implemented.
+            with only a single dimension of geometries.
 
         Returns
         -------
@@ -876,7 +875,13 @@ class XvecAccessor:
                     "Creating a wide form GeoDataFrame with `long=False` requires "
                     "exactly one dimension with a GeometryIndex."
                 )
-            df = df.unstack()
+            df = df.unstack(
+                [
+                    level
+                    for level in df.index.names
+                    if level not in self._geom_coords_all
+                ]
+            )
 
             if self._geom_coords_all[0] in df.columns.names:
                 df = df.T
@@ -899,7 +904,9 @@ class XvecAccessor:
                 df[c] = gpd.GeoSeries(df[c], crs=self._obj[c].attrs.get("crs", None))
 
         if geometry is not None:
-            return df.set_geometry(geometry)
+            return df.set_geometry(
+                geometry, crs=self._obj[geometry].attrs.get("crs", None)
+            )
 
         warnings.warn(
             "No active geometry column to be set. The resulting object "
