@@ -1,7 +1,6 @@
 name: xvec_dev
 channels:
   - conda-forge
-  - conda-forge/label/shapely_dev
 dependencies:
   - python
   # required
@@ -17,6 +16,7 @@ dependencies:
   - sphinx-copybutton
   - numpydoc
   - geopandas
+  - pyarrow
   # linting
   - ruff
   - black
@@ -24,3 +24,4 @@ dependencies:
   - pip:
       - sphinx_autosummary_accessors
       - sphinx-book-theme
+      - geodatasets
