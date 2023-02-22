@@ -9,7 +9,7 @@ Xvec combines [Xarray](http://xarray.pydata.org) n-D arrays and [shapely 2](http
 Xvec is not released yet and can be installed from GitHub.
 
 ```sh
-pip install git+https://github.com/martinfleis/xvec.git
+pip install git+https://github.com/xarray-contrib/xvec.git
 ```
 
 We recommend installing its dependencies using `mamba` or `conda` before.

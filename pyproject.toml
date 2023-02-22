@@ -34,7 +34,7 @@ dependencies = [
 
 [project.urls]
 Home = "https://xvec.readthedocs.io"
-Repository = "https://github.com/martinfleis/xvec"
+Repository = "https://github.com/xarray-contrib/xvec"
 
 [tool.setuptools.packages.find]
 include = [
