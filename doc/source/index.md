@@ -20,5 +20,5 @@ api
 ```{toctree}
 :hidden:
 :caption: For contributors
-GitHub <https://github.com/martinfleis/xvec>
+GitHub <https://github.com/xarray-contrib/xvec>
 ```
