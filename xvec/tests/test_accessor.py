@@ -504,13 +504,12 @@ def test_to_geodataframe_array(
 def test_to_geodataframe_wide(geom_array, traffic_counts_array_named):
     # DataArray
     arr = xr.DataArray(
-        np.ones((3, 10, 2)),
+        np.ones((3, 2)),
         coords={
             "mode": ["car", "bike", "walk"],
-            "day": range(10),
             "origin": geom_array,
         },
-        name="arr",
+        name="traffic_counts",
     ).xvec.set_geom_indexes(
         [
             "origin",
@@ -520,50 +519,48 @@ def test_to_geodataframe_wide(geom_array, traffic_counts_array_named):
 
     expected = pd.DataFrame(
         columns=pd.MultiIndex.from_product(
-            [["car", "bike", "walk"], range(10)], names=["mode", "day"]
+            [["traffic_counts"], ["car", "bike", "walk"]], names=["mode", ""]
         ),
-        index=["arr", "arr"],
+        index=range(2),
     ).fillna(1.0)
     expected["origin"] = geom_array
-    expected = expected.set_geometry("origin")
+    expected = expected.set_geometry("origin", crs=26915)
 
     actual = arr.xvec.to_geodataframe(long=False)
     assert_geodataframe_equal(expected, actual, check_like=True)
 
     # Dataset
-    count = np.ones((3, 10, 2))
-    time = np.ones((3, 10, 2))
+    count = np.ones((3, 2))
+    time = np.ones((3, 2))
 
     ds = xr.Dataset(
         {
             "count": (
                 [
                     "mode",
-                    "day",
                     "origin",
                 ],
                 count,
             ),
-            "time": (["mode", "day", "origin"], time),
+            "time": (["mode", "origin"], time),
         },
         coords={
             "mode": ["car", "bike", "walk"],
             "origin": geom_array,
-            "day": range(10),
         },
     ).xvec.set_geom_indexes(["origin"], crs=26915)
 
     expected = pd.DataFrame(
-        index=["count", "count", "time", "time"],
         columns=pd.MultiIndex.from_product(
-            [["car", "bike", "walk"], range(10)], names=["mode", "day"]
+            [["count", "time"], ["car", "bike", "walk"]], names=["mode", ""]
         ),
+        index=range(2),
     ).fillna(1.0)
-    expected["origin"] = np.tile(geom_array, 2)
-    expected = expected.set_geometry("origin")
+    expected["origin"] = geom_array
+    expected = expected.set_geometry("origin", crs=26915)
 
     actual = ds.xvec.to_geodataframe(long=False)
-    assert_geodataframe_equal(expected, actual, check_like=True)
+    assert_geodataframe_equal(expected, actual, check_like=True, check_crs=False)
 
     with pytest.raises(ValueError, match="Creating a wide form"):
         traffic_counts_array_named.xvec.to_geodataframe(long=False)

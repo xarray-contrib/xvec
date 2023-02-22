@@ -883,9 +883,6 @@ class XvecAccessor:
                 ]
             )
 
-            if self._geom_coords_all[0] in df.columns.names:
-                df = df.T
-
         if isinstance(df.index, pd.MultiIndex):
             to_reset = [g for g in self._geom_coords_all if g in df.index.names]
             if to_reset:
