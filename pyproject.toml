@@ -25,7 +25,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Scientific/Engineering :: GIS",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
     "xarray >= 2022.12.0",
     "pyproj >= 3.0.0",
@@ -55,4 +55,4 @@ exclude_lines = [
 line-length = 88
 select = ["E", "F", "W", "I", "UP", "B", "A", "C4", "Q"]
 exclude = ["doc"]
-target-version = "py38"
+target-version = "py39"

@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import warnings
-from typing import Any, Hashable, Mapping, Sequence, Union
+from typing import Any, Hashable, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
@@ -18,7 +20,7 @@ class XvecAccessor:
     Currently works on coordinates with :class:`xvec.GeometryIndex`.
     """
 
-    def __init__(self, xarray_obj: Union[xr.Dataset, xr.DataArray]):
+    def __init__(self, xarray_obj: xr.Dataset | xr.DataArray):
         """xvec init, nothing to be done here."""
         self._obj = xarray_obj
         self._geom_coords_all = [
