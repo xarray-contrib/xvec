@@ -1,7 +1,6 @@
 name: xvec_dev
 channels:
   - conda-forge
-  - conda-forge/label/shapely_dev
 dependencies:
   - python
   # to build from source
