@@ -19,6 +19,10 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
         environment-file: [ci/latest.yaml]
         include:
+          - environment-file: ci/39.yaml
+            os: ubuntu-latest
+          - environment-file: ci/310.yaml
+            os: ubuntu-latest
           - environment-file: ci/dev.yaml
             os: ubuntu-latest
     defaults:
