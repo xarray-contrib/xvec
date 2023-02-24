@@ -895,3 +895,21 @@ class XvecAccessor:
             stacklevel=2,
         )
         return df
+
+    def extract_points(
+        self, points, x_coords, y_coords, tolerance=None, name="geometry", crs=None
+    ):
+        if crs is None and hasattr(points, "crs"):
+            crs = points.crs
+
+        coords = shapely.get_coordinates(points)
+        x_ = xr.DataArray(coords[:, 0], dims=name)
+        y_ = xr.DataArray(coords[:, 1], dims=name)
+        subset = self._obj.sel(
+            {x_coords: x_, y_coords: y_}, method="nearest", tolerance=tolerance
+        )
+
+        subset[name] = (name, points)
+        return subset.drop_vars([x_coords, y_coords]).xvec.set_geom_indexes(
+            name, crs=crs
+        )
