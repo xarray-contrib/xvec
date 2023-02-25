@@ -520,7 +520,7 @@ def test_to_geodataframe_dataset(traffic_dataset):
     assert actual.crs == 26915
 
 
-def test_sample_points_array():
+def test_extract_points_array():
     da = xr.DataArray(
         np.ones((10, 10, 5)),
         coords={
@@ -538,24 +538,24 @@ def test_sample_points_array():
             "time": pd.date_range("2023-01-01", periods=5),
         },
     ).xvec.set_geom_indexes("geometry")
-    actual = da.xvec.sample_points(points, "x", "y")
+    actual = da.xvec.extract_points(points, "x", "y")
 
     xr.testing.assert_identical(actual, expected)
 
     # manual CRS
-    actual = da.xvec.sample_points(points, "x", "y", crs=4326)
+    actual = da.xvec.extract_points(points, "x", "y", crs=4326)
     xr.testing.assert_identical(actual, expected.xvec.set_crs(geometry=4326))
 
     # CRS inferred from GeoSeries
     gs = gpd.GeoSeries(points, crs=4326)
-    actual = da.xvec.sample_points(gs, "x", "y")
+    actual = da.xvec.extract_points(gs, "x", "y")
     xr.testing.assert_identical(actual, expected.xvec.set_crs(geometry=4326))
 
     # CRS inferred from DataArray
     pts_arr = xr.DataArray(points, attrs={"crs": 4326})
-    actual = da.xvec.sample_points(pts_arr, "x", "y")
+    actual = da.xvec.extract_points(pts_arr, "x", "y")
     xr.testing.assert_identical(actual, expected.xvec.set_crs(geometry=4326))
 
     # custom name
-    actual = da.xvec.sample_points(points, "x", "y", name="location")
+    actual = da.xvec.extract_points(points, "x", "y", name="location")
     xr.testing.assert_identical(actual, expected.rename(geometry="location"))

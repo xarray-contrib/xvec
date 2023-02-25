@@ -896,7 +896,7 @@ class XvecAccessor:
         )
         return df
 
-    def sample_points(
+    def extract_points(
         self,
         points: Sequence[shapely.Geometry],
         x_coords: Hashable,
@@ -905,10 +905,10 @@ class XvecAccessor:
         name: str = "geometry",
         crs: Any = None,
     ):
-        """Sample points from a DataArray or a Dataset indexed by geographic coordinates
+        """Extract points from a DataArray or a Dataset indexed by spatial coordinates
 
         Given an object indexed by x and y coordinates (or latitude and longitude), such
-        as an typical geospatial raster dataset, sample multidimensional data for a
+        as an typical geospatial raster dataset, extract multidimensional data for a
         set of points represented as shapely geometry.
 
         The CRS of the raster and that of points need to match. Xvec does not verify
@@ -964,7 +964,7 @@ class XvecAccessor:
             Conventions:  CF-1.0
             Info:         Monthly ERA-Interim data. Downloaded
 
-        Set of points representing locations you want to sample:
+        Set of points representing locations you want to extract:
 
         >>> points = shapely.points(
         ...     np.random.uniform(ds.longitude.min(), ds.longitude.max(), 10),
@@ -973,7 +973,7 @@ class XvecAccessor:
 
         Dataset with N-1 dimensions indexed by the geometry:
 
-        >>> ds.xvec.sample_points(points, "longitude", "latitude", crs=4326)
+        >>> ds.xvec.extract_points(points, "longitude", "latitude", crs=4326)
         <xarray.Dataset>
         Dimensions:   (level: 3, month: 2, geometry: 10)
         Coordinates:
