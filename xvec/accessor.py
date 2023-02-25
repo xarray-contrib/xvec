@@ -933,9 +933,9 @@ class XvecAccessor:
             Name of the dimension that will hold the ``points``, by default "geometry"
         crs : Any, optional
             Cordinate reference system of shapely geometries. If ``points`` have a
-            ``.crs`` attribute (e.g. `geopandas.GeoSeries`) or ``"crs"`` in ``.attrs`,
-            ``crs`` will be automatically inferred. For more generic objects (numpy
-            array, list), CRS shall be specified manually.
+            ``.crs`` attribute (e.g. ``geopandas.GeoSeries`` or a ``DataArray`` with
+            ``"crs"`` in ``.attrs`), ``crs`` will be automatically inferred. For more
+            generic objects (numpy  array, list), CRS shall be specified manually.
 
         Returns
         -------
@@ -990,11 +990,8 @@ class XvecAccessor:
             Conventions:  CF-1.0
             Info:         Monthly ERA-Interim data. Downloaded and edited by fabien.m...
         """
-        if crs is None:
-            if hasattr(points, "crs"):
-                crs = points.crs
-            elif hasattr(points, "attrs"):
-                crs = points.attrs.get("crs", None)
+        if crs is None and hasattr(points, "crs"):
+            crs = points.crs
 
         coords = shapely.get_coordinates(points)
         x_ = xr.DataArray(coords[:, 0], dims=name)
