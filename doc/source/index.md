@@ -8,6 +8,7 @@ intro
 indexing
 projections
 geopandas
+sampling
 io
 ```
 

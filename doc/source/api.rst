@@ -54,6 +54,7 @@ Methods
     Dataset.xvec.query
     Dataset.xvec.to_geodataframe
     Dataset.xvec.to_geopandas
+    Dataset.xvec.sample_points
 
 
 DataArray.xvec
@@ -88,3 +89,4 @@ Methods
     DataArray.xvec.query
     DataArray.xvec.to_geodataframe
     DataArray.xvec.to_geopandas
+    DataArray.xvec.sample_points
