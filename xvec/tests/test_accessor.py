@@ -583,3 +583,94 @@ def test_to_geodataframe_dataset(traffic_dataset):
     actual = traffic_dataset.drop_vars("origin").xvec.to_geodataframe()
     assert actual.geometry.name == "destination"
     assert actual.crs == 26915
+
+
+def test_extract_points_array():
+    da = xr.DataArray(
+        np.ones((10, 10, 5)),
+        coords={
+            "x": range(10),
+            "y": range(20, 30),
+            "time": pd.date_range("2023-01-01", periods=5),
+        },
+    )
+
+    points = shapely.points([0, 3, 6], [12, 14, 11])
+    expected = xr.DataArray(
+        np.ones((3, 5)),
+        coords={
+            "geometry": points,
+            "time": pd.date_range("2023-01-01", periods=5),
+        },
+    ).xvec.set_geom_indexes("geometry")
+    actual = da.xvec.extract_points(points, "x", "y")
+
+    xr.testing.assert_identical(actual, expected)
+
+    # manual CRS
+    actual = da.xvec.extract_points(points, "x", "y", crs=4326)
+    xr.testing.assert_identical(actual, expected.xvec.set_crs(geometry=4326))
+
+    # CRS inferred from GeoSeries
+    gs = gpd.GeoSeries(points, crs=4326)
+    actual = da.xvec.extract_points(gs, "x", "y")
+    xr.testing.assert_identical(actual, expected.xvec.set_crs(geometry=4326))
+
+    # CRS inferred from DataArray
+    pts_arr = xr.DataArray(points, attrs={"crs": 4326})
+    actual = da.xvec.extract_points(pts_arr, "x", "y")
+    xr.testing.assert_identical(actual, expected.xvec.set_crs(geometry=4326))
+
+    # custom name
+    actual = da.xvec.extract_points(points, "x", "y", name="location")
+    xr.testing.assert_identical(actual, expected.rename(geometry="location"))
+
+    # retain index
+    actual = da.xvec.extract_points(gs, "x", "y", index=True)
+    xr.testing.assert_identical(
+        actual,
+        expected.assign_coords({"index": ("geometry", range(3))}).xvec.set_crs(
+            geometry=4326
+        ),
+    )
+
+    # retain named index
+    gs.index.name = "my_index"
+    actual = da.xvec.extract_points(
+        gs,
+        "x",
+        "y",
+    )
+    xr.testing.assert_identical(
+        actual,
+        expected.assign_coords({"my_index": ("geometry", range(3))}).xvec.set_crs(
+            geometry=4326
+        ),
+    )
+
+    # retain non-default index
+    gs2 = gpd.GeoSeries(points, crs=4326, index=range(3, 6))
+    actual = da.xvec.extract_points(
+        gs2,
+        "x",
+        "y",
+    )
+    xr.testing.assert_identical(
+        actual,
+        expected.assign_coords({"index": ("geometry", range(3, 6))}).xvec.set_crs(
+            geometry=4326
+        ),
+    )
+
+    # retain additional coords of points DataArray
+    actual = da.xvec.extract_points(
+        actual.geometry,
+        "x",
+        "y",
+    )
+    xr.testing.assert_identical(
+        actual,
+        expected.assign_coords({"index": ("geometry", range(3, 6))}).xvec.set_crs(
+            geometry=4326
+        ),
+    )

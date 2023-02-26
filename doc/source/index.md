@@ -15,6 +15,7 @@ intro
 indexing
 projections
 geopandas
+extract_pts
 io
 ```
 

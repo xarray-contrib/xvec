@@ -917,3 +917,143 @@ class XvecAccessor:
             stacklevel=2,
         )
         return df
+
+    def extract_points(
+        self,
+        points: Sequence[shapely.Geometry],
+        x_coords: Hashable,
+        y_coords: Hashable,
+        tolerance: float | None = None,
+        name: str = "geometry",
+        crs: Any = None,
+        index: bool = None,
+    ):
+        """Extract points from a DataArray or a Dataset indexed by spatial coordinates
+
+        Given an object indexed by x and y coordinates (or latitude and longitude), such
+        as an typical geospatial raster dataset, extract multidimensional data for a
+        set of points represented as shapely geometry.
+
+        The CRS of the raster and that of points need to match. Xvec does not verify
+        their equality.
+
+        Parameters
+        ----------
+        points : Sequence[shapely.Geometry]
+            An arrray-like (1-D) of shapely geometries, like a numpy array or GeoPandas
+            GeoSeries.
+        x_coords : Hashable
+            name of the coordinates containing ``x`` coordinates (i.e. the first value
+            in the coordinate pair encoding the point)
+        y_coords : Hashable
+            name of the coordinates containing ``y`` coordinates (i.e. the second value
+            in the coordinate pair encoding the point)
+        tolerance : float | None, optional
+            Maximum distance between original and new labels for inexact matches.
+            The values of the index at the matching locations must satisfy the equation
+            ``abs(index[indexer] - target) <= tolerance``, by default ``None``.
+        name : Hashable, optional
+            Name of the dimension that will hold the ``points``, by default "geometry"
+        crs : Any, optional
+            Cordinate reference system of shapely geometries. If ``points`` have a
+            ``.crs`` attribute (e.g. ``geopandas.GeoSeries`` or a ``DataArray`` with
+            ``"crs"`` in ``.attrs`), ``crs`` will be automatically inferred. For more
+            generic objects (numpy  array, list), CRS shall be specified manually.
+        index : bool, optional
+            If `points` is a GeoSeries, ``index=True`` will attach its index as another
+            coordinate to the geometry dimension in the resulting object. If
+            ``index=None``, the index will be stored if the `points.index` is a named
+            or non-default index. If ``index=False``, it will never be stored. This is
+            useful as an attribute link between the resulting array and the GeoPandas
+            object from which the points are sourced from.
+
+        Returns
+        -------
+        DataArray or Dataset
+            A subset of the original object with N-1 dimensions indexed by
+            the array of points.
+
+        Examples
+        --------
+        A typical raster Dataset indexed by longitude and latitude:
+
+        >>> ds = xr.tutorial.open_dataset("eraint_uvz")
+        >>> ds
+        <xarray.Dataset>
+        Dimensions:    (longitude: 480, latitude: 241, level: 3, month: 2)
+        Coordinates:
+        * longitude  (longitude) float32 -180.0 -179.2 -178.5 ... 177.8 178.5 179.2
+        * latitude   (latitude) float32 90.0 89.25 88.5 87.75 ... -88.5 -89.25 -90.0
+        * level      (level) int32 200 500 850
+        * month      (month) int32 1 7
+        Data variables:
+            z          (month, level, latitude, longitude) float64 ...
+            u          (month, level, latitude, longitude) float64 ...
+            v          (month, level, latitude, longitude) float64 ...
+        Attributes:
+            Conventions:  CF-1.0
+            Info:         Monthly ERA-Interim data. Downloaded
+
+        Set of points representing locations you want to extract:
+
+        >>> points = shapely.points(
+        ...     np.random.uniform(ds.longitude.min(), ds.longitude.max(), 10),
+        ...     np.random.uniform(ds.latitude.min(), ds.latitude.max(), 10),
+        ... )
+
+        Dataset with N-1 dimensions indexed by the geometry:
+
+        >>> ds.xvec.extract_points(points, "longitude", "latitude", crs=4326)
+        <xarray.Dataset>
+        Dimensions:   (level: 3, month: 2, geometry: 10)
+        Coordinates:
+        * level     (level) int32 200 500 850
+        * month     (month) int32 1 7
+        * geometry  (geometry) object POINT (100.98750049682788 25.66910238029458) ...
+        Data variables:
+            z         (month, level, geometry) float64 ...
+            u         (month, level, geometry) float64 ...
+            v         (month, level, geometry) float64 ...
+        Indexes:
+            geometry  GeometryIndex (crs=EPSG:4326)
+        Attributes:
+            Conventions:  CF-1.0
+            Info:         Monthly ERA-Interim data. Downloaded and edited by fabien.m...
+        """
+        if crs is None and hasattr(points, "crs"):
+            crs = points.crs
+
+        coords = shapely.get_coordinates(points)
+        x_ = xr.DataArray(coords[:, 0], dims=name)
+        y_ = xr.DataArray(coords[:, 1], dims=name)
+        subset = self._obj.sel(
+            {x_coords: x_, y_coords: y_}, method="nearest", tolerance=tolerance
+        )
+
+        subset[name] = (name, np.asarray(points))
+        result = subset.drop_vars([x_coords, y_coords]).xvec.set_geom_indexes(
+            name, crs=crs
+        )
+
+        # save the index as a data variable
+        if isinstance(points, pd.Series):
+            if index is None:
+                if points.index.name is not None or not points.index.equals(
+                    pd.RangeIndex(0, len(points))
+                ):
+                    index = True
+            if index:
+                index_name = points.index.name if points.index.name else "index"
+                result = result.assign_coords({index_name: (name, points.index)})
+
+        # preserve additional DataArray coords
+        elif isinstance(points, xr.DataArray):
+            if len(points.coords) > 1:
+                result = result.assign_coords(
+                    {
+                        coo: (name, points[coo].data)
+                        for coo in points.coords
+                        if coo != name
+                    }
+                )
+        return result
