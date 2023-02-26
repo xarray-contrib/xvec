@@ -51,10 +51,13 @@ intersphinx_mapping = {
 
 html_theme = "sphinx_book_theme"
 html_static_path = ["_static"]
-
+html_css_files = ["custom.css"]
+html_logo = "_static/logo.svg"
+html_favicon = "_static/icon.png"
 html_theme_options = {
     "github_url": "https://github.com/xarray-contrib/xvec",
     "use_sidenotes": True,
+    "logo_only": True,
 }
 nb_execution_mode = "off"
 autodoc_typehints = "none"

@@ -1,3 +1,10 @@
+```{image} _static/logo.svg
+:alt: logo
+:width: 400px
+:align: center
+:class: logo_frontpage
+```
+
 ```{include} ../../Readme.md
 ```
 
