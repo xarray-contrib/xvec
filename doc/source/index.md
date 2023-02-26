@@ -8,7 +8,7 @@ intro
 indexing
 projections
 geopandas
-sampling
+extract_pts
 io
 ```
 

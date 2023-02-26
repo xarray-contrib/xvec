@@ -559,3 +559,53 @@ def test_extract_points_array():
     # custom name
     actual = da.xvec.extract_points(points, "x", "y", name="location")
     xr.testing.assert_identical(actual, expected.rename(geometry="location"))
+
+    # retain index
+    actual = da.xvec.extract_points(gs, "x", "y", index=True)
+    xr.testing.assert_identical(
+        actual,
+        expected.assign_coords({"index": ("geometry", range(3))}).xvec.set_crs(
+            geometry=4326
+        ),
+    )
+
+    # retain named index
+    gs.index.name = "my_index"
+    actual = da.xvec.extract_points(
+        gs,
+        "x",
+        "y",
+    )
+    xr.testing.assert_identical(
+        actual,
+        expected.assign_coords({"my_index": ("geometry", range(3))}).xvec.set_crs(
+            geometry=4326
+        ),
+    )
+
+    # retain non-default index
+    gs2 = gpd.GeoSeries(points, crs=4326, index=range(3, 6))
+    actual = da.xvec.extract_points(
+        gs2,
+        "x",
+        "y",
+    )
+    xr.testing.assert_identical(
+        actual,
+        expected.assign_coords({"index": ("geometry", range(3, 6))}).xvec.set_crs(
+            geometry=4326
+        ),
+    )
+
+    # retain additional coords of points DataArray
+    actual = da.xvec.extract_points(
+        actual.geometry,
+        "x",
+        "y",
+    )
+    xr.testing.assert_identical(
+        actual,
+        expected.assign_coords({"index": ("geometry", range(3, 6))}).xvec.set_crs(
+            geometry=4326
+        ),
+    )

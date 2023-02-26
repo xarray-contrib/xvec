@@ -904,6 +904,7 @@ class XvecAccessor:
         tolerance: float | None = None,
         name: str = "geometry",
         crs: Any = None,
+        index: bool = None,
     ):
         """Extract points from a DataArray or a Dataset indexed by spatial coordinates
 
@@ -936,6 +937,13 @@ class XvecAccessor:
             ``.crs`` attribute (e.g. ``geopandas.GeoSeries`` or a ``DataArray`` with
             ``"crs"`` in ``.attrs`), ``crs`` will be automatically inferred. For more
             generic objects (numpy  array, list), CRS shall be specified manually.
+        index : bool, optional
+            If `points` is a GeoSeries, ``index=True`` will attach its index as another
+            coordinate to the geometry dimension in the resulting object. If
+            ``index=None``, the index will be stored if the `points.index` is a named
+            or non-default index. If ``index=False``, it will never be stored. This is
+            useful as an attribute link between the resulting array and the GeoPandas
+            object from which the points are sourced from.
 
         Returns
         -------
@@ -1001,6 +1009,29 @@ class XvecAccessor:
         )
 
         subset[name] = (name, np.asarray(points))
-        return subset.drop_vars([x_coords, y_coords]).xvec.set_geom_indexes(
+        result = subset.drop_vars([x_coords, y_coords]).xvec.set_geom_indexes(
             name, crs=crs
         )
+
+        # save the index as a data variable
+        if isinstance(points, pd.Series):
+            if index is None:
+                if points.index.name is not None or not points.index.equals(
+                    pd.RangeIndex(0, len(points))
+                ):
+                    index = True
+            if index:
+                index_name = points.index.name if points.index.name else "index"
+                result = result.assign_coords({index_name: (name, points.index)})
+
+        # preserve additional DataArray coords
+        elif isinstance(points, xr.DataArray):
+            if len(points.coords) > 1:
+                result = result.assign_coords(
+                    {
+                        coo: (name, points[coo].data)
+                        for coo in points.coords
+                        if coo != name
+                    }
+                )
+        return result
