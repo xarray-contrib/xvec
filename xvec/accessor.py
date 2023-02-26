@@ -808,6 +808,7 @@ class XvecAccessor:
         name: Hashable | None = None,
         dim_order: Sequence[Hashable] | None = None,
         geometry: Hashable | None = None,
+        long: bool = True,
     ):
         """Convert this array and its coordinates into a tidy geopandas.GeoDataFrame.
 
@@ -820,7 +821,7 @@ class XvecAccessor:
         Geometry coordinates are forcibly removed from the index and stored as columns.
 
         If there is only a single geometry coordinate axis, it is set as active
-        geometry of the GeoDataFrame. If there are mutptiple or none in coordinates,
+        geometry of the GeoDataFrame. If there are multiple or none in coordinates,
         ``geometry`` must be passed to set an active geometry column.
 
         Parameters
@@ -840,6 +841,11 @@ class XvecAccessor:
         geometry : Hashable, optional
             A key of a geometry coordinates to be used as an active geometry of the
             resulting GeoDataFrame.
+        long : Bool, optional (default True)
+            A form of the table. If True, creates a long form as
+            ``DataArray.to_dataframe``. If False, creates a wide form with MultiIndex
+            columns (as if you would call ``.unstack()``). A wide form supports objects
+            with only a single dimension of geometries.
 
         Returns
         -------
@@ -866,6 +872,20 @@ class XvecAccessor:
         else:
             df = self._obj.to_dataframe(name=name, dim_order=dim_order)
 
+        if not long:
+            if len(self._geom_coords_all) != 1:
+                raise ValueError(
+                    "Creating a wide form GeoDataFrame with `long=False` requires "
+                    "exactly one dimension with a GeometryIndex."
+                )
+            df = df.unstack(
+                [
+                    level
+                    for level in df.index.names
+                    if level not in self._geom_coords_all
+                ]
+            )
+
         if isinstance(df.index, pd.MultiIndex):
             to_reset = [g for g in self._geom_coords_all if g in df.index.names]
             if to_reset:
@@ -884,7 +904,9 @@ class XvecAccessor:
                 df[c] = gpd.GeoSeries(df[c], crs=self._obj[c].attrs.get("crs", None))
 
         if geometry is not None:
-            return df.set_geometry(geometry)
+            return df.set_geometry(
+                geometry, crs=self._obj[geometry].attrs.get("crs", None)
+            )
 
         warnings.warn(
             "No active geometry column to be set. The resulting object "
