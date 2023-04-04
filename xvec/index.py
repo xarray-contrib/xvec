@@ -32,7 +32,7 @@ def _get_common_crs(crs_set: set[CRS | None]):
         return None
     if len(crs_not_none) == 1:
         if len(crs_set) != 1:
-            warnings.warn(
+            warnings.warn(  # noqa: B028
                 "CRS not set for some of the concatenation inputs. "
                 f"Setting output's CRS as {names[0]} "
                 "(the single non-null CRS provided)."
