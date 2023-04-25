@@ -129,7 +129,7 @@ def test_align(
 ):
     # test both GeometryIndex's `join` and `reindex_like`
     aligned = xr.align(geom_dataset, first_geom_dataset, join="inner")
-    assert all([ds.identical(first_geom_dataset) for ds in aligned])
+    assert all(ds.identical(first_geom_dataset) for ds in aligned)
 
     # test conflicting CRS
     crs = CRS.from_user_input(4267)
@@ -144,7 +144,7 @@ def test_align(
     # no CRS
     first_geom_dataset_no_crs = geom_dataset_no_crs.isel(geom=[0])
     aligned = xr.align(geom_dataset_no_crs, first_geom_dataset_no_crs, join="inner")
-    assert all([ds.identical(first_geom_dataset_no_crs) for ds in aligned])
+    assert all(ds.identical(first_geom_dataset_no_crs) for ds in aligned)
 
 
 def test_roll(geom_dataset, geom_array):
