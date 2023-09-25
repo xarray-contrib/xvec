@@ -12,7 +12,6 @@ from pyproj import CRS, Transformer
     
 from .index import GeometryIndex
 
-import rioxarray
 from joblib import Parallel, delayed
 import multiprocessing
 import dask.array as da
