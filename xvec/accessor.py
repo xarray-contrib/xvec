@@ -9,8 +9,19 @@ import pandas as pd
 import shapely
 import xarray as xr
 from pyproj import CRS, Transformer
-
+    
 from .index import GeometryIndex
+
+import rioxarray
+from joblib import Parallel, delayed
+import multiprocessing
+import dask.array as da
+import rasterio.features
+from tqdm import tqdm 
+import rasterio
+from geopandas import GeoDataFrame
+import geopandas as gpd
+import gc
 
 
 @xr.register_dataarray_accessor("xvec")
@@ -918,6 +929,136 @@ class XvecAccessor:
         )
         return df
 
+    def agg_geom(self, geom, trans,var,  stat='mean'):
+
+        #Create a GeoSeries from the geometry
+        geo_series = gpd.GeoSeries(geom)
+
+        # Convert the GeoSeries to a GeometryArray
+        geometry_array = geo_series.geometry.array
+
+        #stat_results = []
+        #for var in ds.data_vars:
+        xar_chunk = self._obj[var]
+        mask = rasterio.features.geometry_mask(geometry_array, out_shape=(xar_chunk.shape[0], xar_chunk.shape[1]), transform= trans)
+        masked_data = xar_chunk * mask[:, :, np.newaxis]
+        del mask, xar_chunk; gc.collect()
+
+        if stat == 'sum':
+            stat_within_polygons = da.sum(masked_data, axis=(0, 1))
+        elif stat == 'mean':
+            stat_within_polygons = da.mean(masked_data, axis=(0, 1))
+        elif stat == 'median':
+            stat_within_polygons = da.median(masked_data, axis=(0, 1))
+        elif stat == 'max':
+            stat_within_polygons = da.max(masked_data, axis=(0, 1))
+        elif stat == 'min':
+            stat_within_polygons = da.min(masked_data, axis=(0, 1))
+
+        result = stat_within_polygons.compute()
+        del masked_data, stat_within_polygons; gc.collect()
+
+        return result 
+    
+
+
+    def spatial_agg(self, geometries, stat='mean', chunk_size = 2):
+        transform = self._obj.rio.transform()
+        #geometries = gdf.geometry.values
+
+
+        num_cores = multiprocessing.cpu_count() 
+        geometry_chunks = [geometries[i:i + chunk_size] for i in range(0, len(geometries), chunk_size)]
+
+        stats_dic = {}
+        for var in self._obj.data_vars:
+            stats_dic[var] = []
+
+            computed_results = []
+            for chunk in tqdm(geometry_chunks):
+                # Create a list of delayed objects for the current chunk
+                chunk_results =  Parallel(n_jobs=num_cores)(
+                    delayed(self.agg_geom)(geom, transform, var,  stat=stat) for geom in chunk
+                )
+                computed_results.extend(chunk_results)
+            stats_dic[var] = computed_results
+
+            gc.collect()
+
+        # Unpack the results into VectorCube
+        df = pd.DataFrame()
+        keys_items = {}
+        for k in stats_dic.keys():
+
+            s = stats_dic[k]
+            columns = []
+            for t in range(len(self._obj.time)):
+                columns.append(f'{k}{t+1}')
+            keys_items[k] = columns    
+            # Create a new DataFrame with the current data and columns
+            df_k = pd.DataFrame(s, columns=columns)
+            # Concatenate the new DataFrame with the existing DataFrame
+            df = pd.concat([df, df_k], axis=1)
+
+
+        #df = gpd.GeoDataFrame(df, geometry=gdf.geometry)
+        df = gpd.GeoDataFrame(df, geometry=geometries)
+        times = list(self._obj.time.values)
+
+        data_vars = {}
+        for key in keys_items.keys():
+            data_vars[key] = (["geometry", "time"], df[keys_items[key]])
+
+        ## Create VectorCube    
+        vec_cube = xr.Dataset(data_vars=data_vars, coords=dict(geometry=df.geometry, time=times)
+                         ).xvec.set_geom_indexes("geometry", crs=df.crs) 
+
+
+        return vec_cube
+
+    
+    def agg_polys(
+        self,     
+        polygons: Sequence[shapely.Geometry],
+        stat: str = 'mean', 
+        name: str = "geometry",
+    ):
+        """Extract the values from a dataset indexed by a set of geometries
+
+        The CRS of the raster and that of points need to be in wgs84. Xvec does not verify
+        their equality.
+
+        Parameters
+        ----------
+        polygons : Sequence[shapely.Geometry]
+            An arrray-like (1-D) of shapely geometries, like a numpy array or GeoPandas
+            GeoSeries.
+        stat : Hashable
+            Spatial aggregation statistic method, by default "mean". It supports the 
+            following statistcs: ['mean', 'median', 'min', 'max', 'sum']
+        name : Hashable, optional
+            Name of the dimension that will hold the ``polygons``, by default "geometry"
+        crs : Any, optional
+            Cordinate reference system of shapely geometries. If ``points`` have a
+            ``.crs`` attribute (e.g. ``geopandas.GeoSeries`` or a ``DataArray`` with
+            ``"crs"`` in ``.attrs`), ``crs`` will be automatically inferred. For more
+            generic objects (numpy  array, list), CRS shall be specified manually.
+
+        Returns
+        -------
+        Dataset
+            A subset of the original object with N-1 dimensions indexed by
+            the the GeometryIndex.
+            
+        """  
+        
+        vec_cube = self._obj.xvec.spatial_agg(polygons, stat='mean', chunk_size = 2)
+        
+        #.xvec.set_geom_indexes
+        # weightmap = xa.pixel_overlaps(self._obj, polygons)
+        # agg_df = xa.aggregate(s1_wgs84, weightmap, stat = stats).to_dataframe()
+        return vec_cube
+        
     def extract_points(
         self,
         points: Sequence[shapely.Geometry],
