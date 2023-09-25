@@ -7,6 +7,9 @@ dependencies:
   - cython
   - geos
   - proj
+  - rioxarray=0.14.1
+  - joblib=1.3.2
+  - rasterio=1.3.8
   # testing
   - pytest
   - pytest-cov
