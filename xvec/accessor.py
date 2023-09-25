@@ -937,8 +937,6 @@ class XvecAccessor:
         # Convert the GeoSeries to a GeometryArray
         geometry_array = geo_series.geometry.array
 
-        #stat_results = []
-        #for var in ds.data_vars:
         xar_chunk = self._obj[var]
         mask = rasterio.features.geometry_mask(geometry_array, out_shape=(xar_chunk.shape[0], xar_chunk.shape[1]), transform= trans)
         masked_data = xar_chunk * mask[:, :, np.newaxis]
@@ -964,9 +962,6 @@ class XvecAccessor:
 
     def spatial_agg(self, geometries, stat='mean', chunk_size = 2):
         transform = self._obj.rio.transform()
-        #geometries = gdf.geometry.values
-
-
         num_cores = multiprocessing.cpu_count() 
         geometry_chunks = [geometries[i:i + chunk_size] for i in range(0, len(geometries), chunk_size)]
 
@@ -1054,9 +1049,6 @@ class XvecAccessor:
         
         vec_cube = self._obj.xvec.spatial_agg(polygons, stat='mean', chunk_size = 2)
         
-        #.xvec.set_geom_indexes
-        # weightmap = xa.pixel_overlaps(self._obj, polygons)
-        # agg_df = xa.aggregate(s1_wgs84, weightmap, stat = stats).to_dataframe()
         return vec_cube
         
     def extract_points(
