@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import pytest
 import shapely
-from shapely.geometry import Polygon
 import xarray as xr
 from geopandas.testing import assert_geodataframe_equal
 from pandas.testing import assert_frame_equal
@@ -586,7 +585,7 @@ def test_to_geodataframe_dataset(traffic_dataset):
 
     
 def test_aggregate_raster_cubes():
-    #### This test for spatial aggregation using list of geometries - using sum aggregation ####
+    #### Test spatial aggregation using geometries - sum aggregation ####
     # Create the dataset
     da = xr.DataArray(
         np.zeros((10, 10, 5)),
@@ -599,8 +598,8 @@ def test_aggregate_raster_cubes():
     da = da.to_dataset(name="test")
     
     # Create the polygons
-    polygon1 = Polygon([(1, 22), (4, 22), (4, 26), (1, 26)])  
-    polygon2 = Polygon([(6, 22), (9, 22), (9, 26), (6, 26)])
+    polygon1 = shapely.geometry.Polygon([(1, 22), (4, 22), (4, 26), (1, 26)])  
+    polygon2 = shapely.geometry.Polygon([(6, 22), (9, 22), (9, 26), (6, 26)])
     polygons = gpd.GeoSeries([polygon1, polygon2], crs="EPSG:4326")
 
     
