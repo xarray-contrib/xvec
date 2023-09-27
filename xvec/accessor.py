@@ -9,19 +9,8 @@ import pandas as pd
 import shapely
 import xarray as xr
 from pyproj import CRS, Transformer
-    
-from .index import GeometryIndex
 
-import rioxarray
-from joblib import Parallel, delayed
-import multiprocessing
-import dask.array as da
-import rasterio.features
-from tqdm import tqdm 
-import rasterio
-from geopandas import GeoDataFrame
-import geopandas as gpd
-import gc
+from .index import GeometryIndex
 
 
 @xr.register_dataarray_accessor("xvec")
@@ -929,7 +918,72 @@ class XvecAccessor:
         )
         return df
 
-    def agg_geom(self, geom, trans,var,  stat='mean'):
+    def agg_geom(
+        self,
+        geom,
+        trans,
+        var: str,
+        stat: str ='mean',
+        dask: bool = True):
+        
+        """Aggregate the values from a dataset over a polygon geometry. 
+
+        The CRS of the raster and that of points need to be in wgs84. Xvec does not verify
+        their equality.
+
+        Parameters
+        ----------
+        geom : Polygon[shapely.Geometry]
+            An arrray-like (1-D) of shapely geometry, like a numpy array or GeoPandas
+            GeoSeries.
+
+        trans : affine.Affine
+            Affine transformer representing the geometric transformation applied to the data.
+            
+        var : Hashable
+            Name of the variable in the dataset to aggregate its values. 
+            
+        stat : Hashable
+            Spatial aggregation statistic method, by default "mean". It supports the 
+            following statistcs: ['mean', 'median', 'min', 'max', 'sum']
+                
+        dask : bool, 
+            If the input is dask array or not.
+            
+
+        Returns
+        -------
+        Array 
+            Aggregated values over the geometry.  
+            
+        """  
+        try:
+            import geopandas as gpd
+        except ImportError as err:
+            raise ImportError(
+                "The geopandas package is required for `xvec.agg_geom()`. "
+                "You can install it using 'conda install -c conda-forge geopandas' or "
+                "'pip install geopandas'."
+            ) from err
+
+        try:
+            import rasterio
+        except ImportError as err:
+            raise ImportError(
+                "The rasterio package is required for `xvec.agg_geom()`. "
+                "You can install it using 'conda install -c conda-forge rasterio' or "
+                "'pip install rasterio'."
+            ) from err
+
+
+        try:
+            import gc
+        except ImportError as err:
+            raise ImportError(
+                "The gc package is required for `xvec.agg_geom()`. "
+                "Make sure 'gc' is included in the standard library"
+                "Check your Python installation for any issues as it is an integral part of Python's core functionality."
+            ) from err
 
         #Create a GeoSeries from the geometry
         geo_series = gpd.GeoSeries(geom)
@@ -942,27 +996,148 @@ class XvecAccessor:
         masked_data = xar_chunk * mask[:, :, np.newaxis]
         del mask, xar_chunk; gc.collect()
 
-        if stat == 'sum':
-            stat_within_polygons = da.sum(masked_data, axis=(0, 1))
-        elif stat == 'mean':
-            stat_within_polygons = da.mean(masked_data, axis=(0, 1))
-        elif stat == 'median':
-            stat_within_polygons = da.median(masked_data, axis=(0, 1))
-        elif stat == 'max':
-            stat_within_polygons = da.max(masked_data, axis=(0, 1))
-        elif stat == 'min':
-            stat_within_polygons = da.min(masked_data, axis=(0, 1))
 
-        result = stat_within_polygons.compute()
+        if dask:
+            try:
+                import dask.array as da 
+            except ImportError as err:
+                raise ImportError(
+                    "The dask package is required for This step. "
+                    "You can install it using 'conda install -c conda-forge dask' or "
+                    "'pip install dask'."
+                ) from err
+
+
+            if stat == 'sum':
+                stat_within_polygons = da.sum(masked_data, axis=(0, 1))
+            elif stat == 'mean':
+                stat_within_polygons = da.mean(masked_data, axis=(0, 1))
+            elif stat == 'median':
+                stat_within_polygons = da.median(masked_data, axis=(0, 1))
+            elif stat == 'max':
+                stat_within_polygons = da.max(masked_data, axis=(0, 1))
+            elif stat == 'min':
+                stat_within_polygons = da.min(masked_data, axis=(0, 1))
+
+            result = stat_within_polygons.compute()
+
+        else:
+            if stat == 'sum':
+                stat_within_polygons = masked_data.sum(axis=(0, 1))
+            elif stat == 'mean':
+                stat_within_polygons = masked_data.mean(axis=(0, 1))
+            elif stat == 'median':
+                stat_within_polygons = masked_data.median(axis=(0, 1))
+            elif stat == 'max':
+                stat_within_polygons = masked_data.max(axis=(0, 1))
+            elif stat == 'min':
+                stat_within_polygons = masked_data.min(axis=(0, 1))
+
+            result = stat_within_polygons.values
+
         del masked_data, stat_within_polygons; gc.collect()
 
         return result 
     
 
 
-    def spatial_agg(self, geometries, stat='mean', chunk_size = 2):
+    def spatial_agg(
+        self,
+        geometries: Sequence[shapely.Geometry],
+        stat: str ='mean',
+        chunk_size: int = 2,
+        dask: bool = True,
+        n_jobs: int = -1):
+        
+        """Aggregate the values from a dataset over a polygon geometry. 
+
+        The CRS of the raster and that of points need to be in wgs84. Xvec does not verify
+        their equality.
+
+        Parameters
+        ----------
+        geometries : Sequence[shapely.Geometry]
+            An arrray-like (1-D) of shapely geometries, like a numpy array or GeoPandas
+            GeoSeries.
+
+        stat : Hashable
+            Spatial aggregation statistic method, by default "mean". It supports the 
+            following statistcs: ['mean', 'median', 'min', 'max', 'sum']
+
+        chunk_size : int
+            Chunk size in case have a big set of geometries. 
+            It is recommended to set this to small number for a big set of geometries or big datacube. 
+                
+        dask : bool, 
+            If the input is dask array or not.
+
+        n_jobs : int, optional
+            Number of parallel threads to use.
+            
+
+        Returns
+        -------
+        Dataset
+            A subset of the original object with N-1 dimensions indexed by
+            the the GeometryIndex.
+            
+        """  
+            
+        
+        try:
+            import geopandas as gpd
+            import gc
+        except ImportError as err:
+            raise ImportError(
+                "The geopandas package is required for `xvec.spatial_agg()`. "
+                "You can install it using 'conda install -c conda-forge geopandas' or "
+                "'pip install geopandas'."
+            ) from err
+
+        try:
+            import rioxarray # noqa
+        except ImportError as err:
+            raise ImportError(
+                "The rioxarray package is required for `xvec.spatial_agg()`. "
+                "You can install it using 'conda install -c conda-forge rioxarray' or "
+                "'pip install rioxarray'."
+            ) from err
+
+
+        try:
+            from joblib import Parallel, delayed
+        except ImportError as err:
+            raise ImportError(
+                "The joblib package is required for `xvec.spatial_agg()`. "
+                "You can install it using 'conda install -c conda-forge joblib' or "
+                "'pip install joblib'."
+            ) from err
+
+
+
+        try:
+            from tqdm import tqdm 
+        except ImportError as err:
+            raise ImportError(
+                "The tqdm package is required for `xvec.spatial_agg()`. "
+                "You can install it using 'conda install -c conda-forge tqdm' or "
+                "'pip install tqdm'."
+            ) from err
+
+
+        try:
+            import gc
+        except ImportError as err:
+            raise ImportError(
+                "The gc package is required for `xvec.spatial_agg()`. "
+                "Make sure 'gc' is included in the standard library"
+                "Check your Python installation for any issues as it is an integral part of Python's core functionality."
+            ) from err
+
+
+
+
         transform = self._obj.rio.transform()
-        num_cores = multiprocessing.cpu_count() 
         geometry_chunks = [geometries[i:i + chunk_size] for i in range(0, len(geometries), chunk_size)]
 
         stats_dic = {}
@@ -972,12 +1147,13 @@ class XvecAccessor:
             computed_results = []
             for chunk in tqdm(geometry_chunks):
                 # Create a list of delayed objects for the current chunk
-                chunk_results =  Parallel(n_jobs=num_cores)(
-                    delayed(self.agg_geom)(geom, transform, var,  stat=stat) for geom in chunk
+                chunk_results =  Parallel(n_jobs=n_jobs)(
+                    delayed(self.agg_geom)(geom, transform, var,  stat=stat, dask= dask) for geom in chunk
                 )
                 computed_results.extend(chunk_results)
             stats_dic[var] = computed_results
 
+            # Clean the space
             gc.collect()
 
         # Unpack the results into VectorCube
@@ -996,7 +1172,6 @@ class XvecAccessor:
             df = pd.concat([df, df_k], axis=1)
 
 
-        #df = gpd.GeoDataFrame(df, geometry=gdf.geometry)
         df = gpd.GeoDataFrame(df, geometry=geometries)
         times = list(self._obj.time.values)
 
@@ -1012,12 +1187,16 @@ class XvecAccessor:
         return vec_cube
 
     
-    def agg_polys(
+    def zonal_stats(
         self,     
         polygons: Sequence[shapely.Geometry],
         stat: str = 'mean', 
         name: str = "geometry",
+        dask: bool = True,
+        chunk_size: int = 2,
+        n_jobs: int = -1,
     ):
+        
         """Extract the values from a dataset indexed by a set of geometries
 
         The CRS of the raster and that of points need to be in wgs84. Xvec does not verify
@@ -1033,11 +1212,17 @@ class XvecAccessor:
             following statistcs: ['mean', 'median', 'min', 'max', 'sum']
         name : Hashable, optional
             Name of the dimension that will hold the ``polygons``, by default "geometry"
-        crs : Any, optional
-            Cordinate reference system of shapely geometries. If ``points`` have a
-            ``.crs`` attribute (e.g. ``geopandas.GeoSeries`` or a ``DataArray`` with
-            ``"crs"`` in ``.attrs`), ``crs`` will be automatically inferred. For more
-            generic objects (numpy  array, list), CRS shall be specified manually.
+            
+        dask : bool, 
+            If the input is dask array or not.
+            
+        chunk_size : int
+            Chunk size in case have a big set of geometries. 
+            It is recommended to set this to small number for a big set of geometries or big datacube. 
+            
+        n_jobs : int, optional
+            Number of parallel threads to use. 
+            For better performance, it is recommended to set this to the number of physical cores in the CPU. 
 
         Returns
         -------
@@ -1047,7 +1232,7 @@ class XvecAccessor:
             
         """  
         
-        vec_cube = self._obj.xvec.spatial_agg(polygons, stat='mean', chunk_size = 2)
+        vec_cube = self._obj.xvec.spatial_agg(polygons, stat='mean', chunk_size = 2, dask= dask, n_jobs = n_jobs)
         
         return vec_cube
         
