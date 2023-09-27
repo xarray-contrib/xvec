@@ -584,7 +584,7 @@ def test_to_geodataframe_dataset(traffic_dataset):
     assert actual.geometry.name == "destination"
     assert actual.crs == 26915
 
-    
+
 def test_aggregate_raster_cubes():
     #### Test spatial aggregation using geometries - sum aggregation ####
     # Create the dataset
@@ -597,13 +597,12 @@ def test_aggregate_raster_cubes():
         },
     )
     da = da.to_dataset(name="test")
-    
+
     # Create the polygons
-    polygon1 = shapely.geometry.Polygon([(1, 22), (4, 22), (4, 26), (1, 26)])  
+    polygon1 = shapely.geometry.Polygon([(1, 22), (4, 22), (4, 26), (1, 26)])
     polygon2 = shapely.geometry.Polygon([(6, 22), (9, 22), (9, 26), (6, 26)])
     polygons = gpd.GeoSeries([polygon1, polygon2], crs="EPSG:4326")
 
-    
     # Expected results
     expected = xr.DataArray(
         np.zeros((2, 5)),
@@ -615,15 +614,13 @@ def test_aggregate_raster_cubes():
 
     expected = expected.to_dataset(name="test")
     expected = expected.set_coords("geometry")
-    
+
     # Actual results
     actual = da.xvec.zonal_stats(polygons, stat="sum")
-    
+
     # Testing
     xr.testing.assert_identical(actual, expected)
-    
-    
-    
+
 
 def test_extract_points_array():
     da = xr.DataArray(
