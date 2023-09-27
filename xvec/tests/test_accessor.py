@@ -616,7 +616,7 @@ def test_aggregate_raster_cubes():
     expected = expected.set_coords("geometry")
     
     # Actual results
-    actual = da.xvec.agg_polys(polygons, stat="sum")
+    actual = da.xvec.zonal_stats(polygons, stat="sum")
     
     # Testing
     xr.testing.assert_identical(actual, expected)
