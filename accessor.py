@@ -1283,7 +1283,7 @@ class XvecAccessor:
         crs : Any, optional
             Cordinate reference system of shapely geometries. If ``points`` have a
             ``.crs`` attribute (e.g. ``geopandas.GeoSeries`` or a ``DataArray`` with
-            ``"crs"`` in ``.attrs``), ``crs`` will be automatically inferred. For more
+            ``"crs"`` in ``.attrs`), ``crs`` will be automatically inferred. For more
             generic objects (numpy  array, list), CRS shall be specified manually.
         index : bool, optional
             If `points` is a GeoSeries, ``index=True`` will attach its index as another
