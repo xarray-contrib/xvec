@@ -1070,7 +1070,7 @@ class XvecAccessor:
 
         chunk_size : int
             Chunk size in case have a big set of geometries. 
-            It is recommended to use small number for a big set of geometries or big datacube. 
+            Recommended to use small number for a big set of geometries or big datacube. 
                 
         dask : bool, 
             If the input is dask array or not.
@@ -1090,7 +1090,6 @@ class XvecAccessor:
         
         try:
             import geopandas as gpd
-            import gc
         except ImportError as err:
             raise ImportError(
                 "The geopandas package is required for `xvec.spatial_agg()`. "
@@ -1184,8 +1183,9 @@ class XvecAccessor:
             data_vars[key] = (["geometry", "time"], df[keys_items[key]])
 
         ## Create VectorCube    
-        vec_cube = xr.Dataset(data_vars=data_vars, coords=dict(geometry=df.geometry, time=times)
-                         ).xvec.set_geom_indexes("geometry", crs=df.crs) 
+        vec_cube = xr.Dataset(data_vars=data_vars,
+                              coords={'geometry': df.geometry, 'time': times}
+                             ).xvec.set_geom_indexes("geometry", crs=df.crs) 
 
 
         return vec_cube
@@ -1222,7 +1222,7 @@ class XvecAccessor:
             
         chunk_size : int
             Chunk size in case have a big set of geometries. 
-            It is recommended to use small number for a big set of geometries or big datacube. 
+            Recommended to use small number for a big set of geometries or big datacube. 
             
         n_jobs : int, optional
             Number of parallel threads to use. 
