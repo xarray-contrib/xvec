@@ -918,15 +918,8 @@ class XvecAccessor:
         )
         return df
 
-    def agg_geom(
-        self,
-        geom,
-        trans,
-        var: str,
-        stat: str ='mean',
-        dask: bool = True):
-        
-        """Aggregate the values from a dataset over a polygon geometry. 
+    def agg_geom(self, geom, trans, var: str, stat: str = "mean", dask: bool = True):
+        """Aggregate the values from a dataset over a polygon geometry.
 
         The CRS of the raster and that of points need to be in wgs84.
         Xvec does not verify their equality.
@@ -940,24 +933,24 @@ class XvecAccessor:
         trans : affine.Affine
             Affine transformer.
             Representing the geometric transformation applied to the data.
-            
+
         var : Hashable
-            Name of the variable in the dataset to aggregate its values. 
-            
+            Name of the variable in the dataset to aggregate its values.
+
         stat : Hashable
-            Spatial aggregation statistic method, by default "mean". It supports the 
+            Spatial aggregation statistic method, by default "mean". It supports the
             following statistcs: ['mean', 'median', 'min', 'max', 'sum']
-                
-        dask : bool, 
+
+        dask : bool,
             If the input is dask array or not.
-            
+
 
         Returns
         -------
-        Array 
-            Aggregated values over the geometry.  
-            
-        """  
+        Array
+            Aggregated values over the geometry.
+
+        """
         try:
             import geopandas as gpd
         except ImportError as err:
@@ -976,7 +969,6 @@ class XvecAccessor:
                 "'pip install rasterio'."
             ) from err
 
-
         try:
             import gc
         except ImportError as err:
@@ -986,24 +978,26 @@ class XvecAccessor:
                 "Check your Python installation for any issues."
             ) from err
 
-        #Create a GeoSeries from the geometry
+        # Create a GeoSeries from the geometry
         geo_series = gpd.GeoSeries(geom)
 
         # Convert the GeoSeries to a GeometryArray
         geometry_array = geo_series.geometry.array
 
         xar_chunk = self._obj[var]
-        mask = rasterio.features.geometry_mask(geometry_array,
-                                               out_shape=(xar_chunk.shape[0], xar_chunk.shape[1]),
-                                               transform= trans)
-        
-        masked_data = xar_chunk * mask[:, :, np.newaxis]
-        del mask, xar_chunk; gc.collect()
+        mask = rasterio.features.geometry_mask(
+            geometry_array,
+            out_shape=(xar_chunk.shape[0], xar_chunk.shape[1]),
+            transform=trans,
+        )
 
+        masked_data = xar_chunk * mask[:, :, np.newaxis]
+        del mask, xar_chunk
+        gc.collect()
 
         if dask:
             try:
-                import dask.array as da 
+                import dask.array as da
             except ImportError as err:
                 raise ImportError(
                     "The dask package is required for This step. "
@@ -1011,49 +1005,47 @@ class XvecAccessor:
                     "'pip install dask'."
                 ) from err
 
-
-            if stat == 'sum':
+            if stat == "sum":
                 stat_within_polygons = da.sum(masked_data, axis=(0, 1))
-            elif stat == 'mean':
+            elif stat == "mean":
                 stat_within_polygons = da.mean(masked_data, axis=(0, 1))
-            elif stat == 'median':
+            elif stat == "median":
                 stat_within_polygons = da.median(masked_data, axis=(0, 1))
-            elif stat == 'max':
+            elif stat == "max":
                 stat_within_polygons = da.max(masked_data, axis=(0, 1))
-            elif stat == 'min':
+            elif stat == "min":
                 stat_within_polygons = da.min(masked_data, axis=(0, 1))
 
             result = stat_within_polygons.compute()
 
         else:
-            if stat == 'sum':
+            if stat == "sum":
                 stat_within_polygons = masked_data.sum(axis=(0, 1))
-            elif stat == 'mean':
+            elif stat == "mean":
                 stat_within_polygons = masked_data.mean(axis=(0, 1))
-            elif stat == 'median':
+            elif stat == "median":
                 stat_within_polygons = masked_data.median(axis=(0, 1))
-            elif stat == 'max':
+            elif stat == "max":
                 stat_within_polygons = masked_data.max(axis=(0, 1))
-            elif stat == 'min':
+            elif stat == "min":
                 stat_within_polygons = masked_data.min(axis=(0, 1))
 
             result = stat_within_polygons.values
 
-        del masked_data, stat_within_polygons; gc.collect()
+        del masked_data, stat_within_polygons
+        gc.collect()
 
-        return result 
-    
-
+        return result
 
     def spatial_agg(
         self,
         geometries: Sequence[shapely.Geometry],
-        stat: str ='mean',
+        stat: str = "mean",
         chunk_size: int = 2,
         dask: bool = True,
-        n_jobs: int = -1):
-        
-        """Aggregate the values from a dataset over a polygon geometry. 
+        n_jobs: int = -1,
+    ):
+        """Aggregate the values from a dataset over a polygon geometry.
 
         The CRS of the raster and that of points need to be in wgs84.
         Xvec does not verify their equality.
@@ -1065,29 +1057,28 @@ class XvecAccessor:
             GeoSeries.
 
         stat : Hashable
-            Spatial aggregation statistic method, by default "mean". It supports the 
+            Spatial aggregation statistic method, by default "mean". It supports the
             following statistcs: ['mean', 'median', 'min', 'max', 'sum']
 
         chunk_size : int
-            Chunk size in case have a big set of geometries. 
-            Recommended to use small number for a big set of geometries or big datacube. 
-                
-        dask : bool, 
+            Chunk size in case have a big set of geometries.
+            Recommended to use small number for a big set of geometries or big datacube.
+
+        dask : bool,
             If the input is dask array or not.
 
         n_jobs : int, optional
             Number of parallel threads to use.
-            
+
 
         Returns
         -------
         Dataset
             A subset of the original object with N-1 dimensions indexed by
             the the GeometryIndex.
-            
-        """  
-            
-        
+
+        """
+
         try:
             import geopandas as gpd
         except ImportError as err:
@@ -1098,14 +1089,13 @@ class XvecAccessor:
             ) from err
 
         try:
-            import rioxarray # noqa
+            import rioxarray  # noqa
         except ImportError as err:
             raise ImportError(
                 "The rioxarray package is required for `xvec.spatial_agg()`. "
                 "You can install it using 'conda install -c conda-forge rioxarray' or "
                 "'pip install rioxarray'."
             ) from err
-
 
         try:
             from joblib import Parallel, delayed
@@ -1116,17 +1106,14 @@ class XvecAccessor:
                 "'pip install joblib'."
             ) from err
 
-
-
         try:
-            from tqdm import tqdm 
+            from tqdm import tqdm
         except ImportError as err:
             raise ImportError(
                 "The tqdm package is required for `xvec.spatial_agg()`. "
                 "You can install it using 'conda install -c conda-forge tqdm' or "
                 "'pip install tqdm'."
             ) from err
-
 
         try:
             import gc
@@ -1137,11 +1124,11 @@ class XvecAccessor:
                 "Check your Python installation for any issues."
             ) from err
 
-
-
-
         transform = self._obj.rio.transform()
-        geometry_chunks = [geometries[i:i + chunk_size] for i in range(0, len(geometries), chunk_size)]
+        geometry_chunks = [
+            geometries[i : i + chunk_size]
+            for i in range(0, len(geometries), chunk_size)
+        ]
 
         stats_dic = {}
         for var in self._obj.data_vars:
@@ -1150,8 +1137,9 @@ class XvecAccessor:
             computed_results = []
             for chunk in tqdm(geometry_chunks):
                 # Create a list of delayed objects for the current chunk
-                chunk_results =  Parallel(n_jobs=n_jobs)(
-                    delayed(self.agg_geom)(geom, transform, var,  stat=stat, dask= dask) for geom in chunk
+                chunk_results = Parallel(n_jobs=n_jobs)(
+                    delayed(self.agg_geom)(geom, transform, var, stat=stat, dask=dask)
+                    for geom in chunk
                 )
                 computed_results.extend(chunk_results)
             stats_dic[var] = computed_results
@@ -1163,17 +1151,15 @@ class XvecAccessor:
         df = pd.DataFrame()
         keys_items = {}
         for k in stats_dic.keys():
-
             s = stats_dic[k]
             columns = []
             for t in range(len(self._obj.time)):
-                columns.append(f'{k}{t+1}')
-            keys_items[k] = columns    
+                columns.append(f"{k}{t+1}")
+            keys_items[k] = columns
             # Create a new DataFrame with the current data and columns
             df_k = pd.DataFrame(s, columns=columns)
             # Concatenate the new DataFrame with the existing DataFrame
             df = pd.concat([df, df_k], axis=1)
-
 
         df = gpd.GeoDataFrame(df, geometry=geometries)
         times = list(self._obj.time.values)
@@ -1182,25 +1168,22 @@ class XvecAccessor:
         for key in keys_items.keys():
             data_vars[key] = (["geometry", "time"], df[keys_items[key]])
 
-        ## Create VectorCube    
-        vec_cube = xr.Dataset(data_vars=data_vars,
-                              coords={'geometry': df.geometry, 'time': times}
-                             ).xvec.set_geom_indexes("geometry", crs=df.crs) 
-
+        ## Create VectorCube
+        vec_cube = xr.Dataset(
+            data_vars=data_vars, coords={"geometry": df.geometry, "time": times}
+        ).xvec.set_geom_indexes("geometry", crs=df.crs)
 
         return vec_cube
 
-    
     def zonal_stats(
-        self,     
+        self,
         polygons: Sequence[shapely.Geometry],
-        stat: str = 'mean', 
+        stat: str = "mean",
         name: str = "geometry",
         dask: bool = True,
         chunk_size: int = 2,
         n_jobs: int = -1,
     ):
-        
         """Extract the values from a dataset indexed by a set of geometries
 
         The CRS of the raster and that of points need to be in wgs84.
@@ -1212,38 +1195,36 @@ class XvecAccessor:
             An arrray-like (1-D) of shapely geometries, like a numpy array or GeoPandas
             GeoSeries.
         stat : Hashable
-            Spatial aggregation statistic method, by default "mean". It supports the 
+            Spatial aggregation statistic method, by default "mean". It supports the
             following statistcs: ['mean', 'median', 'min', 'max', 'sum']
         name : Hashable, optional
             Name of the dimension that will hold the ``polygons``, by default "geometry"
-            
-        dask : bool, 
+
+        dask : bool,
             If the input is dask array or not.
-            
+
         chunk_size : int
-            Chunk size in case have a big set of geometries. 
-            Recommended to use small number for a big set of geometries or big datacube. 
-            
+            Chunk size in case have a big set of geometries.
+            Recommended to use small number for a big set of geometries or big datacube.
+
         n_jobs : int, optional
-            Number of parallel threads to use. 
-            It is recommended to set this to the number of physical cores in the CPU. 
+            Number of parallel threads to use.
+            It is recommended to set this to the number of physical cores in the CPU.
 
         Returns
         -------
         Dataset
             A subset of the original object with N-1 dimensions indexed by
             the the GeometryIndex.
-            
-        """  
-        
-        vec_cube = self._obj.xvec.spatial_agg(polygons,
-                                              stat='mean',
-                                              chunk_size = 2,
-                                              dask= dask,
-                                              n_jobs = n_jobs)
-        
+
+        """
+
+        vec_cube = self._obj.xvec.spatial_agg(
+            polygons, stat="mean", chunk_size=2, dask=dask, n_jobs=n_jobs
+        )
+
         return vec_cube
-        
+
     def extract_points(
         self,
         points: Sequence[shapely.Geometry],
