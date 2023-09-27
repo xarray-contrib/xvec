@@ -6,6 +6,7 @@ import shapely
 import xarray as xr
 from geopandas.testing import assert_geodataframe_equal
 from pandas.testing import assert_frame_equal
+
 import xvec  # noqa
 from xvec import GeometryIndex
 
