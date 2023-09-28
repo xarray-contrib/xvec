@@ -1175,6 +1175,29 @@ class XvecAccessor:
 
         return vec_cube
 
+    def rename_dims(self):
+        """Rename the dimension to lon, lat to be consistent ith the package requirment.
+        It supports rename (x, y) to (lon, lat)
+
+        Returns
+        -------
+        dataset
+            Dataset with renamed dimension (lon, lat).
+
+        """
+
+        possible_dim_names = {"lat": "y", "lon": "x"}
+
+        if "lat" not in self._obj.sizes.keys():
+            dim_name = possible_dim_names["lat"]
+            self._obj = self._obj.rename({dim_name: "lat"})
+
+        if "lon" not in self._obj.sizes.keys():
+            dim_name = possible_dim_names["lon"]
+            self._obj = self._obj.rename({dim_name: "lon"})
+
+        return self._obj
+
     def zonal_stats(
         self,
         polygons: Sequence[shapely.Geometry],
@@ -1219,6 +1242,7 @@ class XvecAccessor:
 
         """
 
+        self._obj = self._obj.xvec.rename_dims()
         vec_cube = self._obj.xvec.spatial_agg(
             polygons, stat=stat, chunk_size=2, dask=dask, n_jobs=n_jobs
         )
