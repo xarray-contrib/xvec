@@ -1006,15 +1006,15 @@ class XvecAccessor:
                 ) from err
 
             if stat == "sum":
-                stat_within_polygons = da.sum(masked_data, dim=["lat", "lon"])
+                stat_within_polygons = da.sum(masked_data, axis=(1, 2))
             elif stat == "mean":
-                stat_within_polygons = da.mean(masked_data, dim=["lat", "lon"])
+                stat_within_polygons = da.mean(masked_data, axis=(1, 2))
             elif stat == "median":
-                stat_within_polygons = da.median(masked_data, dim=["lat", "lon"])
+                stat_within_polygons = da.median(masked_data, axis=(1, 2))
             elif stat == "max":
-                stat_within_polygons = da.max(masked_data, dim=["lat", "lon"])
+                stat_within_polygons = da.max(masked_data, axis=(1, 2))
             elif stat == "min":
-                stat_within_polygons = da.min(masked_data, dim=["lat", "lon"])
+                stat_within_polygons = da.min(masked_data, axis=(1, 2))
 
             result = stat_within_polygons.compute()
 
