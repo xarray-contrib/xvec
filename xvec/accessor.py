@@ -1006,29 +1006,29 @@ class XvecAccessor:
                 ) from err
 
             if stat == "sum":
-                stat_within_polygons = da.sum(masked_data, axis=(0, 1))
+                stat_within_polygons = da.sum(masked_data, dim=["lat", "lon"])
             elif stat == "mean":
-                stat_within_polygons = da.mean(masked_data, axis=(0, 1))
+                stat_within_polygons = da.mean(masked_data, dim=["lat", "lon"])
             elif stat == "median":
-                stat_within_polygons = da.median(masked_data, axis=(0, 1))
+                stat_within_polygons = da.median(masked_data, dim=["lat", "lon"])
             elif stat == "max":
-                stat_within_polygons = da.max(masked_data, axis=(0, 1))
+                stat_within_polygons = da.max(masked_data, dim=["lat", "lon"])
             elif stat == "min":
-                stat_within_polygons = da.min(masked_data, axis=(0, 1))
+                stat_within_polygons = da.min(masked_data, dim=["lat", "lon"])
 
             result = stat_within_polygons.compute()
 
         else:
             if stat == "sum":
-                stat_within_polygons = masked_data.sum(axis=(0, 1))
+                stat_within_polygons = masked_data.sum(dim=["lat", "lon"])
             elif stat == "mean":
-                stat_within_polygons = masked_data.mean(axis=(0, 1))
+                stat_within_polygons = masked_data.mean(dim=["lat", "lon"])
             elif stat == "median":
-                stat_within_polygons = masked_data.median(axis=(0, 1))
+                stat_within_polygons = masked_data.median(dim=["lat", "lon"])
             elif stat == "max":
-                stat_within_polygons = masked_data.max(axis=(0, 1))
+                stat_within_polygons = masked_data.max(dim=["lat", "lon"])
             elif stat == "min":
-                stat_within_polygons = masked_data.min(axis=(0, 1))
+                stat_within_polygons = masked_data.min(dim=["lat", "lon"])
 
             result = stat_within_polygons.values
 
@@ -1220,7 +1220,7 @@ class XvecAccessor:
         """
 
         vec_cube = self._obj.xvec.spatial_agg(
-            polygons, stat="mean", chunk_size=2, dask=dask, n_jobs=n_jobs
+            polygons, stat=stat, chunk_size=2, dask=dask, n_jobs=n_jobs
         )
 
         return vec_cube
