@@ -928,7 +928,7 @@ class XvecAccessor:
         x_axis: int = None,
         y_axis: int = None,
         stat: str = "mean",
-        dask: bool = False
+        dask: bool = False,
     ):
         """Aggregate the values from a dataset over a polygon geometry.
 
@@ -1160,7 +1160,17 @@ class XvecAccessor:
             for chunk in tqdm(geometry_chunks):
                 # Create a list of delayed objects for the current chunk
                 chunk_results = Parallel(n_jobs=n_jobs)(
-                    delayed(self.agg_geom)(geom, transform, var, x_coords, y_coords, x_axis, y_axis, stat=stat, dask=dask)
+                    delayed(self.agg_geom)(
+                        geom,
+                        transform,
+                        var,
+                        x_coords,
+                        y_coords,
+                        x_axis,
+                        y_axis,
+                        stat=stat,
+                        dask=dask,
+                    )
                     for geom in chunk
                 )
                 computed_results.extend(chunk_results)
@@ -1168,7 +1178,7 @@ class XvecAccessor:
 
             # Clean the space
             gc.collect()
-            
+
         # Unpack the results into VectorCube
         df = pd.DataFrame()
         keys_items = {}
@@ -1196,7 +1206,6 @@ class XvecAccessor:
         ).xvec.set_geom_indexes("geometry", crs=df.crs)
 
         return vec_cube
-
 
     def zonal_stats(
         self,
@@ -1252,20 +1261,30 @@ class XvecAccessor:
         """
         if dask:
             if x_axis is None or y_axis is None:
-                raise ValueError("Both x_axis and y_axis must be provided for dask process.")
+                raise ValueError(
+                    "Both x_axis and y_axis must be provided for dask process."
+                )
             if not isinstance(x_axis, int) or not isinstance(y_axis, int):
-                raise TypeError("x_axis and y_axis must be integers to use dask process.")
+                raise TypeError(
+                    "x_axis and y_axis must be integers to use dask process."
+                )
         else:
             if x_coords is None or y_coords is None:
                 raise ValueError("Both x_coords and y_coords must be provided.")
             if not isinstance(x_coords, str) or not isinstance(y_coords, str):
-                raise TypeError("x_coords and y_coords must be str, Hashable.")                
-                
-        vec_cube = self._obj.xvec.spatial_agg(polygons,stat=stat,
-                                              x_coords= x_coords,y_coords= y_coords,
-                                              x_axis= x_axis,y_axis= y_axis,
-                                              chunk_size=2,dask=dask,n_jobs=n_jobs
-                                             )
+                raise TypeError("x_coords and y_coords must be str, Hashable.")
+
+        vec_cube = self._obj.xvec.spatial_agg(
+            polygons,
+            stat=stat,
+            x_coords=x_coords,
+            y_coords=y_coords,
+            x_axis=x_axis,
+            y_axis=y_axis,
+            chunk_size=2,
+            dask=dask,
+            n_jobs=n_jobs,
+        )
         return vec_cube
 
     def extract_points(
