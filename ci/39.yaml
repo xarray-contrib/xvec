@@ -4,7 +4,7 @@ channels:
 dependencies:
   - python=3.9
   # required
-  - shapely=2
+  - shapely >=2
   - xarray
   - pyproj
   # testing
