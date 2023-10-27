@@ -2,9 +2,9 @@ name: xvec
 channels:
   - conda-forge
 dependencies:
-  - python
+  - python=3.11
   # required
-  - shapely=2
+  - shapely >=2
   - xarray
   - pyproj
   # testing
