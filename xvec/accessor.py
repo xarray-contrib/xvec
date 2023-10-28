@@ -925,10 +925,7 @@ class XvecAccessor:
         var: str,
         x_coords: str = None,
         y_coords: str = None,
-        x_axis: int = None,
-        y_axis: int = None,
         stat: str = "mean",
-        dask: bool = False,
     ):
         """Aggregate the values from a dataset over a polygon geometry.
 
@@ -947,17 +944,11 @@ class XvecAccessor:
             Name of the axis containing ``x`` coordinates.
         y_coords : Hashable
             Name of the axis containing ``y`` coordinates.
-        x_axis : int
-            Axis order of  ``x`` coordinates.
-        y_axis : int
-            Axis order of  ``y`` coordinates.
         var : Hashable
             Name of the variable in the dataset to aggregate its values.
         stat : Hashable
             Spatial aggregation statistic method, by default "mean". It supports the
             following statistcs: ['mean', 'median', 'min', 'max', 'sum']
-        dask : bool,
-            If the input is dask array or not.
 
         Returns
         -------
@@ -973,7 +964,7 @@ class XvecAccessor:
                 "You can install it using 'conda install -c conda-forge rasterio' or "
                 "'pip install rasterio'."
             ) from err
-
+            
         import gc
 
         # Array of shapely geometries
@@ -990,42 +981,19 @@ class XvecAccessor:
         del mask, xar_chunk
         gc.collect()
 
-        if dask:
-            try:
-                import dask.array as da
-            except ImportError as err:
-                raise ImportError(
-                    "The dask package is required for This step. "
-                    "You can install it using 'conda install -c conda-forge dask' or "
-                    "'pip install dask'."
-                ) from err
 
-            if stat == "sum":
-                stat_within_polygons = da.sum(masked_data, axis=(x_axis, y_axis))
-            elif stat == "mean":
-                stat_within_polygons = da.mean(masked_data, axis=(x_axis, y_axis))
-            elif stat == "median":
-                stat_within_polygons = da.median(masked_data, axis=(x_axis, y_axis))
-            elif stat == "max":
-                stat_within_polygons = da.max(masked_data, axis=(x_axis, y_axis))
-            elif stat == "min":
-                stat_within_polygons = da.min(masked_data, axis=(x_axis, y_axis))
+        if stat == "sum":
+            stat_within_polygons = masked_data.sum(dim=[y_coords, x_coords])
+        elif stat == "mean":
+            stat_within_polygons = masked_data.mean(dim=[y_coords, x_coords])
+        elif stat == "median":
+            stat_within_polygons = masked_data.median(dim=[y_coords, x_coords])
+        elif stat == "max":
+            stat_within_polygons = masked_data.max(dim=[y_coords, x_coords])
+        elif stat == "min":
+            stat_within_polygons = masked_data.min(dim=[y_coords, x_coords])
 
-            result = stat_within_polygons.compute()
-
-        else:
-            if stat == "sum":
-                stat_within_polygons = masked_data.sum(dim=[y_coords, x_coords])
-            elif stat == "mean":
-                stat_within_polygons = masked_data.mean(dim=[y_coords, x_coords])
-            elif stat == "median":
-                stat_within_polygons = masked_data.median(dim=[y_coords, x_coords])
-            elif stat == "max":
-                stat_within_polygons = masked_data.max(dim=[y_coords, x_coords])
-            elif stat == "min":
-                stat_within_polygons = masked_data.min(dim=[y_coords, x_coords])
-
-            result = stat_within_polygons.values
+        result = stat_within_polygons.values
 
         del masked_data, stat_within_polygons
         gc.collect()
@@ -1035,13 +1003,10 @@ class XvecAccessor:
     def _spatial_agg(
         self,
         geometries: Sequence[shapely.Geometry],
-        x_coords: str = None,
-        y_coords: str = None,
-        x_axis: int = None,
-        y_axis: int = None,
+        x_coords: Hashable,
+        y_coords: Hashable,
         stat: str = "mean",
         chunk_size: int = 2,
-        dask: bool = False,
         n_jobs: int = -1,
     ):
         """Aggregate the values from a dataset over a polygon geometry.
@@ -1058,18 +1023,12 @@ class XvecAccessor:
             Name of the axis containing ``x`` coordinates.
         y_coords : Hashable
             Name of the axis containing ``y`` coordinates.
-        x_axis : int
-            Axis order of  ``x`` coordinates.
-        y_axis : int
-            Axis order of  ``y`` coordinates.
         stat : Hashable
             Spatial aggregation statistic method, by default "mean". It supports the
             following statistcs: ['mean', 'median', 'min', 'max', 'sum']
         chunk_size : int
             Chunk size in case have a big set of geometries.
             Recommended to use small number for a big set of geometries or big datacube.
-        dask : bool,
-            If the input is dask array or not.
         n_jobs : int, optional
             Number of parallel threads to use.
 
@@ -1117,8 +1076,9 @@ class XvecAccessor:
                 "You can install it using 'conda install -c conda-forge tqdm' or "
                 "'pip install tqdm'."
             ) from err
-
+        
         import gc
+
 
         transform = self._obj.rio.transform()
         geometry_chunks = [
@@ -1143,7 +1103,6 @@ class XvecAccessor:
                         x_axis,
                         y_axis,
                         stat=stat,
-                        dask=dask,
                     )
                     for geom in chunk
                 )
@@ -1184,13 +1143,10 @@ class XvecAccessor:
     def zonal_stats(
         self,
         polygons: Sequence[shapely.Geometry],
-        x_coords: str = None,
-        y_coords: str = None,
-        x_axis: int = None,
-        y_axis: int = None,
+        x_coords: Hashable,
+        y_coords: Hashable,
         stat: str = "mean",
         name: str = "geometry",
-        dask: bool = False,
         chunk_size: int = 2,
         n_jobs: int = -1,
     ):
@@ -1205,20 +1161,14 @@ class XvecAccessor:
             An arrray-like (1-D) of shapely geometries, like a numpy array or GeoPandas
             GeoSeries.
         x_coords : Hashable
-            Name of the axis containing ``x`` coordinates, default: None.
+            Name of the axis containing ``x`` coordinates.
         y_coords : Hashable
-            Name of the axis containing ``y`` coordinates, default: None.
-        x_axis : int
-            Axis order of  ``x`` coordinates, default: None.
-        y_axis : int
-            Axis order of  ``y`` coordinates, default: None.
+            Name of the axis containing ``y`` coordinates.
         stat : Hashable
             Spatial aggregation statistic method, by default "mean". It supports the
             following statistcs: ['mean', 'median', 'min', 'max', 'sum']
         name : Hashable, optional
             Name of the dimension that will hold the ``polygons``, by default "geometry"
-        dask : bool,
-            If the input is dask array or not.
         chunk_size : int
             Chunk size in case have a big set of geometries.
             Recommended to use small number for a big set of geometries or big datacube.
@@ -1233,30 +1183,12 @@ class XvecAccessor:
             the the GeometryIndex.
 
         """
-        if dask:
-            if x_axis is None or y_axis is None:
-                raise ValueError(
-                    "Both x_axis and y_axis must be provided for dask process."
-                )
-            if not isinstance(x_axis, int) or not isinstance(y_axis, int):
-                raise TypeError(
-                    "x_axis and y_axis must be integers to use dask process."
-                )
-        else:
-            if x_coords is None or y_coords is None:
-                raise ValueError("Both x_coords and y_coords must be provided.")
-            if not isinstance(x_coords, str) or not isinstance(y_coords, str):
-                raise TypeError("x_coords and y_coords must be str, Hashable.")
-
         vec_cube = self._obj.xvec.spatial_agg(
             polygons,
             stat=stat,
             x_coords=x_coords,
             y_coords=y_coords,
-            x_axis=x_axis,
-            y_axis=y_axis,
             chunk_size=2,
-            dask=dask,
             n_jobs=n_jobs,
         )
         return vec_cube

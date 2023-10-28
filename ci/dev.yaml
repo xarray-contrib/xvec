@@ -10,7 +10,6 @@ dependencies:
   - rioxarray
   - joblib
   - rasterio
-  - dask
   - tqdm
   # testing
   - pytest
