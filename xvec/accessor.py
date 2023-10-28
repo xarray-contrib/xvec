@@ -960,7 +960,7 @@ class XvecAccessor:
             import rasterio
         except ImportError as err:
             raise ImportError(
-                "The rasterio package is required for `xvec.agg_geom()`. "
+                "The rasterio package is required for `xvec._agg_geom()`. "
                 "You can install it using 'conda install -c conda-forge rasterio' or "
                 "'pip install rasterio'."
             ) from err
@@ -1045,7 +1045,7 @@ class XvecAccessor:
             import geopandas as gpd
         except ImportError as err:
             raise ImportError(
-                "The geopandas package is required for `xvec.spatial_agg()`. "
+                "The geopandas package is required for `xvec._spatial_agg()`. "
                 "You can install it using 'conda install -c conda-forge geopandas' or "
                 "'pip install geopandas'."
             ) from err
@@ -1054,7 +1054,7 @@ class XvecAccessor:
             import rioxarray  # noqa
         except ImportError as err:
             raise ImportError(
-                "The rioxarray package is required for `xvec.spatial_agg()`. "
+                "The rioxarray package is required for `xvec._spatial_agg()`. "
                 "You can install it using 'conda install -c conda-forge rioxarray' or "
                 "'pip install rioxarray'."
             ) from err
@@ -1063,7 +1063,7 @@ class XvecAccessor:
             from joblib import Parallel, delayed
         except ImportError as err:
             raise ImportError(
-                "The joblib package is required for `xvec.spatial_agg()`. "
+                "The joblib package is required for `xvec._spatial_agg()`. "
                 "You can install it using 'conda install -c conda-forge joblib' or "
                 "'pip install joblib'."
             ) from err
@@ -1072,7 +1072,7 @@ class XvecAccessor:
             from tqdm import tqdm
         except ImportError as err:
             raise ImportError(
-                "The tqdm package is required for `xvec.spatial_agg()`. "
+                "The tqdm package is required for `xvec._spatial_agg()`. "
                 "You can install it using 'conda install -c conda-forge tqdm' or "
                 "'pip install tqdm'."
             ) from err
@@ -1094,7 +1094,7 @@ class XvecAccessor:
             for chunk in tqdm(geometry_chunks):
                 # Create a list of delayed objects for the current chunk
                 chunk_results = Parallel(n_jobs=n_jobs)(
-                    delayed(self.agg_geom)(
+                    delayed(self._agg_geom)(
                         geom,
                         transform,
                         var,
@@ -1181,7 +1181,7 @@ class XvecAccessor:
             the the GeometryIndex.
 
         """
-        vec_cube = self._obj.xvec.spatial_agg(
+        vec_cube = self._obj.xvec._spatial_agg(
             polygons,
             stat=stat,
             x_coords=x_coords,
