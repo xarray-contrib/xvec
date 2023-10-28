@@ -1051,7 +1051,7 @@ class XvecAccessor:
 
         return result
 
-    def spatial_agg(
+    def _spatial_agg(
         self,
         geometries: Sequence[shapely.Geometry],
         x_coords: str = None,
