@@ -1100,8 +1100,6 @@ class XvecAccessor:
                         var,
                         x_coords,
                         y_coords,
-                        x_axis,
-                        y_axis,
                         stat=stat,
                     )
                     for geom in chunk
