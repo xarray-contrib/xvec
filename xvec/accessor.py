@@ -966,15 +966,6 @@ class XvecAccessor:
             ) from err
 
         import gc
-<<<<<<< HEAD
-=======
-
-        # Create a GeoSeries from the geometry
-        geo_series = gpd.GeoSeries(geom)
-
-        # Convert the GeoSeries to a GeometryArray
-        geometry_array = geo_series.geometry.array
->>>>>>> 5add89e (Update xvec/accessor.py)
 
         xar_chunk = self._obj[var]
         mask = rasterio.features.geometry_mask(
