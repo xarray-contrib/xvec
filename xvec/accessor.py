@@ -983,14 +983,7 @@ class XvecAccessor:
                 "'pip install rasterio'."
             ) from err
 
-        try:
-            import gc
-        except ImportError as err:
-            raise ImportError(
-                "The gc package is required for `xvec.agg_geom()`. "
-                "Make sure 'gc' is included in the standard library"
-                "Check your Python installation for any issues."
-            ) from err
+        import gc
 
         # Create a GeoSeries from the geometry
         geo_series = gpd.GeoSeries(geom)
