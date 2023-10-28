@@ -918,7 +918,7 @@ class XvecAccessor:
         )
         return df
 
-    def agg_geom(
+    def _agg_geom(
         self,
         geom,
         trans,
@@ -966,15 +966,6 @@ class XvecAccessor:
 
         """
         try:
-            import geopandas as gpd
-        except ImportError as err:
-            raise ImportError(
-                "The geopandas package is required for `xvec.agg_geom()`. "
-                "You can install it using 'conda install -c conda-forge geopandas' or "
-                "'pip install geopandas'."
-            ) from err
-
-        try:
             import rasterio
         except ImportError as err:
             raise ImportError(
@@ -982,21 +973,11 @@ class XvecAccessor:
                 "You can install it using 'conda install -c conda-forge rasterio' or "
                 "'pip install rasterio'."
             ) from err
+            
+        import gc
 
-        try:
-            import gc
-        except ImportError as err:
-            raise ImportError(
-                "The gc package is required for `xvec.agg_geom()`. "
-                "Make sure 'gc' is included in the standard library"
-                "Check your Python installation for any issues."
-            ) from err
-
-        # Create a GeoSeries from the geometry
-        geo_series = gpd.GeoSeries(geom)
-
-        # Convert the GeoSeries to a GeometryArray
-        geometry_array = geo_series.geometry.array
+        # Array of shapely geometries
+        geometry_array = np.asarray(geom)
 
         xar_chunk = self._obj[var]
         mask = rasterio.features.geometry_mask(
@@ -1051,7 +1032,7 @@ class XvecAccessor:
 
         return result
 
-    def spatial_agg(
+    def _spatial_agg(
         self,
         geometries: Sequence[shapely.Geometry],
         x_coords: str = None,
@@ -1136,15 +1117,9 @@ class XvecAccessor:
                 "You can install it using 'conda install -c conda-forge tqdm' or "
                 "'pip install tqdm'."
             ) from err
+        
+        import gc
 
-        try:
-            import gc
-        except ImportError as err:
-            raise ImportError(
-                "The gc package is required for `xvec.spatial_agg()`. "
-                "Make sure 'gc' is included in the standard library"
-                "Check your Python installation for any issues."
-            ) from err
 
         transform = self._obj.rio.transform()
         geometry_chunks = [
