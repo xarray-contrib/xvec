@@ -6,6 +6,10 @@ dependencies:
   # required
   - shapely >=2
   - xarray
+  - rioxarray
+  - joblib
+  - rasterio
+  - tqdm
   - pyproj
   # testing
   - pytest
