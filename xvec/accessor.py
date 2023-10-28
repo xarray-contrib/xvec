@@ -918,7 +918,7 @@ class XvecAccessor:
         )
         return df
 
-    def agg_geom(
+    def _agg_geom(
         self,
         geom,
         trans,
