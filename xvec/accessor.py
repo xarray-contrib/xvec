@@ -964,15 +964,12 @@ class XvecAccessor:
                 "You can install it using 'conda install -c conda-forge rasterio' or "
                 "'pip install rasterio'."
             ) from err
-            
-        import gc
 
-        # Array of shapely geometries
-        geometry_array = np.asarray(geom)
+        import gc
 
         xar_chunk = self._obj[var]
         mask = rasterio.features.geometry_mask(
-            geometry_array,
+            [geom],
             out_shape=(xar_chunk.shape[0], xar_chunk.shape[1]),
             transform=trans,
         )
@@ -980,7 +977,6 @@ class XvecAccessor:
         masked_data = xar_chunk * mask[:, :, np.newaxis]
         del mask, xar_chunk
         gc.collect()
-
 
         if stat == "sum":
             stat_within_polygons = masked_data.sum(dim=[y_coords, x_coords])
@@ -1076,9 +1072,8 @@ class XvecAccessor:
                 "You can install it using 'conda install -c conda-forge tqdm' or "
                 "'pip install tqdm'."
             ) from err
-        
-        import gc
 
+        import gc
 
         transform = self._obj.rio.transform()
         geometry_chunks = [
