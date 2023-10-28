@@ -1137,14 +1137,7 @@ class XvecAccessor:
                 "'pip install tqdm'."
             ) from err
 
-        try:
-            import gc
-        except ImportError as err:
-            raise ImportError(
-                "The gc package is required for `xvec.spatial_agg()`. "
-                "Make sure 'gc' is included in the standard library"
-                "Check your Python installation for any issues."
-            ) from err
+        import gc
 
         transform = self._obj.rio.transform()
         geometry_chunks = [
