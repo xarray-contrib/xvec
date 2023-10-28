@@ -973,7 +973,7 @@ class XvecAccessor:
                 "You can install it using 'conda install -c conda-forge rasterio' or "
                 "'pip install rasterio'."
             ) from err
-            
+
         import gc
 
         # Array of shapely geometries
@@ -1117,9 +1117,8 @@ class XvecAccessor:
                 "You can install it using 'conda install -c conda-forge tqdm' or "
                 "'pip install tqdm'."
             ) from err
-        
-        import gc
 
+        import gc
 
         transform = self._obj.rio.transform()
         geometry_chunks = [
