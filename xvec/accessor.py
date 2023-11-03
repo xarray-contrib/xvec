@@ -968,13 +968,33 @@ class XvecAccessor:
         import gc
 
         xar_chunk = self._obj[var]
-        mask = rasterio.features.geometry_mask(
-            [geom],
-            out_shape=(xar_chunk.shape[0], xar_chunk.shape[1]),
-            transform=trans,
-        )
+        data_dims = list(xar_chunk.dims)
+        # Index of x_coords & y_coords
+        y_dim = data_dims.index(y_coords)
+        x_dim = data_dims.index(x_coords)
 
-        masked_data = xar_chunk * mask[:, :, np.newaxis]
+        # Sizes of x_coords & y_coords
+        y_dim_size = xar_chunk.shape[y_dim]
+        x_dim_size = xar_chunk.shape[x_dim]
+
+        if x_dim < y_dim:
+            mask = rasterio.features.geometry_mask(
+                [geom],
+                out_shape=(x_dim_size, y_dim_size),
+                transform=trans,
+            )
+        else:
+            mask = rasterio.features.geometry_mask(
+                [geom],
+                out_shape=(y_dim_size, x_dim_size),
+                transform=trans,
+            )
+
+        diff_axes = [
+            idx for idx, dim in enumerate(data_dims) if dim not in [x_coords, y_coords]
+        ]
+        mask = np.expand_dims(mask, axis=diff_axes)
+        masked_data = xar_chunk * mask
         del mask, xar_chunk
         gc.collect()
 
@@ -1002,6 +1022,7 @@ class XvecAccessor:
         x_coords: Hashable,
         y_coords: Hashable,
         stat: str = "mean",
+        name: str = "geometry",
         chunk_size: int = 2,
         n_jobs: int = -1,
     ):
@@ -1036,16 +1057,6 @@ class XvecAccessor:
             the the GeometryIndex.
 
         """
-
-        try:
-            import geopandas as gpd
-        except ImportError as err:
-            raise ImportError(
-                "The geopandas package is required for `xvec._spatial_agg()`. "
-                "You can install it using 'conda install -c conda-forge geopandas' or "
-                "'pip install geopandas'."
-            ) from err
-
         try:
             import rioxarray  # noqa
         except ImportError as err:
@@ -1081,9 +1092,10 @@ class XvecAccessor:
             for i in range(0, len(geometries), chunk_size)
         ]
 
-        stats_dic = {}
+        data_vars = []
+        all_variables_results = []
         for var in self._obj.data_vars:
-            stats_dic[var] = []
+            data_vars.append(var)
 
             computed_results = []
             for chunk in tqdm(geometry_chunks):
@@ -1100,37 +1112,26 @@ class XvecAccessor:
                     for geom in chunk
                 )
                 computed_results.extend(chunk_results)
-            stats_dic[var] = computed_results
-
+            computed_results = np.stack(computed_results, axis=-1)
+            all_variables_results.append(computed_results)
             # Clean the space
             gc.collect()
 
         # Unpack the results into VectorCube
-        df = pd.DataFrame()
-        keys_items = {}
-        for k in stats_dic.keys():
-            s = stats_dic[k]
-            columns = []
-            for t in range(len(self._obj.time)):
-                columns.append(f"{k}{t+1}")
-            keys_items[k] = columns
-            # Create a new DataFrame with the current data and columns
-            df_k = pd.DataFrame(s, columns=columns)
-            # Concatenate the new DataFrame with the existing DataFrame
-            df = pd.concat([df, df_k], axis=1)
-
-        df = gpd.GeoDataFrame(df, geometry=geometries)
-        times = list(self._obj.time.values)
-
-        data_vars = {}
-        for key in keys_items.keys():
-            data_vars[key] = (["geometry", "time"], df[keys_items[key]])
-
+        all_variables_results = np.stack(all_variables_results, axis=0)
+        dims = list(self._obj[var].dims)
+        dims = [dim for dim in dims if dim not in [x_coords, y_coords]]
+        coords = {"data_variables": data_vars}
+        for dim in dims:
+            dim_values = list(self._obj[dim].values)
+            coords[dim] = dim_values
+        coords[name] = geometries
         ## Create VectorCube
-        vec_cube = xr.Dataset(
-            data_vars=data_vars, coords={"geometry": df.geometry, "time": times}
-        ).xvec.set_geom_indexes("geometry", crs=df.crs)
-
+        vec_cube = xr.DataArray(
+            data=all_variables_results,
+            coords=coords,
+        ).xvec.set_geom_indexes(name, crs=geometries.crs)
+        vec_cube = vec_cube.to_dataset(dim="data_variables")
         return vec_cube
 
     def zonal_stats(
@@ -1178,10 +1179,11 @@ class XvecAccessor:
         """
         vec_cube = self._obj.xvec._spatial_agg(
             polygons,
-            stat=stat,
             x_coords=x_coords,
             y_coords=y_coords,
-            chunk_size=2,
+            stat=stat,
+            name=name,
+            chunk_size=chunk_size,
             n_jobs=n_jobs,
         )
         return vec_cube
