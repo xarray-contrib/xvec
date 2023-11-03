@@ -605,10 +605,10 @@ def test_aggregate_raster_cubes():
 
     # Expected results
     expected = xr.DataArray(
-        np.zeros((2, 5)),
+        np.zeros((5, 2)),
         coords={
-            "geometry": polygons,
             "time": pd.date_range("2023-01-01", periods=5),
+            "geometry": polygons,
         },
     ).xvec.set_geom_indexes("geometry", crs="EPSG:4326")
 
