@@ -3,11 +3,64 @@ from __future__ import annotations
 import gc
 from collections.abc import Hashable, Sequence
 
+import numpy as np
 import shapely
 import xarray as xr
 
 
-def _zonal_stats_rasterio(
+def _zonal_stats_rasterize(
+    acc,
+    polygons: Sequence[shapely.Geometry],
+    x_coords: Hashable,
+    y_coords: Hashable,
+    stat: str = "mean",
+    name: str = "geometry",
+    all_touched: bool = False,
+    **kwargs,
+):
+    try:
+        import rasterio  # noqa: F401
+        import rioxarray  # noqa: F401
+    except ImportError as err:
+        raise ImportError(
+            "The rioxarray package is required for `zonal_stats()`. "
+            "You can install it using 'conda install -c conda-forge rioxarray' or "
+            "'pip install rioxarray'."
+        ) from err
+
+    if hasattr(polygons, "crs"):
+        crs = polygons.crs
+    else:
+        crs = None
+
+    transform = acc._obj.rio.transform()
+
+    labels = rasterio.features.rasterize(
+        zip(polygons, range(len(polygons))),
+        out_shape=(
+            acc._obj[y_coords].shape[0],
+            acc._obj[x_coords].shape[0],
+        ),
+        transform=transform,
+        fill=np.nan,
+        all_touched=all_touched,
+    )
+    groups = acc._obj.groupby(xr.DataArray(labels, dims=(y_coords, x_coords)))
+    agg = getattr(groups, stat)(**kwargs)
+    vec_cube = (
+        agg.reindex(group=range(len(polygons)))
+        .assign_coords(group=polygons)
+        .rename_dims(group=name)
+        .rename_vars(group=name)
+    ).xvec.set_geom_indexes(name, crs=crs)
+
+    del groups
+    gc.collect()
+
+    return vec_cube
+
+
+def _zonal_stats_iterative(
     acc,
     polygons: Sequence[shapely.Geometry],
     x_coords: Hashable,
@@ -157,7 +210,7 @@ def _agg_geom(
     )
     result = getattr(
         acc._obj.where(xr.DataArray(mask, dims=(y_coords, x_coords))), stat
-    )(dim=(y_coords, x_coords), **kwargs)
+    )(dim=(y_coords, x_coords), keep_attrs=True, **kwargs)
 
     del mask
     gc.collect()

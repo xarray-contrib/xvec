@@ -11,7 +11,7 @@ import xarray as xr
 from pyproj import CRS, Transformer
 
 from .index import GeometryIndex
-from .zonal import _zonal_stats_rasterio
+from .zonal import _zonal_stats_iterative, _zonal_stats_rasterize
 
 
 @xr.register_dataarray_accessor("xvec")
@@ -927,7 +927,7 @@ class XvecAccessor:
         stat: str = "mean",
         name: Hashable = "geometry",
         index: bool = None,
-        engine: str = "rasterio",
+        method: str = "rasterize",
         all_touched: bool = False,
         n_jobs: int = -1,
         **kwargs,
@@ -960,18 +960,19 @@ class XvecAccessor:
             or non-default index. If ``index=False``, it will never be stored. This is
             useful as an attribute link between the resulting array and the GeoPandas
             object from which the polygons are sourced.
-        engine : str, optional
-            Underyling engine used to extract values from array. Currently only
-            ``"rasterio"`` is supported.
+        method : str, optional
+            The method of data extraction. The default is "rasterize", which uses
+            :func:`rasterio.features.rasterize` and is faster, but can lead to loss
+            of information in case of small polygons. Other option is "iterate", which
+            iterates over polygons and uses :func:`rasterio.features.geometry_mask`.
         all_touched : bool, optional
             If True, all pixels touched by geometries will be considered. If False, only
             pixels whose center is within the polygon or that are selected by
-            Bresenham’s line algorithm will be considered. Applies only if
-            ``engine="rasterio"``.
+            Bresenham’s line algorithm will be considered.
         n_jobs : int, optional
             Number of parallel threads to use. It is recommended to set this to the
             number of physical cores of the CPU. ``-1`` uses all available cores. Applies
-            only if ``engine="rasterio"``.
+            only if ``method="iterate"``.
         **kwargs : optional
             Keyword arguments to be passed to the aggregation function
             (e.g., ``Dataset.mean(**kwargs)``).
@@ -983,8 +984,19 @@ class XvecAccessor:
             the the GeometryIndex.
 
         """
-        if engine == "rasterio":
-            result = _zonal_stats_rasterio(
+        if method == "rasterize":
+            result = _zonal_stats_rasterize(
+                self,
+                polygons=polygons,
+                x_coords=x_coords,
+                y_coords=y_coords,
+                stat=stat,
+                name=name,
+                all_touched=all_touched,
+                **kwargs,
+            )
+        elif method == "iterate":
+            result = _zonal_stats_iterative(
                 self,
                 polygons=polygons,
                 x_coords=x_coords,
@@ -996,7 +1008,10 @@ class XvecAccessor:
                 **kwargs,
             )
         else:
-            raise ValueError(f"engine '{engine}' is not supported. Use 'rasterio'.")
+            raise ValueError(
+                f"method '{method}' is not supported. Allowed options are 'rasterize' "
+                "and 'iterate'."
+            )
 
         # save the index as a data variable
         if isinstance(polygons, pd.Series):
