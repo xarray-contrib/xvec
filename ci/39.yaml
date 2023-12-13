@@ -18,3 +18,4 @@ dependencies:
   - pytest-reportlog
   - geopandas-base
   - geodatasets
+  - pyogrio
