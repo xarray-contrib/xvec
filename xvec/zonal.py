@@ -50,8 +50,7 @@ def _zonal_stats_rasterize(
     vec_cube = (
         agg.reindex(group=range(len(polygons)))
         .assign_coords(group=polygons)
-        .rename_dims(group=name)
-        .rename_vars(group=name)
+        .rename(group=name)
     ).xvec.set_geom_indexes(name, crs=crs)
 
     del groups
