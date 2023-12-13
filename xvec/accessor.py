@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gc
 import warnings
 from collections.abc import Hashable, Mapping, Sequence
 from typing import Any
@@ -922,7 +923,6 @@ class XvecAccessor:
         self,
         geom,
         trans,
-        var: str,
         x_coords: str = None,
         y_coords: str = None,
         stat: str = "mean",
@@ -956,86 +956,43 @@ class XvecAccessor:
             Aggregated values over the geometry.
 
         """
-        try:
-            import rasterio
-        except ImportError as err:
-            raise ImportError(
-                "The rasterio package is required for `xvec._agg_geom()`. "
-                "You can install it using 'conda install -c conda-forge rasterio' or "
-                "'pip install rasterio'."
-            ) from err
+        import rasterio
 
-        import gc
-
-        xar_chunk = self._obj[var]
-        data_dims = list(xar_chunk.dims)
-        # Index of x_coords & y_coords
-        y_dim = data_dims.index(y_coords)
-        x_dim = data_dims.index(x_coords)
-
-        # Sizes of x_coords & y_coords
-        y_dim_size = xar_chunk.shape[y_dim]
-        x_dim_size = xar_chunk.shape[x_dim]
-
-        if x_dim < y_dim:
-            mask = rasterio.features.geometry_mask(
-                [geom],
-                out_shape=(x_dim_size, y_dim_size),
-                transform=trans,
-            )
-        else:
-            mask = rasterio.features.geometry_mask(
-                [geom],
-                out_shape=(y_dim_size, x_dim_size),
-                transform=trans,
-            )
-
-        diff_axes = [
-            idx for idx, dim in enumerate(data_dims) if dim not in [x_coords, y_coords]
-        ]
-        mask = np.expand_dims(mask, axis=diff_axes)
-        masked_data = xar_chunk * mask
-        del mask, xar_chunk
+        mask = rasterio.features.geometry_mask(
+            [geom],
+            out_shape=(
+                self._obj[y_coords].shape[0],
+                self._obj[x_coords].shape[0],
+            ),
+            transform=trans,
+            invert=True,
+        )
+        result = getattr(
+            self._obj.where(xr.DataArray(mask, dims=(y_coords, x_coords))), stat
+        )((y_coords, x_coords))
+        del mask
         gc.collect()
-
-        if stat == "sum":
-            stat_within_polygons = masked_data.sum(dim=[y_coords, x_coords])
-        elif stat == "mean":
-            stat_within_polygons = masked_data.mean(dim=[y_coords, x_coords])
-        elif stat == "median":
-            stat_within_polygons = masked_data.median(dim=[y_coords, x_coords])
-        elif stat == "max":
-            stat_within_polygons = masked_data.max(dim=[y_coords, x_coords])
-        elif stat == "min":
-            stat_within_polygons = masked_data.min(dim=[y_coords, x_coords])
-
-        result = stat_within_polygons.values
-
-        del masked_data, stat_within_polygons
-        gc.collect()
-
         return result
 
-    def _spatial_agg(
+    def zonal_stats(
         self,
-        geometries: Sequence[shapely.Geometry],
+        polygons: Sequence[shapely.Geometry],
         x_coords: Hashable,
         y_coords: Hashable,
         stat: str = "mean",
         name: str = "geometry",
-        chunk_size: int = 2,
         n_jobs: int = -1,
     ):
-        """Aggregate the values from a dataset over a polygon geometry.
+        """Extract the values from a dataset indexed by a set of geometries
 
-        The CRS of the raster and that of points need to be in wgs84.
+        The CRS of the raster and that of polygons need to be equal.
         Xvec does not verify their equality.
 
         Parameters
         ----------
-        geometries : Sequence[shapely.Geometry]
-            An arrray-like (1-D) of shapely geometries, like a numpy array or GeoPandas
-            GeoSeries.
+        polygons : Sequence[shapely.Geometry]
+            An arrray-like (1-D) of shapely geometries, like a numpy array or
+           :class:`geopandas.GeoSeries`.
         x_coords : Hashable
             Name of the axis containing ``x`` coordinates.
         y_coords : Hashable
@@ -1043,12 +1000,11 @@ class XvecAccessor:
         stat : Hashable
             Spatial aggregation statistic method, by default "mean". It supports the
             following statistcs: ['mean', 'median', 'min', 'max', 'sum']
-        chunk_size : int
-            Chunk size in case have a big set of geometries.
-            Recommended to use small number for a big set of geometries or big datacube.
+        name : Hashable, optional
+            Name of the dimension that will hold the ``polygons``, by default "geometry"
         n_jobs : int, optional
             Number of parallel threads to use.
-
+            It is recommended to set this to the number of physical cores in the CPU.
 
         Returns
         -------
@@ -1058,10 +1014,10 @@ class XvecAccessor:
 
         """
         try:
-            import rioxarray  # noqa
+            import rioxarray  # noqa: F401
         except ImportError as err:
             raise ImportError(
-                "The rioxarray package is required for `xvec._spatial_agg()`. "
+                "The rioxarray package is required for `zonal_stats()`. "
                 "You can install it using 'conda install -c conda-forge rioxarray' or "
                 "'pip install rioxarray'."
             ) from err
@@ -1075,117 +1031,27 @@ class XvecAccessor:
                 "'pip install joblib'."
             ) from err
 
-        try:
-            from tqdm import tqdm
-        except ImportError as err:
-            raise ImportError(
-                "The tqdm package is required for `xvec._spatial_agg()`. "
-                "You can install it using 'conda install -c conda-forge tqdm' or "
-                "'pip install tqdm'."
-            ) from err
-
-        import gc
-
         transform = self._obj.rio.transform()
-        geometry_chunks = [
-            geometries[i : i + chunk_size]
-            for i in range(0, len(geometries), chunk_size)
-        ]
 
-        data_vars = []
-        all_variables_results = []
-        for var in self._obj.data_vars:
-            data_vars.append(var)
-
-            computed_results = []
-            for chunk in tqdm(geometry_chunks):
-                # Create a list of delayed objects for the current chunk
-                chunk_results = Parallel(n_jobs=n_jobs)(
-                    delayed(self._agg_geom)(
-                        geom,
-                        transform,
-                        var,
-                        x_coords,
-                        y_coords,
-                        stat=stat,
-                    )
-                    for geom in chunk
-                )
-                computed_results.extend(chunk_results)
-            computed_results = np.stack(computed_results, axis=-1)
-            all_variables_results.append(computed_results)
-            # Clean the space
-            gc.collect()
-
-        # Unpack the results into VectorCube
-        all_variables_results = np.stack(all_variables_results, axis=0)
-        dims = list(self._obj[var].dims)
-        dims = [dim for dim in dims if dim not in [x_coords, y_coords]]
-        coords = {"data_variables": data_vars}
-        for dim in dims:
-            dim_values = list(self._obj[dim].values)
-            coords[dim] = dim_values
-        coords[name] = geometries
-        ## Create VectorCube
-        vec_cube = xr.DataArray(
-            data=all_variables_results,
-            coords=coords,
-        ).xvec.set_geom_indexes(name, crs=geometries.crs)
-        vec_cube = vec_cube.to_dataset(dim="data_variables")
-        return vec_cube
-
-    def zonal_stats(
-        self,
-        polygons: Sequence[shapely.Geometry],
-        x_coords: Hashable,
-        y_coords: Hashable,
-        stat: str = "mean",
-        name: str = "geometry",
-        chunk_size: int = 2,
-        n_jobs: int = -1,
-    ):
-        """Extract the values from a dataset indexed by a set of geometries
-
-        The CRS of the raster and that of points need to be in wgs84.
-        Xvec does not verify their equality.
-
-        Parameters
-        ----------
-        polygons : Sequence[shapely.Geometry]
-            An arrray-like (1-D) of shapely geometries, like a numpy array or GeoPandas
-            GeoSeries.
-        x_coords : Hashable
-            Name of the axis containing ``x`` coordinates.
-        y_coords : Hashable
-            Name of the axis containing ``y`` coordinates.
-        stat : Hashable
-            Spatial aggregation statistic method, by default "mean". It supports the
-            following statistcs: ['mean', 'median', 'min', 'max', 'sum']
-        name : Hashable, optional
-            Name of the dimension that will hold the ``polygons``, by default "geometry"
-        chunk_size : int
-            Chunk size in case have a big set of geometries.
-            Recommended to use small number for a big set of geometries or big datacube.
-        n_jobs : int, optional
-            Number of parallel threads to use.
-            It is recommended to set this to the number of physical cores in the CPU.
-
-        Returns
-        -------
-        Dataset
-            A subset of the original object with N-1 dimensions indexed by
-            the the GeometryIndex.
-
-        """
-        vec_cube = self._obj.xvec._spatial_agg(
-            polygons,
-            x_coords=x_coords,
-            y_coords=y_coords,
-            stat=stat,
-            name=name,
-            chunk_size=chunk_size,
-            n_jobs=n_jobs,
+        zonal = Parallel(n_jobs=n_jobs)(
+            delayed(self._agg_geom)(
+                geom,
+                transform,
+                x_coords,
+                y_coords,
+                stat=stat,
+            )
+            for geom in polygons
         )
+        if hasattr(polygons, "crs"):
+            crs = polygons.crs
+        else:
+            crs = None
+        vec_cube = xr.concat(
+            zonal, dim=xr.DataArray(polygons, name=name, dims=name)
+        ).xvec.set_geom_indexes(name, crs=crs)
+        gc.collect()
+
         return vec_cube
 
     def extract_points(
