@@ -7,7 +7,7 @@ import xarray as xr
 from geopandas.testing import assert_geodataframe_equal
 from pandas.testing import assert_frame_equal
 
-import xvec  # noqa
+import xvec  # noqa: F401
 from xvec import GeometryIndex
 
 
@@ -583,43 +583,6 @@ def test_to_geodataframe_dataset(traffic_dataset):
     actual = traffic_dataset.drop_vars("origin").xvec.to_geodataframe()
     assert actual.geometry.name == "destination"
     assert actual.crs == 26915
-
-
-def test_aggregate_raster_cubes():
-    #### Test spatial aggregation using geometries - sum aggregation ####
-    # Create the dataset
-    da = xr.DataArray(
-        np.zeros((10, 10, 5)),
-        coords={
-            "x": range(10),
-            "y": range(20, 30),
-            "time": pd.date_range("2023-01-01", periods=5),
-        },
-    )
-    da = da.to_dataset(name="test")
-
-    # Create the polygons
-    polygon1 = shapely.geometry.Polygon([(1, 22), (4, 22), (4, 26), (1, 26)])
-    polygon2 = shapely.geometry.Polygon([(6, 22), (9, 22), (9, 26), (6, 26)])
-    polygons = gpd.GeoSeries([polygon1, polygon2], crs="EPSG:4326")
-
-    # Expected results
-    expected = xr.DataArray(
-        np.zeros((5, 2)),
-        coords={
-            "time": pd.date_range("2023-01-01", periods=5),
-            "geometry": polygons,
-        },
-    ).xvec.set_geom_indexes("geometry", crs="EPSG:4326")
-
-    expected = expected.to_dataset(name="test")
-    expected = expected.set_coords("geometry")
-
-    # Actual results
-    actual = da.xvec.zonal_stats(polygons, "x", "y", stat="sum")
-
-    # Testing
-    xr.testing.assert_identical(actual, expected)
 
 
 def test_extract_points_array():

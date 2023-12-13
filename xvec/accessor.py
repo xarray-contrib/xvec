@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import gc
 import warnings
 from collections.abc import Hashable, Mapping, Sequence
 from typing import Any
@@ -12,6 +11,7 @@ import xarray as xr
 from pyproj import CRS, Transformer
 
 from .index import GeometryIndex
+from .zonal import _zonal_stats_rasterio
 
 
 @xr.register_dataarray_accessor("xvec")
@@ -919,69 +919,18 @@ class XvecAccessor:
         )
         return df
 
-    def _agg_geom(
-        self,
-        geom,
-        trans,
-        x_coords: str = None,
-        y_coords: str = None,
-        stat: str = "mean",
-    ):
-        """Aggregate the values from a dataset over a polygon geometry.
-
-        The CRS of the raster and that of points need to be in wgs84.
-        Xvec does not verify their equality.
-
-        Parameters
-        ----------
-        geom : Polygon[shapely.Geometry]
-            An arrray-like (1-D) of shapely geometry, like a numpy array or GeoPandas
-            GeoSeries.
-        trans : affine.Affine
-            Affine transformer.
-            Representing the geometric transformation applied to the data.
-        x_coords : Hashable
-            Name of the axis containing ``x`` coordinates.
-        y_coords : Hashable
-            Name of the axis containing ``y`` coordinates.
-        var : Hashable
-            Name of the variable in the dataset to aggregate its values.
-        stat : Hashable
-            Spatial aggregation statistic method, by default "mean". It supports the
-            following statistcs: ['mean', 'median', 'min', 'max', 'sum']
-
-        Returns
-        -------
-        Array
-            Aggregated values over the geometry.
-
-        """
-        import rasterio
-
-        mask = rasterio.features.geometry_mask(
-            [geom],
-            out_shape=(
-                self._obj[y_coords].shape[0],
-                self._obj[x_coords].shape[0],
-            ),
-            transform=trans,
-            invert=True,
-        )
-        result = getattr(
-            self._obj.where(xr.DataArray(mask, dims=(y_coords, x_coords))), stat
-        )((y_coords, x_coords))
-        del mask
-        gc.collect()
-        return result
-
     def zonal_stats(
         self,
         polygons: Sequence[shapely.Geometry],
         x_coords: Hashable,
         y_coords: Hashable,
         stat: str = "mean",
-        name: str = "geometry",
+        name: Hashable = "geometry",
+        index: bool = None,
+        engine: str = "rasterio",
+        all_touched: bool = False,
         n_jobs: int = -1,
+        **kwargs,
     ):
         """Extract the values from a dataset indexed by a set of geometries
 
@@ -994,17 +943,38 @@ class XvecAccessor:
             An arrray-like (1-D) of shapely geometries, like a numpy array or
            :class:`geopandas.GeoSeries`.
         x_coords : Hashable
-            Name of the axis containing ``x`` coordinates.
+            name of the coordinates containing ``x`` coordinates (i.e. the first value
+            in the coordinate pair encoding the vertex of the polygon)
         y_coords : Hashable
-            Name of the axis containing ``y`` coordinates.
-        stat : Hashable
+            name of the coordinates containing ``y`` coordinates (i.e. the second value
+            in the coordinate pair encoding the vertex of the polygon)
+        stat : string
             Spatial aggregation statistic method, by default "mean". It supports the
             following statistcs: ['mean', 'median', 'min', 'max', 'sum']
         name : Hashable, optional
             Name of the dimension that will hold the ``polygons``, by default "geometry"
+        index : bool, optional
+            If `polygons` is a GeoSeries, ``index=True`` will attach its index as another
+            coordinate to the geometry dimension in the resulting object. If
+            ``index=None``, the index will be stored if the `polygons.index` is a named
+            or non-default index. If ``index=False``, it will never be stored. This is
+            useful as an attribute link between the resulting array and the GeoPandas
+            object from which the polygons are sourced.
+        engine : str, optional
+            Underyling engine used to extract values from array. Currently only
+            ``"rasterio"`` is supported.
+        all_touched : bool, optional
+            If True, all pixels touched by geometries will be considered. If False, only
+            pixels whose center is within the polygon or that are selected by
+            Bresenham’s line algorithm will be considered. Applies only if
+            ``engine="rasterio"``.
         n_jobs : int, optional
-            Number of parallel threads to use.
-            It is recommended to set this to the number of physical cores in the CPU.
+            Number of parallel threads to use. It is recommended to set this to the
+            number of physical cores of the CPU. ``-1`` uses all available cores. Applies
+            only if ``engine="rasterio"``.
+        **kwargs : optional
+            Keyword arguments to be passed to the aggregation function
+            (e.g., ``Dataset.mean(**kwargs)``).
 
         Returns
         -------
@@ -1013,46 +983,33 @@ class XvecAccessor:
             the the GeometryIndex.
 
         """
-        try:
-            import rioxarray  # noqa: F401
-        except ImportError as err:
-            raise ImportError(
-                "The rioxarray package is required for `zonal_stats()`. "
-                "You can install it using 'conda install -c conda-forge rioxarray' or "
-                "'pip install rioxarray'."
-            ) from err
-
-        try:
-            from joblib import Parallel, delayed
-        except ImportError as err:
-            raise ImportError(
-                "The joblib package is required for `xvec._spatial_agg()`. "
-                "You can install it using 'conda install -c conda-forge joblib' or "
-                "'pip install joblib'."
-            ) from err
-
-        transform = self._obj.rio.transform()
-
-        zonal = Parallel(n_jobs=n_jobs)(
-            delayed(self._agg_geom)(
-                geom,
-                transform,
-                x_coords,
-                y_coords,
+        if engine == "rasterio":
+            result = _zonal_stats_rasterio(
+                self,
+                polygons=polygons,
+                x_coords=x_coords,
+                y_coords=y_coords,
                 stat=stat,
+                name=name,
+                all_touched=all_touched,
+                n_jobs=n_jobs,
+                **kwargs,
             )
-            for geom in polygons
-        )
-        if hasattr(polygons, "crs"):
-            crs = polygons.crs
         else:
-            crs = None
-        vec_cube = xr.concat(
-            zonal, dim=xr.DataArray(polygons, name=name, dims=name)
-        ).xvec.set_geom_indexes(name, crs=crs)
-        gc.collect()
+            raise ValueError(f"engine '{engine}' is not supported. Use 'rasterio'.")
 
-        return vec_cube
+        # save the index as a data variable
+        if isinstance(polygons, pd.Series):
+            if index is None:
+                if polygons.index.name is not None or not polygons.index.equals(
+                    pd.RangeIndex(0, len(polygons))
+                ):
+                    index = True
+            if index:
+                index_name = polygons.index.name if polygons.index.name else "index"
+                result = result.assign_coords({index_name: (name, polygons.index)})
+
+        return result
 
     def extract_points(
         self,
@@ -1101,7 +1058,7 @@ class XvecAccessor:
             ``index=None``, the index will be stored if the `points.index` is a named
             or non-default index. If ``index=False``, it will never be stored. This is
             useful as an attribute link between the resulting array and the GeoPandas
-            object from which the points are sourced from.
+            object from which the points are sourced.
 
         Returns
         -------
