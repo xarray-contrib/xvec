@@ -961,9 +961,9 @@ class XvecAccessor:
             useful as an attribute link between the resulting array and the GeoPandas
             object from which the polygons are sourced.
         method : str, optional
-            The method of data extraction. The default is "rasterize", which uses
+            The method of data extraction. The default is ``"rasterize"``, which uses
             :func:`rasterio.features.rasterize` and is faster, but can lead to loss
-            of information in case of small polygons. Other option is "iterate", which
+            of information in case of small polygons. Other option is ``"iterate"``, which
             iterates over polygons and uses :func:`rasterio.features.geometry_mask`.
         all_touched : bool, optional
             If True, all pixels touched by geometries will be considered. If False, only
