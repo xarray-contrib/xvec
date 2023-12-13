@@ -941,7 +941,7 @@ class XvecAccessor:
         ----------
         polygons : Sequence[shapely.Geometry]
             An arrray-like (1-D) of shapely geometries, like a numpy array or
-           :class:`geopandas.GeoSeries`.
+            :class:`geopandas.GeoSeries`.
         x_coords : Hashable
             name of the coordinates containing ``x`` coordinates (i.e. the first value
             in the coordinate pair encoding the vertex of the polygon)
