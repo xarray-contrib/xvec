@@ -984,6 +984,9 @@ class XvecAccessor:
             the the GeometryIndex.
 
         """
+        # TODO: allow multiple stats at the same time (concat along a new axis),
+        # TODO: possibly as a list of tuples to include names?
+        # TODO: allow callable in stat (via .reduce())
         if method == "rasterize":
             result = _zonal_stats_rasterize(
                 self,
@@ -1024,7 +1027,10 @@ class XvecAccessor:
                 index_name = polygons.index.name if polygons.index.name else "index"
                 result = result.assign_coords({index_name: (name, polygons.index)})
 
-        return result
+        # standardize the shape - each method comes with a different one
+        return result.transpose(
+            name, *tuple(d for d in self._obj.dims if d not in [x_coords, y_coords])
+        )
 
     def extract_points(
         self,
