@@ -32,11 +32,11 @@ def test_structure(method):
         },
     ).xvec.set_geom_indexes("geometry", crs="EPSG:4326")
 
-    actual = da.xvec.zonal_stats(polygons, "x", "y", stat="sum", method=method)
+    actual = da.xvec.zonal_stats(polygons, "x", "y", stats="sum", method=method)
     xr.testing.assert_identical(actual, expected)
 
     actual_ix = da.xvec.zonal_stats(
-        polygons, "x", "y", stat="sum", method=method, index=True
+        polygons, "x", "y", stats="sum", method=method, index=True
     )
     xr.testing.assert_identical(
         actual_ix, expected.assign_coords({"index": ("geometry", polygons.index)})
@@ -46,11 +46,11 @@ def test_structure(method):
     ds = da.to_dataset(name="test")
 
     expected_ds = expected.to_dataset(name="test").set_coords("geometry")
-    actual_ds = ds.xvec.zonal_stats(polygons, "x", "y", stat="sum", method=method)
+    actual_ds = ds.xvec.zonal_stats(polygons, "x", "y", stats="sum", method=method)
     xr.testing.assert_identical(actual_ds, expected_ds)
 
     actual_ix_ds = ds.xvec.zonal_stats(
-        polygons, "x", "y", stat="sum", method=method, index=True
+        polygons, "x", "y", stats="sum", method=method, index=True
     )
     xr.testing.assert_identical(
         actual_ix_ds, expected_ds.assign_coords({"index": ("geometry", polygons.index)})
@@ -58,13 +58,15 @@ def test_structure(method):
 
     # named index
     polygons.index.name = "my_index"
-    actual_ix_named = da.xvec.zonal_stats(polygons, "x", "y", stat="sum", method=method)
+    actual_ix_named = da.xvec.zonal_stats(
+        polygons, "x", "y", stats="sum", method=method
+    )
     xr.testing.assert_identical(
         actual_ix_named,
         expected.assign_coords({"my_index": ("geometry", polygons.index)}),
     )
     actual_ix_names_ds = ds.xvec.zonal_stats(
-        polygons, "x", "y", stat="sum", method=method
+        polygons, "x", "y", stats="sum", method=method
     )
     xr.testing.assert_identical(
         actual_ix_names_ds,
@@ -125,10 +127,10 @@ def test_stat(method):
         world.geometry, "longitude", "latitude", method=method
     )
     median_ = ds.z.xvec.zonal_stats(
-        world.geometry, "longitude", "latitude", method=method, stat="median"
+        world.geometry, "longitude", "latitude", method=method, stats="median"
     )
     quantile_ = ds.z.xvec.zonal_stats(
-        world.geometry, "longitude", "latitude", method=method, stat="quantile", q=0.2
+        world.geometry, "longitude", "latitude", method=method, stats="quantile", q=0.2
     )
 
     assert mean_.mean() == pytest.approx(61367.76185577)
@@ -146,7 +148,7 @@ def test_all_touched(method):
         "longitude",
         "latitude",
         all_touched=False,
-        stat="sum",
+        stats="sum",
         method=method,
     )
     touched = ds.z.xvec.zonal_stats(
@@ -154,7 +156,7 @@ def test_all_touched(method):
         "longitude",
         "latitude",
         all_touched=True,
-        stat="sum",
+        stats="sum",
         method=method,
     )
 
@@ -205,5 +207,5 @@ def test_crs(method):
         },
     ).xvec.set_geom_indexes("geometry", crs=None)
 
-    actual = da.xvec.zonal_stats(polygons, "x", "y", stat="sum", method=method)
+    actual = da.xvec.zonal_stats(polygons, "x", "y", stats="sum", method=method)
     xr.testing.assert_identical(actual, expected)
