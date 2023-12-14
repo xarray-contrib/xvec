@@ -11,6 +11,7 @@ import xarray as xr
 from pyproj import CRS, Transformer
 
 from .index import GeometryIndex
+from .zonal import _zonal_stats_iterative, _zonal_stats_rasterize
 
 
 @xr.register_dataarray_accessor("xvec")
@@ -918,6 +919,119 @@ class XvecAccessor:
         )
         return df
 
+    def zonal_stats(
+        self,
+        polygons: Sequence[shapely.Geometry],
+        x_coords: Hashable,
+        y_coords: Hashable,
+        stats: str = "mean",
+        name: Hashable = "geometry",
+        index: bool = None,
+        method: str = "rasterize",
+        all_touched: bool = False,
+        n_jobs: int = -1,
+        **kwargs,
+    ):
+        """Extract the values from a dataset indexed by a set of geometries
+
+        The CRS of the raster and that of polygons need to be equal.
+        Xvec does not verify their equality.
+
+        Parameters
+        ----------
+        polygons : Sequence[shapely.Geometry]
+            An arrray-like (1-D) of shapely geometries, like a numpy array or
+            :class:`geopandas.GeoSeries`.
+        x_coords : Hashable
+            name of the coordinates containing ``x`` coordinates (i.e. the first value
+            in the coordinate pair encoding the vertex of the polygon)
+        y_coords : Hashable
+            name of the coordinates containing ``y`` coordinates (i.e. the second value
+            in the coordinate pair encoding the vertex of the polygon)
+        stats : string
+            Spatial aggregation statistic method, by default "mean". It supports the
+            following statistcs: ['mean', 'median', 'min', 'max', 'sum']
+        name : Hashable, optional
+            Name of the dimension that will hold the ``polygons``, by default "geometry"
+        index : bool, optional
+            If `polygons` is a GeoSeries, ``index=True`` will attach its index as another
+            coordinate to the geometry dimension in the resulting object. If
+            ``index=None``, the index will be stored if the `polygons.index` is a named
+            or non-default index. If ``index=False``, it will never be stored. This is
+            useful as an attribute link between the resulting array and the GeoPandas
+            object from which the polygons are sourced.
+        method : str, optional
+            The method of data extraction. The default is ``"rasterize"``, which uses
+            :func:`rasterio.features.rasterize` and is faster, but can lead to loss
+            of information in case of small polygons. Other option is ``"iterate"``, which
+            iterates over polygons and uses :func:`rasterio.features.geometry_mask`.
+        all_touched : bool, optional
+            If True, all pixels touched by geometries will be considered. If False, only
+            pixels whose center is within the polygon or that are selected by
+            Bresenham’s line algorithm will be considered.
+        n_jobs : int, optional
+            Number of parallel threads to use. It is recommended to set this to the
+            number of physical cores of the CPU. ``-1`` uses all available cores. Applies
+            only if ``method="iterate"``.
+        **kwargs : optional
+            Keyword arguments to be passed to the aggregation function
+            (e.g., ``Dataset.mean(**kwargs)``).
+
+        Returns
+        -------
+        Dataset
+            A subset of the original object with N-1 dimensions indexed by
+            the the GeometryIndex.
+
+        """
+        # TODO: allow multiple stats at the same time (concat along a new axis),
+        # TODO: possibly as a list of tuples to include names?
+        # TODO: allow callable in stat (via .reduce())
+        if method == "rasterize":
+            result = _zonal_stats_rasterize(
+                self,
+                polygons=polygons,
+                x_coords=x_coords,
+                y_coords=y_coords,
+                stats=stats,
+                name=name,
+                all_touched=all_touched,
+                **kwargs,
+            )
+        elif method == "iterate":
+            result = _zonal_stats_iterative(
+                self,
+                polygons=polygons,
+                x_coords=x_coords,
+                y_coords=y_coords,
+                stats=stats,
+                name=name,
+                all_touched=all_touched,
+                n_jobs=n_jobs,
+                **kwargs,
+            )
+        else:
+            raise ValueError(
+                f"method '{method}' is not supported. Allowed options are 'rasterize' "
+                "and 'iterate'."
+            )
+
+        # save the index as a data variable
+        if isinstance(polygons, pd.Series):
+            if index is None:
+                if polygons.index.name is not None or not polygons.index.equals(
+                    pd.RangeIndex(0, len(polygons))
+                ):
+                    index = True
+            if index:
+                index_name = polygons.index.name if polygons.index.name else "index"
+                result = result.assign_coords({index_name: (name, polygons.index)})
+
+        # standardize the shape - each method comes with a different one
+        return result.transpose(
+            name, *tuple(d for d in self._obj.dims if d not in [x_coords, y_coords])
+        )
+
     def extract_points(
         self,
         points: Sequence[shapely.Geometry],
@@ -965,7 +1079,7 @@ class XvecAccessor:
             ``index=None``, the index will be stored if the `points.index` is a named
             or non-default index. If ``index=False``, it will never be stored. This is
             useful as an attribute link between the resulting array and the GeoPandas
-            object from which the points are sourced from.
+            object from which the points are sourced.
 
         Returns
         -------

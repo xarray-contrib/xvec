@@ -44,6 +44,8 @@ intersphinx_mapping = {
     "xarray": ("https://docs.xarray.dev/en/latest/", None),
     "geopandas": ("https://geopandas.org/en/latest", None),
     "pandas": ("https://pandas.pydata.org/docs", None),
+    "rasterio": ("https://rasterio.readthedocs.io/en/latest/", None),
+
 }
 
 # -- Options for HTML output -------------------------------------------------

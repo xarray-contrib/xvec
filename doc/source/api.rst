@@ -55,6 +55,7 @@ Methods
     Dataset.xvec.to_geodataframe
     Dataset.xvec.to_geopandas
     Dataset.xvec.extract_points
+    Dataset.xvec.zonal_stats
 
 
 DataArray.xvec
@@ -90,3 +91,4 @@ Methods
     DataArray.xvec.to_geodataframe
     DataArray.xvec.to_geopandas
     DataArray.xvec.extract_points
+    DataArray.xvec.zonal_stats

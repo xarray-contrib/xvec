@@ -7,7 +7,7 @@ import xarray as xr
 from geopandas.testing import assert_geodataframe_equal
 from pandas.testing import assert_frame_equal
 
-import xvec  # noqa
+import xvec  # noqa: F401
 from xvec import GeometryIndex
 
 

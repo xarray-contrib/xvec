@@ -7,12 +7,18 @@ dependencies:
   - cython
   - geos
   - proj
+  - rioxarray
+  - joblib
+  - rasterio
+  - tqdm
   # testing
   - pytest
   - pytest-cov
   - pytest-xdist
   - pytest-reportlog
   - geopandas-base
+  - geodatasets
+  - pyogrio
   - pip
   - pip:
       - git+https://github.com/shapely/shapely.git@main

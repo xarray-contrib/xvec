@@ -6,6 +6,10 @@ dependencies:
   # required
   - shapely >=2
   - xarray
+  - rioxarray
+  - joblib
+  - rasterio
+  - tqdm
   - pyproj
   # testing
   - pytest
@@ -13,3 +17,6 @@ dependencies:
   - pytest-xdist
   - pytest-reportlog
   - geopandas-base
+  - geodatasets
+  - pyogrio
+
