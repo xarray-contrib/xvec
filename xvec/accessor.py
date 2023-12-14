@@ -924,7 +924,7 @@ class XvecAccessor:
         polygons: Sequence[shapely.Geometry],
         x_coords: Hashable,
         y_coords: Hashable,
-        stat: str = "mean",
+        stats: str = "mean",
         name: Hashable = "geometry",
         index: bool = None,
         method: str = "rasterize",
@@ -948,7 +948,7 @@ class XvecAccessor:
         y_coords : Hashable
             name of the coordinates containing ``y`` coordinates (i.e. the second value
             in the coordinate pair encoding the vertex of the polygon)
-        stat : string
+        stats : string
             Spatial aggregation statistic method, by default "mean". It supports the
             following statistcs: ['mean', 'median', 'min', 'max', 'sum']
         name : Hashable, optional
@@ -993,7 +993,7 @@ class XvecAccessor:
                 polygons=polygons,
                 x_coords=x_coords,
                 y_coords=y_coords,
-                stat=stat,
+                stats=stats,
                 name=name,
                 all_touched=all_touched,
                 **kwargs,
@@ -1004,7 +1004,7 @@ class XvecAccessor:
                 polygons=polygons,
                 x_coords=x_coords,
                 y_coords=y_coords,
-                stat=stat,
+                stats=stats,
                 name=name,
                 all_touched=all_touched,
                 n_jobs=n_jobs,

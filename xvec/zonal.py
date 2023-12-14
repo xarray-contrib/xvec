@@ -13,7 +13,7 @@ def _zonal_stats_rasterize(
     polygons: Sequence[shapely.Geometry],
     x_coords: Hashable,
     y_coords: Hashable,
-    stat: str = "mean",
+    stats: str = "mean",
     name: str = "geometry",
     all_touched: bool = False,
     **kwargs,
@@ -46,7 +46,7 @@ def _zonal_stats_rasterize(
         all_touched=all_touched,
     )
     groups = acc._obj.groupby(xr.DataArray(labels, dims=(y_coords, x_coords)))
-    agg = getattr(groups, stat)(**kwargs)
+    agg = getattr(groups, stats)(**kwargs)
     vec_cube = (
         agg.reindex(group=range(len(polygons)))
         .assign_coords(group=polygons)
@@ -64,7 +64,7 @@ def _zonal_stats_iterative(
     polygons: Sequence[shapely.Geometry],
     x_coords: Hashable,
     y_coords: Hashable,
-    stat: str = "mean",
+    stats: str = "mean",
     name: str = "geometry",
     all_touched: bool = False,
     n_jobs: int = -1,
@@ -86,7 +86,7 @@ def _zonal_stats_iterative(
     y_coords : Hashable
         name of the coordinates containing ``y`` coordinates (i.e. the second value
         in the coordinate pair encoding the vertex of the polygon)
-    stat : Hashable
+    stats : Hashable
         Spatial aggregation statistic method, by default "mean". It supports the
         following statistcs: ['mean', 'median', 'min', 'max', 'sum']
     name : Hashable, optional
@@ -136,7 +136,7 @@ def _zonal_stats_iterative(
             transform,
             x_coords,
             y_coords,
-            stat=stat,
+            stats=stats,
             all_touched=all_touched,
             **kwargs,
         )
@@ -160,7 +160,7 @@ def _agg_geom(
     trans,
     x_coords: str = None,
     y_coords: str = None,
-    stat: str = "mean",
+    stats: str = "mean",
     all_touched=False,
     **kwargs,
 ):
@@ -181,7 +181,7 @@ def _agg_geom(
         Name of the axis containing ``x`` coordinates.
     y_coords : Hashable
         Name of the axis containing ``y`` coordinates.
-    stat : Hashable
+    stats : Hashable
         Spatial aggregation statistic method, by default "mean". It supports the
         following statistcs: ['mean', 'median', 'min', 'max', 'sum']
     all_touched : bool, optional
@@ -208,7 +208,7 @@ def _agg_geom(
         all_touched=all_touched,
     )
     result = getattr(
-        acc._obj.where(xr.DataArray(mask, dims=(y_coords, x_coords))), stat
+        acc._obj.where(xr.DataArray(mask, dims=(y_coords, x_coords))), stats
     )(dim=(y_coords, x_coords), keep_attrs=True, **kwargs)
 
     del mask
