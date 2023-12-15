@@ -921,7 +921,7 @@ class XvecAccessor:
 
     def zonal_stats(
         self,
-        polygons: Sequence[shapely.Geometry],
+        geometry: Sequence[shapely.Geometry],
         x_coords: Hashable,
         y_coords: Hashable,
         stats: str | Callable = "mean",
@@ -934,14 +934,15 @@ class XvecAccessor:
     ):
         """Extract the values from a dataset indexed by a set of geometries
 
-        The CRS of the raster and that of polygons need to be equal.
+        The CRS of the raster and that of geometry need to be equal.
         Xvec does not verify their equality.
 
         Parameters
         ----------
-        polygons : Sequence[shapely.Geometry]
+        geometry : Sequence[shapely.Geometry]
             An arrray-like (1-D) of shapely geometries, like a numpy array or
-            :class:`geopandas.GeoSeries`.
+            :class:`geopandas.GeoSeries`. Polygon and LineString geometry types are
+            supported.
         x_coords : Hashable
             name of the coordinates containing ``x`` coordinates (i.e. the first value
             in the coordinate pair encoding the vertex of the polygon)
@@ -950,25 +951,26 @@ class XvecAccessor:
             in the coordinate pair encoding the vertex of the polygon)
         stats : string | Callable
             Spatial aggregation statistic method, by default "mean". Any of the
-            aggregations available as DataArray or DataArrayGroupBy like
+            aggregations available as :class:`xarray.DataArray` or
+            :class:`xarray.DataArrayGroupBy` methods like
             :meth:`~xarray.DataArray.mean`, :meth:`~xarray.DataArray.min`,
-            :meth:`~xarray.DataArray.max`, or :meth:`~xarray.DataArray.quantile`,
-            methods are available. Alternatively, you can pass a ``Callable`` supported
+            :meth:`~xarray.DataArray.max`, or :meth:`~xarray.DataArray.quantile`
+            are available. Alternatively, you can pass a ``Callable`` supported
             by :meth:`~xarray.DataArray.reduce`.
         name : Hashable, optional
-            Name of the dimension that will hold the ``polygons``, by default "geometry"
+            Name of the dimension that will hold the ``geometry``, by default "geometry"
         index : bool, optional
-            If `polygons` is a GeoSeries, ``index=True`` will attach its index as another
+            If ``geometry`` is a :class:`~geopandas.GeoSeries`, ``index=True`` will attach its index as another
             coordinate to the geometry dimension in the resulting object. If
-            ``index=None``, the index will be stored if the `polygons.index` is a named
+            ``index=None``, the index will be stored if the `geometry.index` is a named
             or non-default index. If ``index=False``, it will never be stored. This is
             useful as an attribute link between the resulting array and the GeoPandas
-            object from which the polygons are sourced.
+            object from which the geometry is sourced.
         method : str, optional
             The method of data extraction. The default is ``"rasterize"``, which uses
             :func:`rasterio.features.rasterize` and is faster, but can lead to loss
-            of information in case of small polygons. Other option is ``"iterate"``, which
-            iterates over polygons and uses :func:`rasterio.features.geometry_mask`.
+            of information in case of small polygons or lines. Other option is ``"iterate"``, which
+            iterates over geometries and uses :func:`rasterio.features.geometry_mask`.
         all_touched : bool, optional
             If True, all pixels touched by geometries will be considered. If False, only
             pixels whose center is within the polygon or that are selected by
@@ -983,18 +985,17 @@ class XvecAccessor:
 
         Returns
         -------
-        Dataset
+        Dataset or DataArray
             A subset of the original object with N-1 dimensions indexed by
-            the the GeometryIndex.
+            the :class:`GeometryIndex` of ``geometry``.
 
         """
         # TODO: allow multiple stats at the same time (concat along a new axis),
         # TODO: possibly as a list of tuples to include names?
-        # TODO: allow callable in stat (via .reduce())
         if method == "rasterize":
             result = _zonal_stats_rasterize(
                 self,
-                polygons=polygons,
+                geometry=geometry,
                 x_coords=x_coords,
                 y_coords=y_coords,
                 stats=stats,
@@ -1005,7 +1006,7 @@ class XvecAccessor:
         elif method == "iterate":
             result = _zonal_stats_iterative(
                 self,
-                polygons=polygons,
+                geometry=geometry,
                 x_coords=x_coords,
                 y_coords=y_coords,
                 stats=stats,
@@ -1021,15 +1022,15 @@ class XvecAccessor:
             )
 
         # save the index as a data variable
-        if isinstance(polygons, pd.Series):
+        if isinstance(geometry, pd.Series):
             if index is None:
-                if polygons.index.name is not None or not polygons.index.equals(
-                    pd.RangeIndex(0, len(polygons))
+                if geometry.index.name is not None or not geometry.index.equals(
+                    pd.RangeIndex(0, len(geometry))
                 ):
                     index = True
             if index:
-                index_name = polygons.index.name if polygons.index.name else "index"
-                result = result.assign_coords({index_name: (name, polygons.index)})
+                index_name = geometry.index.name if geometry.index.name else "index"
+                result = result.assign_coords({index_name: (name, geometry.index)})
 
         # standardize the shape - each method comes with a different one
         return result.transpose(

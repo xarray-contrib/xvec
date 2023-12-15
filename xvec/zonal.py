@@ -11,7 +11,7 @@ import xarray as xr
 
 def _zonal_stats_rasterize(
     acc,
-    polygons: Sequence[shapely.Geometry],
+    geometry: Sequence[shapely.Geometry],
     x_coords: Hashable,
     y_coords: Hashable,
     stats: str | Callable = "mean",
@@ -29,15 +29,15 @@ def _zonal_stats_rasterize(
             "'pip install rioxarray'."
         ) from err
 
-    if hasattr(polygons, "crs"):
-        crs = polygons.crs
+    if hasattr(geometry, "crs"):
+        crs = geometry.crs
     else:
         crs = None
 
     transform = acc._obj.rio.transform()
 
     labels = rasterio.features.rasterize(
-        zip(polygons, range(len(polygons))),
+        zip(geometry, range(len(geometry))),
         out_shape=(
             acc._obj[y_coords].shape[0],
             acc._obj[x_coords].shape[0],
@@ -52,8 +52,8 @@ def _zonal_stats_rasterize(
     else:
         agg = groups.reduce(stats, keep_attrs=True, **kwargs)
     vec_cube = (
-        agg.reindex(group=range(len(polygons)))
-        .assign_coords(group=polygons)
+        agg.reindex(group=range(len(geometry)))
+        .assign_coords(group=geometry)
         .rename(group=name)
     ).xvec.set_geom_indexes(name, crs=crs)
 
@@ -65,7 +65,7 @@ def _zonal_stats_rasterize(
 
 def _zonal_stats_iterative(
     acc,
-    polygons: Sequence[shapely.Geometry],
+    geometry: Sequence[shapely.Geometry],
     x_coords: Hashable,
     y_coords: Hashable,
     stats: str | Callable = "mean",
@@ -76,12 +76,12 @@ def _zonal_stats_iterative(
 ):
     """Extract the values from a dataset indexed by a set of geometries
 
-    The CRS of the raster and that of polygons need to be equal.
+    The CRS of the raster and that of geometry need to be equal.
     Xvec does not verify their equality.
 
     Parameters
     ----------
-    polygons : Sequence[shapely.Geometry]
+    geometry : Sequence[shapely.Geometry]
         An arrray-like (1-D) of shapely geometries, like a numpy array or
         :class:`geopandas.GeoSeries`.
     x_coords : Hashable
@@ -98,7 +98,7 @@ def _zonal_stats_iterative(
         methods are available. Alternatively, you can pass a ``Callable`` supported
         by :meth:`~xarray.DataArray.reduce`.
     name : Hashable, optional
-        Name of the dimension that will hold the ``polygons``, by default "geometry"
+        Name of the dimension that will hold the ``geometry``, by default "geometry"
     all_touched : bool, optional
         If True, all pixels touched by geometries will be considered. If False, only
         pixels whose center is within the polygon or that are selected by
@@ -148,14 +148,14 @@ def _zonal_stats_iterative(
             all_touched=all_touched,
             **kwargs,
         )
-        for geom in polygons
+        for geom in geometry
     )
-    if hasattr(polygons, "crs"):
-        crs = polygons.crs
+    if hasattr(geometry, "crs"):
+        crs = geometry.crs
     else:
         crs = None
     vec_cube = xr.concat(
-        zonal, dim=xr.DataArray(polygons, name=name, dims=name)
+        zonal, dim=xr.DataArray(geometry, name=name, dims=name)
     ).xvec.set_geom_indexes(name, crs=crs)
     gc.collect()
 
