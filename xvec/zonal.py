@@ -29,10 +29,7 @@ def _zonal_stats_rasterize(
     geometry: Sequence[shapely.Geometry],
     x_coords: Hashable,
     y_coords: Hashable,
-    stats: str
-    | Callable
-    | Sequence[tuple[str | Callable]]
-    | Sequence[str | Callable] = "mean",
+    stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
     name: str = "geometry",
     all_touched: bool = False,
     **kwargs,
@@ -107,10 +104,7 @@ def _zonal_stats_iterative(
     geometry: Sequence[shapely.Geometry],
     x_coords: Hashable,
     y_coords: Hashable,
-    stats: str
-    | Callable
-    | Sequence[tuple[str | Callable]]
-    | Sequence[str | Callable] = "mean",
+    stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
     name: str = "geometry",
     all_touched: bool = False,
     n_jobs: int = -1,
@@ -210,7 +204,7 @@ def _agg_geom(
     trans,
     x_coords: str = None,
     y_coords: str = None,
-    stats: str | Callable = "mean",
+    stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
     all_touched=False,
     **kwargs,
 ):
