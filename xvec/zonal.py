@@ -5,8 +5,23 @@ from collections.abc import Hashable, Sequence
 from typing import Callable
 
 import numpy as np
+import pandas as pd
 import shapely
 import xarray as xr
+
+
+def _agg_rasterize(groups, stats, **kwargs):
+    if isinstance(stats, str):
+        return getattr(groups, stats)(**kwargs)
+    return groups.reduce(stats, keep_attrs=True, **kwargs)
+
+
+def _agg_iterate(masked, stats, x_coords, y_coords, **kwargs):
+    if isinstance(stats, str):
+        return getattr(masked, stats)(
+            dim=(y_coords, x_coords), keep_attrs=True, **kwargs
+        )
+    return masked.reduce(stats, dim=(y_coords, x_coords), keep_attrs=True, **kwargs)
 
 
 def _zonal_stats_rasterize(
@@ -14,7 +29,10 @@ def _zonal_stats_rasterize(
     geometry: Sequence[shapely.Geometry],
     x_coords: Hashable,
     y_coords: Hashable,
-    stats: str | Callable = "mean",
+    stats: str
+    | Callable
+    | Sequence[tuple[str | Callable]]
+    | Sequence[str | Callable] = "mean",
     name: str = "geometry",
     all_touched: bool = False,
     **kwargs,
@@ -47,10 +65,31 @@ def _zonal_stats_rasterize(
         all_touched=all_touched,
     )
     groups = acc._obj.groupby(xr.DataArray(labels, dims=(y_coords, x_coords)))
-    if isinstance(stats, str):
-        agg = getattr(groups, stats)(**kwargs)
+
+    if pd.api.types.is_list_like(stats):
+        agg = {}
+        for stat in stats:
+            if isinstance(stat, str):
+                agg[stat] = _agg_rasterize(groups, stat, **kwargs)
+            elif callable(stat):
+                agg[stat.__name__] = _agg_rasterize(groups, stat, **kwargs)
+            elif isinstance(stat, tuple):
+                kws = stat[2] if len(stat) == 3 else {}
+                agg[stat[0]] = _agg_rasterize(groups, stat[1], **kws)
+            else:
+                raise ValueError(f"{stat} is not a valid aggregation.")
+
+        agg = xr.concat(
+            agg.values(),
+            dim=xr.DataArray(
+                list(agg.keys()), name="zonal_statistics", dims="zonal_statistics"
+            ),
+        )
+    elif isinstance(stats, str) or callable(stats):
+        agg = _agg_rasterize(groups, stats, **kwargs)
     else:
-        agg = groups.reduce(stats, keep_attrs=True, **kwargs)
+        raise ValueError(f"{stats} is not a valid aggregation.")
+
     vec_cube = (
         agg.reindex(group=range(len(geometry)))
         .assign_coords(group=geometry)
@@ -68,7 +107,10 @@ def _zonal_stats_iterative(
     geometry: Sequence[shapely.Geometry],
     x_coords: Hashable,
     y_coords: Hashable,
-    stats: str | Callable = "mean",
+    stats: str
+    | Callable
+    | Sequence[tuple[str | Callable]]
+    | Sequence[str | Callable] = "mean",
     name: str = "geometry",
     all_touched: bool = False,
     n_jobs: int = -1,
@@ -216,14 +258,31 @@ def _agg_geom(
         all_touched=all_touched,
     )
     masked = acc._obj.where(xr.DataArray(mask, dims=(y_coords, x_coords)))
-    if isinstance(stats, str):
-        result = getattr(masked, stats)(
-            dim=(y_coords, x_coords), keep_attrs=True, **kwargs
+    if pd.api.types.is_list_like(stats):
+        agg = {}
+        for stat in stats:
+            if isinstance(stat, str):
+                agg[stat] = _agg_iterate(masked, stat, x_coords, y_coords, **kwargs)
+            elif callable(stat):
+                agg[stat.__name__] = _agg_iterate(
+                    masked, stat, x_coords, y_coords, **kwargs
+                )
+            elif isinstance(stat, tuple):
+                kws = stat[2] if len(stat) == 3 else {}
+                agg[stat[0]] = _agg_iterate(masked, stat[1], x_coords, y_coords, **kws)
+            else:
+                raise ValueError(f"{stat} is not a valid aggregation.")
+
+        result = xr.concat(
+            agg.values(),
+            dim=xr.DataArray(
+                list(agg.keys()), name="zonal_statistics", dims="zonal_statistics"
+            ),
         )
+    elif isinstance(stats, str) or callable(stats):
+        result = _agg_iterate(masked, stats, x_coords, y_coords, **kwargs)
     else:
-        result = masked.reduce(
-            stats, dim=(y_coords, x_coords), keep_attrs=True, **kwargs
-        )
+        raise ValueError(f"{stats} is not a valid aggregation.")
 
     del mask
     gc.collect()

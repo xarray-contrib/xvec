@@ -924,7 +924,7 @@ class XvecAccessor:
         geometry: Sequence[shapely.Geometry],
         x_coords: Hashable,
         y_coords: Hashable,
-        stats: str | Callable = "mean",
+        stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
         name: Hashable = "geometry",
         index: bool = None,
         method: str = "rasterize",
@@ -990,8 +990,6 @@ class XvecAccessor:
             the :class:`GeometryIndex` of ``geometry``.
 
         """
-        # TODO: allow multiple stats at the same time (concat along a new axis),
-        # TODO: possibly as a list of tuples to include names?
         if method == "rasterize":
             result = _zonal_stats_rasterize(
                 self,
@@ -1033,9 +1031,7 @@ class XvecAccessor:
                 result = result.assign_coords({index_name: (name, geometry.index)})
 
         # standardize the shape - each method comes with a different one
-        return result.transpose(
-            name, *tuple(d for d in self._obj.dims if d not in [x_coords, y_coords])
-        )
+        return result.transpose(name, ...)
 
     def extract_points(
         self,
