@@ -224,7 +224,12 @@ def test_callable(method):
     xr.testing.assert_identical(ds_agg, ds_std)
 
     da_agg = ds.z.xvec.zonal_stats(
-        world.geometry, "longitude", "latitude", method=method, stats=np.nanstd
+        world.geometry,
+        "longitude",
+        "latitude",
+        method=method,
+        stats=np.nanstd,
+        n_jobs=1,
     )
     da_std = ds.z.xvec.zonal_stats(
         world.geometry, "longitude", "latitude", method=method, stats="std"
