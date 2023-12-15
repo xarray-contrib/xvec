@@ -949,36 +949,39 @@ class XvecAccessor:
         y_coords : Hashable
             name of the coordinates containing ``y`` coordinates (i.e. the second value
             in the coordinate pair encoding the vertex of the polygon)
-        stats : string | Callable
+        stats : string | Callable | Sequence[str | Callable | tuple]
             Spatial aggregation statistic method, by default "mean". Any of the
             aggregations available as :class:`xarray.DataArray` or
             :class:`xarray.DataArrayGroupBy` methods like
             :meth:`~xarray.DataArray.mean`, :meth:`~xarray.DataArray.min`,
-            :meth:`~xarray.DataArray.max`, or :meth:`~xarray.DataArray.quantile`
-            are available. Alternatively, you can pass a ``Callable`` supported
-            by :meth:`~xarray.DataArray.reduce`.
+            :meth:`~xarray.DataArray.max`, or :meth:`~xarray.DataArray.quantile` are
+            available. Alternatively, you can pass a ``Callable`` supported by
+            :meth:`~xarray.DataArray.reduce` or a list with ``strings``, ``callables``
+            or ``tuples`` in a ``(name, func, {kwargs})`` format, where ``func`` can be
+            a string or a callable.
         name : Hashable, optional
             Name of the dimension that will hold the ``geometry``, by default "geometry"
         index : bool, optional
-            If ``geometry`` is a :class:`~geopandas.GeoSeries`, ``index=True`` will attach its index as another
-            coordinate to the geometry dimension in the resulting object. If
-            ``index=None``, the index will be stored if the `geometry.index` is a named
-            or non-default index. If ``index=False``, it will never be stored. This is
-            useful as an attribute link between the resulting array and the GeoPandas
-            object from which the geometry is sourced.
+            If ``geometry`` is a :class:`~geopandas.GeoSeries`, ``index=True`` will
+            attach its index as another coordinate to the geometry dimension in the
+            resulting object. If ``index=None``, the index will be stored if the
+            `geometry.index` is a named or non-default index. If ``index=False``, it
+            will never be stored. This is useful as an attribute link between the
+            resulting array and the GeoPandas object from which the geometry is sourced.
         method : str, optional
             The method of data extraction. The default is ``"rasterize"``, which uses
-            :func:`rasterio.features.rasterize` and is faster, but can lead to loss
-            of information in case of small polygons or lines. Other option is ``"iterate"``, which
-            iterates over geometries and uses :func:`rasterio.features.geometry_mask`.
+            :func:`rasterio.features.rasterize` and is faster, but can lead to loss of
+            information in case of small polygons or lines. Other option is
+            ``"iterate"``, which iterates over geometries and uses
+            :func:`rasterio.features.geometry_mask`.
         all_touched : bool, optional
             If True, all pixels touched by geometries will be considered. If False, only
             pixels whose center is within the polygon or that are selected by
             Bresenham’s line algorithm will be considered.
         n_jobs : int, optional
             Number of parallel threads to use. It is recommended to set this to the
-            number of physical cores of the CPU. ``-1`` uses all available cores. Applies
-            only if ``method="iterate"``.
+            number of physical cores of the CPU. ``-1`` uses all available cores.
+            Applies only if ``method="iterate"``.
         **kwargs : optional
             Keyword arguments to be passed to the aggregation function
             (e.g., ``Dataset.quantile(**kwargs)``).
