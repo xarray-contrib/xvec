@@ -235,3 +235,64 @@ def test_callable(method):
         world.geometry, "longitude", "latitude", method=method, stats="std"
     )
     xr.testing.assert_identical(da_agg, da_std)
+
+
+@pytest.mark.parametrize("method", ["rasterize", "iterate"])
+def test_multiple(method):
+    ds = xr.tutorial.open_dataset("eraint_uvz")
+    world = gpd.read_file(geodatasets.get_path("naturalearth land"))
+    result = ds.xvec.zonal_stats(
+        world.geometry[:10].boundary,
+        "longitude",
+        "latitude",
+        stats=[
+            "mean",
+            "sum",
+            ("quantile", "quantile", {"q": [0.1, 0.2, 0.3]}),
+            ("numpymean", np.nanmean),
+            np.nanmean,
+        ],
+        method=method,
+        n_jobs=1,
+    )
+    assert sorted(result.dims) == sorted(
+        [
+            "level",
+            "zonal_statistics",
+            "geometry",
+            "month",
+            "quantile",
+        ]
+    )
+
+    assert (
+        result.zonal_statistics == ["mean", "sum", "quantile", "numpymean", "nanmean"]
+    ).all()
+
+
+@pytest.mark.parametrize("method", ["rasterize", "iterate"])
+def test_invalid(method):
+    ds = xr.tutorial.open_dataset("eraint_uvz")
+    world = gpd.read_file(geodatasets.get_path("naturalearth land"))
+    with pytest.raises(ValueError, match=r"\['gorilla'\] is not a valid aggregation."):
+        ds.xvec.zonal_stats(
+            world.geometry[:10].boundary,
+            "longitude",
+            "latitude",
+            stats=[
+                "mean",
+                ["gorilla"],
+            ],
+            method=method,
+            n_jobs=1,
+        )
+
+    with pytest.raises(ValueError, match="3 is not a valid aggregation."):
+        ds.xvec.zonal_stats(
+            world.geometry[:10].boundary,
+            "longitude",
+            "latitude",
+            stats=3,
+            method=method,
+            n_jobs=1,
+        )
