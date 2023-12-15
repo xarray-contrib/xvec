@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import gc
 from collections.abc import Hashable, Sequence
+from typing import Callable
 
 import numpy as np
 import shapely
@@ -10,16 +11,16 @@ import xarray as xr
 
 def _zonal_stats_rasterize(
     acc,
-    polygons: Sequence[shapely.Geometry],
+    geometry: Sequence[shapely.Geometry],
     x_coords: Hashable,
     y_coords: Hashable,
-    stats: str = "mean",
+    stats: str | Callable = "mean",
     name: str = "geometry",
     all_touched: bool = False,
     **kwargs,
 ):
     try:
-        import rasterio  # noqa: F401
+        import rasterio
         import rioxarray  # noqa: F401
     except ImportError as err:
         raise ImportError(
@@ -28,15 +29,15 @@ def _zonal_stats_rasterize(
             "'pip install rioxarray'."
         ) from err
 
-    if hasattr(polygons, "crs"):
-        crs = polygons.crs
+    if hasattr(geometry, "crs"):
+        crs = geometry.crs
     else:
         crs = None
 
     transform = acc._obj.rio.transform()
 
     labels = rasterio.features.rasterize(
-        zip(polygons, range(len(polygons))),
+        zip(geometry, range(len(geometry))),
         out_shape=(
             acc._obj[y_coords].shape[0],
             acc._obj[x_coords].shape[0],
@@ -46,10 +47,13 @@ def _zonal_stats_rasterize(
         all_touched=all_touched,
     )
     groups = acc._obj.groupby(xr.DataArray(labels, dims=(y_coords, x_coords)))
-    agg = getattr(groups, stats)(**kwargs)
+    if isinstance(stats, str):
+        agg = getattr(groups, stats)(**kwargs)
+    else:
+        agg = groups.reduce(stats, keep_attrs=True, **kwargs)
     vec_cube = (
-        agg.reindex(group=range(len(polygons)))
-        .assign_coords(group=polygons)
+        agg.reindex(group=range(len(geometry)))
+        .assign_coords(group=geometry)
         .rename(group=name)
     ).xvec.set_geom_indexes(name, crs=crs)
 
@@ -61,10 +65,10 @@ def _zonal_stats_rasterize(
 
 def _zonal_stats_iterative(
     acc,
-    polygons: Sequence[shapely.Geometry],
+    geometry: Sequence[shapely.Geometry],
     x_coords: Hashable,
     y_coords: Hashable,
-    stats: str = "mean",
+    stats: str | Callable = "mean",
     name: str = "geometry",
     all_touched: bool = False,
     n_jobs: int = -1,
@@ -72,12 +76,12 @@ def _zonal_stats_iterative(
 ):
     """Extract the values from a dataset indexed by a set of geometries
 
-    The CRS of the raster and that of polygons need to be equal.
+    The CRS of the raster and that of geometry need to be equal.
     Xvec does not verify their equality.
 
     Parameters
     ----------
-    polygons : Sequence[shapely.Geometry]
+    geometry : Sequence[shapely.Geometry]
         An arrray-like (1-D) of shapely geometries, like a numpy array or
         :class:`geopandas.GeoSeries`.
     x_coords : Hashable
@@ -87,10 +91,14 @@ def _zonal_stats_iterative(
         name of the coordinates containing ``y`` coordinates (i.e. the second value
         in the coordinate pair encoding the vertex of the polygon)
     stats : Hashable
-        Spatial aggregation statistic method, by default "mean". It supports the
-        following statistcs: ['mean', 'median', 'min', 'max', 'sum']
+        Spatial aggregation statistic method, by default "mean". Any of the
+        aggregations available as DataArray or DataArrayGroupBy like
+        :meth:`~xarray.DataArray.mean`, :meth:`~xarray.DataArray.min`,
+        :meth:`~xarray.DataArray.max`, or :meth:`~xarray.DataArray.quantile`,
+        methods are available. Alternatively, you can pass a ``Callable`` supported
+        by :meth:`~xarray.DataArray.reduce`.
     name : Hashable, optional
-        Name of the dimension that will hold the ``polygons``, by default "geometry"
+        Name of the dimension that will hold the ``geometry``, by default "geometry"
     all_touched : bool, optional
         If True, all pixels touched by geometries will be considered. If False, only
         pixels whose center is within the polygon or that are selected by
@@ -140,14 +148,14 @@ def _zonal_stats_iterative(
             all_touched=all_touched,
             **kwargs,
         )
-        for geom in polygons
+        for geom in geometry
     )
-    if hasattr(polygons, "crs"):
-        crs = polygons.crs
+    if hasattr(geometry, "crs"):
+        crs = geometry.crs
     else:
         crs = None
     vec_cube = xr.concat(
-        zonal, dim=xr.DataArray(polygons, name=name, dims=name)
+        zonal, dim=xr.DataArray(geometry, name=name, dims=name)
     ).xvec.set_geom_indexes(name, crs=crs)
     gc.collect()
 
@@ -160,7 +168,7 @@ def _agg_geom(
     trans,
     x_coords: str = None,
     y_coords: str = None,
-    stats: str = "mean",
+    stats: str | Callable = "mean",
     all_touched=False,
     **kwargs,
 ):
@@ -207,9 +215,15 @@ def _agg_geom(
         invert=True,
         all_touched=all_touched,
     )
-    result = getattr(
-        acc._obj.where(xr.DataArray(mask, dims=(y_coords, x_coords))), stats
-    )(dim=(y_coords, x_coords), keep_attrs=True, **kwargs)
+    masked = acc._obj.where(xr.DataArray(mask, dims=(y_coords, x_coords)))
+    if isinstance(stats, str):
+        result = getattr(masked, stats)(
+            dim=(y_coords, x_coords), keep_attrs=True, **kwargs
+        )
+    else:
+        result = masked.reduce(
+            stats, dim=(y_coords, x_coords), keep_attrs=True, **kwargs
+        )
 
     del mask
     gc.collect()
