@@ -209,3 +209,24 @@ def test_crs(method):
 
     actual = da.xvec.zonal_stats(polygons, "x", "y", stats="sum", method=method)
     xr.testing.assert_identical(actual, expected)
+
+
+@pytest.mark.parametrize("method", ["rasterize", "iterate"])
+def test_callable(method):
+    ds = xr.tutorial.open_dataset("eraint_uvz")
+    world = gpd.read_file(geodatasets.get_path("naturalearth land"))
+    ds_agg = ds.xvec.zonal_stats(
+        world.geometry, "longitude", "latitude", method=method, stats=np.nanstd
+    )
+    ds_std = ds.xvec.zonal_stats(
+        world.geometry, "longitude", "latitude", method=method, stats="std"
+    )
+    xr.testing.assert_identical(ds_agg, ds_std)
+
+    da_agg = ds.z.xvec.zonal_stats(
+        world.geometry, "longitude", "latitude", method=method, stats=np.nanstd
+    )
+    da_std = ds.z.xvec.zonal_stats(
+        world.geometry, "longitude", "latitude", method=method, stats="std"
+    )
+    xr.testing.assert_identical(da_agg, da_std)

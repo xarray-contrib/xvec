@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import gc
 from collections.abc import Hashable, Sequence
+from typing import Callable
 
 import numpy as np
 import shapely
@@ -13,13 +14,13 @@ def _zonal_stats_rasterize(
     polygons: Sequence[shapely.Geometry],
     x_coords: Hashable,
     y_coords: Hashable,
-    stats: str = "mean",
+    stats: str | Callable = "mean",
     name: str = "geometry",
     all_touched: bool = False,
     **kwargs,
 ):
     try:
-        import rasterio  # noqa: F401
+        import rasterio
         import rioxarray  # noqa: F401
     except ImportError as err:
         raise ImportError(
@@ -46,7 +47,10 @@ def _zonal_stats_rasterize(
         all_touched=all_touched,
     )
     groups = acc._obj.groupby(xr.DataArray(labels, dims=(y_coords, x_coords)))
-    agg = getattr(groups, stats)(**kwargs)
+    if isinstance(stats, str):
+        agg = getattr(groups, stats)(**kwargs)
+    else:
+        agg = groups.reduce(stats, keep_attrs=True, **kwargs)
     vec_cube = (
         agg.reindex(group=range(len(polygons)))
         .assign_coords(group=polygons)
@@ -64,7 +68,7 @@ def _zonal_stats_iterative(
     polygons: Sequence[shapely.Geometry],
     x_coords: Hashable,
     y_coords: Hashable,
-    stats: str = "mean",
+    stats: str | Callable = "mean",
     name: str = "geometry",
     all_touched: bool = False,
     n_jobs: int = -1,
@@ -87,8 +91,12 @@ def _zonal_stats_iterative(
         name of the coordinates containing ``y`` coordinates (i.e. the second value
         in the coordinate pair encoding the vertex of the polygon)
     stats : Hashable
-        Spatial aggregation statistic method, by default "mean". It supports the
-        following statistcs: ['mean', 'median', 'min', 'max', 'sum']
+        Spatial aggregation statistic method, by default "mean". Any of the
+        aggregations available as DataArray or DataArrayGroupBy like
+        :meth:`~xarray.DataArray.mean`, :meth:`~xarray.DataArray.min`,
+        :meth:`~xarray.DataArray.max`, or :meth:`~xarray.DataArray.quantile`,
+        methods are available. Alternatively, you can pass a ``Callable`` supported
+        by :meth:`~xarray.DataArray.reduce`.
     name : Hashable, optional
         Name of the dimension that will hold the ``polygons``, by default "geometry"
     all_touched : bool, optional
@@ -160,7 +168,7 @@ def _agg_geom(
     trans,
     x_coords: str = None,
     y_coords: str = None,
-    stats: str = "mean",
+    stats: str | Callable = "mean",
     all_touched=False,
     **kwargs,
 ):
@@ -207,9 +215,15 @@ def _agg_geom(
         invert=True,
         all_touched=all_touched,
     )
-    result = getattr(
-        acc._obj.where(xr.DataArray(mask, dims=(y_coords, x_coords))), stats
-    )(dim=(y_coords, x_coords), keep_attrs=True, **kwargs)
+    masked = acc._obj.where(xr.DataArray(mask, dims=(y_coords, x_coords)))
+    if isinstance(stats, str):
+        result = getattr(masked, stats)(
+            dim=(y_coords, x_coords), keep_attrs=True, **kwargs
+        )
+    else:
+        result = masked.reduce(
+            stats, dim=(y_coords, x_coords), keep_attrs=True, **kwargs
+        )
 
     del mask
     gc.collect()

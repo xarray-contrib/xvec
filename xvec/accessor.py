@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Hashable, Mapping, Sequence
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -924,7 +924,7 @@ class XvecAccessor:
         polygons: Sequence[shapely.Geometry],
         x_coords: Hashable,
         y_coords: Hashable,
-        stats: str = "mean",
+        stats: str | Callable = "mean",
         name: Hashable = "geometry",
         index: bool = None,
         method: str = "rasterize",
@@ -948,9 +948,13 @@ class XvecAccessor:
         y_coords : Hashable
             name of the coordinates containing ``y`` coordinates (i.e. the second value
             in the coordinate pair encoding the vertex of the polygon)
-        stats : string
-            Spatial aggregation statistic method, by default "mean". It supports the
-            following statistcs: ['mean', 'median', 'min', 'max', 'sum']
+        stats : string | Callable
+            Spatial aggregation statistic method, by default "mean". Any of the
+            aggregations available as DataArray or DataArrayGroupBy like
+            :meth:`~xarray.DataArray.mean`, :meth:`~xarray.DataArray.min`,
+            :meth:`~xarray.DataArray.max`, or :meth:`~xarray.DataArray.quantile`,
+            methods are available. Alternatively, you can pass a ``Callable`` supported
+            by :meth:`~xarray.DataArray.reduce`.
         name : Hashable, optional
             Name of the dimension that will hold the ``polygons``, by default "geometry"
         index : bool, optional
@@ -975,7 +979,7 @@ class XvecAccessor:
             only if ``method="iterate"``.
         **kwargs : optional
             Keyword arguments to be passed to the aggregation function
-            (e.g., ``Dataset.mean(**kwargs)``).
+            (e.g., ``Dataset.quantile(**kwargs)``).
 
         Returns
         -------
