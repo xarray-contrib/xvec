@@ -16,6 +16,7 @@ indexing
 projections
 geopandas
 extract_pts
+zonal_stats
 io
 ```
 

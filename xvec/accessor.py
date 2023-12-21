@@ -934,8 +934,14 @@ class XvecAccessor:
     ):
         """Extract the values from a dataset indexed by a set of geometries
 
+        Given an object indexed by x and y coordinates (or latitude and longitude), such
+        as an typical geospatial raster dataset, aggregate multidimensional data for a
+        set of Polygons or LineStrings represented as shapely geometry.
+
         The CRS of the raster and that of geometry need to be equal.
         Xvec does not verify their equality.
+
+        Requires ``rioxarray``.
 
         Parameters
         ----------
@@ -973,7 +979,8 @@ class XvecAccessor:
             :func:`rasterio.features.rasterize` and is faster, but can lead to loss of
             information in case of small polygons or lines. Other option is
             ``"iterate"``, which iterates over geometries and uses
-            :func:`rasterio.features.geometry_mask`.
+            :func:`rasterio.features.geometry_mask`. ``"iterate"`` method requires
+            ``joblib`` on top of ``rioxarray``.
         all_touched : bool, optional
             If True, all pixels touched by geometries will be considered. If False, only
             pixels whose center is within the polygon or that are selected by
@@ -992,6 +999,77 @@ class XvecAccessor:
             A subset of the original object with N-1 dimensions indexed by
             the :class:`GeometryIndex` of ``geometry``.
 
+        Examples
+        --------
+        >>> import geodatasets
+        >>> import geopandas as gpd
+
+        A typical raster Dataset indexed by longitude and latitude:
+
+        >>> ds = xr.tutorial.open_dataset("eraint_uvz")
+        >>> ds
+        <xarray.Dataset>
+        Dimensions:    (longitude: 480, latitude: 241, level: 3, month: 2)
+        Coordinates:
+        * longitude  (longitude) float32 -180.0 -179.2 -178.5 ... 177.8 178.5 179.2
+        * latitude   (latitude) float32 90.0 89.25 88.5 87.75 ... -88.5 -89.25 -90.0
+        * level      (level) int32 200 500 850
+        * month      (month) int32 1 7
+        Data variables:
+            z          (month, level, latitude, longitude) float64 ...
+            u          (month, level, latitude, longitude) float64 ...
+            v          (month, level, latitude, longitude) float64 ...
+        Attributes:
+            Conventions:  CF-1.0
+            Info:         Monthly ERA-Interim data. Downloaded
+
+        A set of polygons representing land mass:
+
+        >>> world = gpd.read_file(geodatasets.get_path("naturalearth land"))
+        >>> world
+            featurecla  ...                                           geometry
+        0         Land  ...  POLYGON ((-59.57209 -80.04018, -59.86585 -80.5...
+        1         Land  ...  POLYGON ((-159.20818 -79.49706, -161.12760 -79...
+        2         Land  ...  POLYGON ((-45.15476 -78.04707, -43.92083 -78.4...
+        3         Land  ...  POLYGON ((-121.21151 -73.50099, -119.91885 -73...
+        4         Land  ...  POLYGON ((-125.55957 -73.48135, -124.03188 -73...
+        ..         ...  ...                                                ...
+        122       Land  ...  POLYGON ((51.13619 80.54728, 49.79368 80.41543...
+        123       Land  ...  POLYGON ((99.93976 78.88094, 97.75794 78.75620...
+        124       Land  ...  POLYGON ((-87.02000 79.66000, -85.81435 79.336...
+        125       Land  ...  POLYGON ((-68.50000 83.10632, -65.82735 83.028...
+        126       Land  ...  POLYGON ((-27.10046 83.51966, -20.84539 82.726...
+
+        [127 rows x 4 columns]
+
+        Dataset with N-1 dimensions indexed by the geometry aggregated using mean:
+
+        >>> ds.xvec.zonal_stats(world.geometry, "longitude", "latitude")
+        <xarray.Dataset>
+        Dimensions:   (level: 3, month: 2, geometry: 127)
+        Coordinates:
+        * level     (level) int32 200 500 850
+        * month     (month) int32 1 7
+        * geometry  (geometry) object POLYGON ((-59.57209469261153 -80.040178725096...
+        Data variables:
+            z         (geometry, month, level) float64 1.1e+05 5.025e+04 ... 1.394e+04
+            u         (geometry, month, level) float64 2.401 1.482 ... 2.393 0.8898
+            v         (geometry, month, level) float64 0.4296 0.07286 ... 1.116 0.6399
+        Indexes:
+            geometry  GeometryIndex (crs=EPSG:4326)
+        Attributes:
+            Conventions:  CF-1.0
+            Info:         Monthly ERA-Interim data. Downloaded and edited by fabien.m...
+
+        Notes
+        -----
+
+        See the `User Guide <../zonal_stats.html>`_ for detailed explanation of the
+        functionality.
+
+        See also
+        --------
+        extract_points : extraction of values for the raster object for points
         """
         if method == "rasterize":
             result = _zonal_stats_rasterize(
@@ -1137,6 +1215,16 @@ class XvecAccessor:
         Attributes:
             Conventions:  CF-1.0
             Info:         Monthly ERA-Interim data. Downloaded and edited by fabien.m...
+
+        Notes
+        -----
+
+        See the `User Guide <../extract_pts.html>`_ for detailed explanation of the
+        functionality.
+
+        See also
+        --------
+        zonal_stats : zonal statistics for polygons and linestrings
         """
         if crs is None and hasattr(points, "crs"):
             crs = points.crs
