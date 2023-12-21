@@ -941,6 +941,8 @@ class XvecAccessor:
         The CRS of the raster and that of geometry need to be equal.
         Xvec does not verify their equality.
 
+        Requires ``rioxarray``.
+
         Parameters
         ----------
         geometry : Sequence[shapely.Geometry]
@@ -977,7 +979,8 @@ class XvecAccessor:
             :func:`rasterio.features.rasterize` and is faster, but can lead to loss of
             information in case of small polygons or lines. Other option is
             ``"iterate"``, which iterates over geometries and uses
-            :func:`rasterio.features.geometry_mask`.
+            :func:`rasterio.features.geometry_mask`. ``"iterate"`` method requires
+            ``joblib`` on top of ``rioxarray``.
         all_touched : bool, optional
             If True, all pixels touched by geometries will be considered. If False, only
             pixels whose center is within the polygon or that are selected by
