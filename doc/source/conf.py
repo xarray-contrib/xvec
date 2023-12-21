@@ -45,7 +45,6 @@ intersphinx_mapping = {
     "geopandas": ("https://geopandas.org/en/latest", None),
     "pandas": ("https://pandas.pydata.org/docs", None),
     "rasterio": ("https://rasterio.readthedocs.io/en/latest/", None),
-
 }
 
 # -- Options for HTML output -------------------------------------------------
@@ -57,9 +56,7 @@ html_css_files = ["custom.css"]
 html_logo = "_static/logo.svg"
 html_favicon = "_static/icon.png"
 html_theme_options = {
-    "github_url": "https://github.com/xarray-contrib/xvec",
     "use_sidenotes": True,
-    "logo_only": True,
 }
 nb_execution_mode = "off"
 autodoc_typehints = "none"
