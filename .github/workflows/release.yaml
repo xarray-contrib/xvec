@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - "v*"
-
 jobs:
   build-n-publish:
     name: Build and publish Xvec to PyPI
@@ -14,17 +13,18 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.x"
 
-      - name: Build a binary wheel and a source tarball
+      - name: Build source and wheel distributions
         run: |
-          python -m pip install --upgrade build
+          python -m pip install --upgrade build twine
           python -m build
+          twine check --strict dist/*
 
       - name: Publish distribution to PyPI
-        uses: pypa/gh-action-pypi-publish@v1
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
           password: ${{ secrets.pypi_password }}
