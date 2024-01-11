@@ -752,7 +752,7 @@ class XvecAccessor:
             if len(self._geom_indexes):
                 if self._obj.ndim == 1:
                     gdf = self._obj.to_pandas()
-                elif self._obj.ndim == 2:
+                else:
                     gdf = self._obj.to_pandas()
                     if gdf.columns.name == self._geom_indexes[0]:
                         gdf = gdf.T

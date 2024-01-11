@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import gc
-from collections.abc import Hashable, Sequence
+from collections.abc import Hashable, Iterable, Sequence
 from typing import Callable
 
 import numpy as np
@@ -35,8 +35,8 @@ def _zonal_stats_rasterize(
     **kwargs,
 ):
     try:
-        import rasterio  # type: ignore
         import rioxarray  # noqa: F401
+        from rasterio import features  # type: ignore
     except ImportError as err:
         raise ImportError(
             "The rioxarray package is required for `zonal_stats()`. "
@@ -51,7 +51,7 @@ def _zonal_stats_rasterize(
 
     transform = acc._obj.rio.transform()
 
-    labels = rasterio.features.rasterize(
+    labels = features.rasterize(
         zip(geometry, range(len(geometry))),
         out_shape=(
             acc._obj[y_coords].shape[0],
@@ -76,19 +76,19 @@ def _zonal_stats_rasterize(
             else:
                 raise ValueError(f"{stat} is not a valid aggregation.")
 
-        agg = xr.concat(
+        agg_array = xr.concat(
             agg.values(),
             dim=xr.DataArray(
                 list(agg.keys()), name="zonal_statistics", dims="zonal_statistics"
             ),
         )
     elif isinstance(stats, str) or callable(stats):
-        agg = _agg_rasterize(groups, stats, **kwargs)
+        agg_array = _agg_rasterize(groups, stats, **kwargs)
     else:
         raise ValueError(f"{stats} is not a valid aggregation.")
 
     vec_cube = (
-        agg.reindex(group=range(len(geometry)))
+        agg_array.reindex(group=range(len(geometry)))
         .assign_coords(group=geometry)
         .rename(group=name)
     ).xvec.set_geom_indexes(name, crs=crs)
@@ -204,7 +204,7 @@ def _agg_geom(
     trans,
     x_coords: str | None = None,
     y_coords: str | None = None,
-    stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
+    stats: str | Callable | Iterable[str | Callable | tuple] = "mean",
     all_touched: bool = False,
     **kwargs,
 ):
@@ -239,9 +239,9 @@ def _agg_geom(
         Aggregated values over the geometry.
 
     """
-    import rasterio
+    from rasterio import features
 
-    mask = rasterio.features.geometry_mask(
+    mask = features.geometry_mask(
         [geom],
         out_shape=(
             acc._obj[y_coords].shape[0],
