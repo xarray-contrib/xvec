@@ -769,7 +769,7 @@ class XvecAccessor:
                 UserWarning,
                 stacklevel=2,
             )
-            return cast(pd.DataFrame, self._obj.to_pandas())
+            return self._obj.to_pandas()
 
         # Dataset
         gdf = self._obj.to_pandas()
@@ -784,7 +784,7 @@ class XvecAccessor:
         if index_name in self._geom_coords_all:
             return gdf.reset_index().set_geometry(
                 index_name, crs=self._obj[index_name].attrs.get("crs", None)
-            )
+            )  # type: ignore
 
         warnings.warn(
             "No active geometry column to be set. The resulting object "
@@ -795,7 +795,7 @@ class XvecAccessor:
             stacklevel=2,
         )
 
-        return cast(pd.DataFrame, gdf)
+        return gdf
 
     def to_geodataframe(
         self,

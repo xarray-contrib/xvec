@@ -174,9 +174,7 @@ class GeometryIndex(Index):
         else:
             return None
 
-    def _sel_sindex(
-        self, labels: Sequence[shapely.Geometry], method: str, tolerance: float
-    ) -> IndexSelResult:
+    def _sel_sindex(self, labels, method: str, tolerance) -> IndexSelResult:
         # only one entry expected
         assert len(labels) == 1
         label = next(iter(labels.values()))
@@ -227,7 +225,7 @@ class GeometryIndex(Index):
             # options when `labels` is a single geometry.
             # Xarray currently doesn't support custom options
             # (see https://github.com/pydata/xarray/issues/7099)
-            return self._sel_sindex(labels, method, tolerance)
+            return self._sel_sindex(labels, method, tolerance)  # type: ignore
 
     def equals(self, other: Index) -> bool:
         if not isinstance(other, GeometryIndex):
