@@ -6,7 +6,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-import shapely  # type: ignore
+import shapely
 from pyproj import CRS
 from xarray import DataArray, Variable, get_options
 from xarray.core.indexing import IndexSelResult
@@ -22,7 +22,7 @@ def _format_crs(crs: CRS | None, max_width: int = 50) -> str:
     return srs if len(srs) <= max_width else " ".join([srs[:max_width], "..."])
 
 
-def _get_common_crs(crs_set: set[CRS | None]):
+def _get_common_crs(crs_set: set[CRS | None]) -> CRS | None:
     # code taken from geopandas (BSD-3 Licence)
 
     crs_not_none = [crs for crs in crs_set if crs is not None]
@@ -112,7 +112,7 @@ class GeometryIndex(Index):
 
     def _crs_mismatch_raise(
         self, other_crs: CRS | None, warn: bool = False, stacklevel: int = 3
-    ):
+    ) -> None:
         """Raise a CRS mismatch error or warning with the information
         on the assigned CRS.
         """
@@ -138,7 +138,7 @@ class GeometryIndex(Index):
         variables: Mapping[Any, Variable],
         *,
         options: Mapping[str, Any],
-    ):
+    ) -> GeometryIndex:
         # TODO: try getting CRS from coordinate attrs or GeometryArray or SRID
 
         index = PandasIndex.from_variables(variables, options={})
@@ -166,7 +166,7 @@ class GeometryIndex(Index):
     def to_pandas_index(self) -> pd.Index:
         return self._index.index
 
-    def isel(self, indexers: Mapping[Any, Any]):
+    def isel(self, indexers: Mapping[Any, Any]) -> GeometryIndex | None:
         index = self._index.isel(indexers)
 
         if index is not None:
@@ -174,7 +174,9 @@ class GeometryIndex(Index):
         else:
             return None
 
-    def _sel_sindex(self, labels, method, tolerance):
+    def _sel_sindex(
+        self, labels: Sequence[shapely.Geometry], method: str, tolerance: float
+    ) -> IndexSelResult:
         # only one entry expected
         assert len(labels) == 1
         label = next(iter(labels.values()))
@@ -212,7 +214,10 @@ class GeometryIndex(Index):
         return IndexSelResult({self._index.dim: indices})
 
     def sel(
-        self, labels: dict[Any, Any], method=None, tolerance=None
+        self,
+        labels: dict[Any, Any],
+        method: str | None = None,
+        tolerance: int | float | Iterable[int | float] | None = None,
     ) -> IndexSelResult:
         if method is None:
             return self._index.sel(labels)
@@ -241,7 +246,10 @@ class GeometryIndex(Index):
         return type(self)(index, self.crs)
 
     def reindex_like(
-        self, other: GeometryIndex, method=None, tolerance=None
+        self,
+        other: GeometryIndex,
+        method: str | None = None,
+        tolerance: int | float | Iterable[int | float] | None = None,
     ) -> dict[Hashable, Any]:
         if not self._check_crs(other.crs, allow_none=True):
             self._crs_mismatch_raise(other.crs)
@@ -254,11 +262,13 @@ class GeometryIndex(Index):
         index = self._index.roll(shifts)
         return type(self)(index, self.crs)
 
-    def rename(self, name_dict, dims_dict):
+    def rename(
+        self, name_dict: Mapping[Any, Hashable], dims_dict: Mapping[Any, Hashable]
+    ) -> GeometryIndex:
         index = self._index.rename(name_dict, dims_dict)
         return type(self)(index, self.crs)
 
-    def _repr_inline_(self, max_width: int):
+    def _repr_inline_(self, max_width: int) -> str:
         # TODO: remove when fixed in XArray
         if max_width is None:
             max_width = get_options()["display_width"]

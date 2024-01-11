@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import gc
 from collections.abc import Hashable, Iterable, Sequence
-from typing import Callable
+from typing import Any, Callable
 
 import numpy as np
-import pandas as pd  # type: ignore
-import shapely  # type: ignore
+import pandas as pd
+import shapely
 import xarray as xr
 
 
@@ -33,10 +33,10 @@ def _zonal_stats_rasterize(
     name: Hashable = "geometry",
     all_touched: bool = False,
     **kwargs,
-):
+) -> xr.DataArray | xr.Dataset:
     try:
         import rioxarray  # noqa: F401
-        from rasterio import features  # type: ignore
+        from rasterio import features
     except ImportError as err:
         raise ImportError(
             "The rioxarray package is required for `zonal_stats()`. "
@@ -45,7 +45,7 @@ def _zonal_stats_rasterize(
         ) from err
 
     if hasattr(geometry, "crs"):
-        crs = geometry.crs
+        crs = geometry.crs  # type: ignore
     else:
         crs = None
 
@@ -58,14 +58,14 @@ def _zonal_stats_rasterize(
             acc._obj[x_coords].shape[0],
         ),
         transform=transform,
-        fill=np.nan,
+        fill=np.nan,  # type: ignore
         all_touched=all_touched,
     )
     groups = acc._obj.groupby(xr.DataArray(labels, dims=(y_coords, x_coords)))
 
     if pd.api.types.is_list_like(stats):
         agg = {}
-        for stat in stats:
+        for stat in stats:  # type: ignore
             if isinstance(stat, str):
                 agg[stat] = _agg_rasterize(groups, stat, **kwargs)
             elif callable(stat):
@@ -108,8 +108,8 @@ def _zonal_stats_iterative(
     name: Hashable = "geometry",
     all_touched: bool = False,
     n_jobs: int = -1,
-    **kwargs,
-):
+    **kwargs: dict[str, Any],
+) -> xr.DataArray | xr.Dataset:
     """Extract the values from a dataset indexed by a set of geometries
 
     The CRS of the raster and that of geometry need to be equal.
@@ -187,11 +187,12 @@ def _zonal_stats_iterative(
         for geom in geometry
     )
     if hasattr(geometry, "crs"):
-        crs = geometry.crs
+        crs = geometry.crs  # type: ignore
     else:
         crs = None
     vec_cube = xr.concat(
-        zonal, dim=xr.DataArray(geometry, name=name, dims=name)
+        zonal,  # type: ignore
+        dim=xr.DataArray(geometry, name=name, dims=name),
     ).xvec.set_geom_indexes(name, crs=crs)
     gc.collect()
 
@@ -254,7 +255,7 @@ def _agg_geom(
     masked = acc._obj.where(xr.DataArray(mask, dims=(y_coords, x_coords)))
     if pd.api.types.is_list_like(stats):
         agg = {}
-        for stat in stats:
+        for stat in stats:  # type: ignore
             if isinstance(stat, str):
                 agg[stat] = _agg_iterate(masked, stat, x_coords, y_coords, **kwargs)
             elif callable(stat):

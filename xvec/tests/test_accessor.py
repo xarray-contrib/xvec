@@ -155,7 +155,7 @@ def test_to_crs_dict(multi_geom_dataset, geom_array_4326, geom_array_z_4326):
 
 
 def test_to_crs_arg_err(multi_geom_dataset):
-    with pytest.raises(ValueError, match="cannot specify both keyword"):
+    with pytest.raises(ValueError, match="Cannot specify both keyword"):
         multi_geom_dataset.xvec.to_crs(geom=4326, variable_crs={"geom_z": 4326})
 
 
@@ -198,7 +198,7 @@ def test_set_crs_dict(geom_dataset_no_crs):
 
 
 def test_set_crs_arg_err(multi_geom_dataset):
-    with pytest.raises(ValueError, match="cannot specify both keyword"):
+    with pytest.raises(ValueError, match="Cannot specify both keyword"):
         multi_geom_dataset.xvec.set_crs(geom=4326, variable_crs={"geom_z": 4326})
 
 
