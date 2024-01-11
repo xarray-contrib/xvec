@@ -9,7 +9,6 @@ import pandas as pd  # type: ignore
 import shapely  # type: ignore
 import xarray as xr
 from pyproj import CRS, Transformer
-from xarray.core.utils import either_dict_or_kwargs
 
 from .index import GeometryIndex
 from .zonal import _zonal_stats_iterative, _zonal_stats_rasterize
@@ -314,15 +313,20 @@ class XvecAccessor:
         currently wraps :meth:`Dataset.assign_coords <xarray.Dataset.assign_coords>`
         or :meth:`DataArray.assign_coords <xarray.DataArray.assign_coords>`.
         """
-        variable_crs_combined = either_dict_or_kwargs(
-            variable_crs, variable_crs_kwargs, "to_crs"
-        )
+        if variable_crs and variable_crs_kwargs:
+            raise ValueError(
+                "Cannot specify both keyword and positional arguments to "
+                "'.xvec.to_crs'."
+            )
 
         _obj = self._obj.copy(deep=False)
 
+        if variable_crs_kwargs:
+            variable_crs = variable_crs_kwargs
+
         transformed = {}
 
-        for key, crs in variable_crs_combined.items():
+        for key, crs in variable_crs.items():
             if not isinstance(self._obj.xindexes[key], GeometryIndex):
                 raise ValueError(
                     f"The index '{key}' is not an xvec.GeometryIndex. "
@@ -370,9 +374,9 @@ class XvecAccessor:
         for key, (result, _crs) in transformed.items():
             _obj = _obj.assign_coords({key: result})
 
-        _obj = _obj.drop_indexes(variable_crs_combined.keys())
+        _obj = _obj.drop_indexes(variable_crs.keys())
 
-        for key, crs in variable_crs_combined.items():
+        for key, crs in variable_crs.items():
             if crs:
                 _obj[key].attrs["crs"] = CRS.from_user_input(crs)
             _obj = _obj.set_xindex(key, GeometryIndex, crs=crs)
@@ -476,13 +480,19 @@ class XvecAccessor:
         transform the geometries to a new CRS, use the :meth:`to_crs`
         method.
         """
-        variable_crs_combined = either_dict_or_kwargs(
-            variable_crs, variable_crs_kwargs, "to_crs"
-        )
+
+        if variable_crs and variable_crs_kwargs:
+            raise ValueError(
+                "Cannot specify both keyword and positional arguments to "
+                ".xvec.set_crs."
+            )
 
         _obj = self._obj.copy(deep=False)
 
-        for key, crs in variable_crs_combined.items():
+        if variable_crs_kwargs:
+            variable_crs = variable_crs_kwargs
+
+        for key, crs in variable_crs.items():
             if not isinstance(self._obj.xindexes[key], GeometryIndex):
                 raise ValueError(
                     f"The index '{key}' is not an xvec.GeometryIndex. "
@@ -500,9 +510,9 @@ class XvecAccessor:
                     "want to transform the geometries, use '.xvec.to_crs' instead."
                 )
 
-        _obj = _obj.drop_indexes(variable_crs_combined.keys())
+        _obj = _obj.drop_indexes(variable_crs.keys())
 
-        for key, crs in variable_crs_combined.items():
+        for key, crs in variable_crs.items():
             if crs:
                 _obj[key].attrs["crs"] = CRS.from_user_input(crs)
             _obj = _obj.set_xindex(key, GeometryIndex, crs=crs)
