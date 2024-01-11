@@ -5,8 +5,8 @@ from collections.abc import Hashable, Sequence
 from typing import Callable
 
 import numpy as np
-import pandas as pd
-import shapely
+import pandas as pd  # type: ignore
+import shapely  # type: ignore
 import xarray as xr
 
 
@@ -30,12 +30,12 @@ def _zonal_stats_rasterize(
     x_coords: Hashable,
     y_coords: Hashable,
     stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
-    name: str = "geometry",
+    name: Hashable = "geometry",
     all_touched: bool = False,
     **kwargs,
 ):
     try:
-        import rasterio
+        import rasterio  # type: ignore
         import rioxarray  # noqa: F401
     except ImportError as err:
         raise ImportError(
@@ -105,7 +105,7 @@ def _zonal_stats_iterative(
     x_coords: Hashable,
     y_coords: Hashable,
     stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
-    name: str = "geometry",
+    name: Hashable = "geometry",
     all_touched: bool = False,
     n_jobs: int = -1,
     **kwargs,
@@ -163,7 +163,7 @@ def _zonal_stats_iterative(
         ) from err
 
     try:
-        from joblib import Parallel, delayed
+        from joblib import Parallel, delayed  # type: ignore
     except ImportError as err:
         raise ImportError(
             "The joblib package is required for `xvec._spatial_agg()`. "
@@ -202,10 +202,10 @@ def _agg_geom(
     acc,
     geom,
     trans,
-    x_coords: str = None,
-    y_coords: str = None,
+    x_coords: str | None = None,
+    y_coords: str | None = None,
     stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
-    all_touched=False,
+    all_touched: bool = False,
     **kwargs,
 ):
     """Aggregate the values from a dataset over a polygon geometry.

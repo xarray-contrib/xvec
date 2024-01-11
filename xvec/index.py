@@ -6,7 +6,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-import shapely
+import shapely  # type: ignore
 from pyproj import CRS
 from xarray import DataArray, Variable, get_options
 from xarray.core.indexing import IndexSelResult

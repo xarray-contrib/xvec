@@ -5,10 +5,11 @@ from collections.abc import Hashable, Mapping, Sequence
 from typing import Any, Callable
 
 import numpy as np
-import pandas as pd
-import shapely
+import pandas as pd  # type: ignore
+import shapely  # type: ignore
 import xarray as xr
 from pyproj import CRS, Transformer
+from xarray.core.utils import either_dict_or_kwargs
 
 from .index import GeometryIndex
 from .zonal import _zonal_stats_iterative, _zonal_stats_rasterize
@@ -313,20 +314,15 @@ class XvecAccessor:
         currently wraps :meth:`Dataset.assign_coords <xarray.Dataset.assign_coords>`
         or :meth:`DataArray.assign_coords <xarray.DataArray.assign_coords>`.
         """
-        if variable_crs and variable_crs_kwargs:
-            raise ValueError(
-                "Cannot specify both keyword and positional arguments to "
-                "'.xvec.to_crs'."
-            )
+        variable_crs_combined = either_dict_or_kwargs(
+            variable_crs, variable_crs_kwargs, "to_crs"
+        )
 
         _obj = self._obj.copy(deep=False)
 
-        if variable_crs_kwargs:
-            variable_crs = variable_crs_kwargs
-
         transformed = {}
 
-        for key, crs in variable_crs.items():
+        for key, crs in variable_crs_combined.items():
             if not isinstance(self._obj.xindexes[key], GeometryIndex):
                 raise ValueError(
                     f"The index '{key}' is not an xvec.GeometryIndex. "
@@ -374,9 +370,9 @@ class XvecAccessor:
         for key, (result, _crs) in transformed.items():
             _obj = _obj.assign_coords({key: result})
 
-        _obj = _obj.drop_indexes(variable_crs.keys())
+        _obj = _obj.drop_indexes(variable_crs_combined.keys())
 
-        for key, crs in variable_crs.items():
+        for key, crs in variable_crs_combined.items():
             if crs:
                 _obj[key].attrs["crs"] = CRS.from_user_input(crs)
             _obj = _obj.set_xindex(key, GeometryIndex, crs=crs)
@@ -480,19 +476,13 @@ class XvecAccessor:
         transform the geometries to a new CRS, use the :meth:`to_crs`
         method.
         """
-
-        if variable_crs and variable_crs_kwargs:
-            raise ValueError(
-                "Cannot specify both keyword and positional arguments to "
-                ".xvec.set_crs."
-            )
+        variable_crs_combined = either_dict_or_kwargs(
+            variable_crs, variable_crs_kwargs, "to_crs"
+        )
 
         _obj = self._obj.copy(deep=False)
 
-        if variable_crs_kwargs:
-            variable_crs = variable_crs_kwargs
-
-        for key, crs in variable_crs.items():
+        for key, crs in variable_crs_combined.items():
             if not isinstance(self._obj.xindexes[key], GeometryIndex):
                 raise ValueError(
                     f"The index '{key}' is not an xvec.GeometryIndex. "
@@ -510,9 +500,9 @@ class XvecAccessor:
                     "want to transform the geometries, use '.xvec.to_crs' instead."
                 )
 
-        _obj = _obj.drop_indexes(variable_crs.keys())
+        _obj = _obj.drop_indexes(variable_crs_combined.keys())
 
-        for key, crs in variable_crs.items():
+        for key, crs in variable_crs_combined.items():
             if crs:
                 _obj[key].attrs["crs"] = CRS.from_user_input(crs)
             _obj = _obj.set_xindex(key, GeometryIndex, crs=crs)
@@ -523,9 +513,9 @@ class XvecAccessor:
         self,
         coord_name: str,
         geometry: shapely.Geometry | Sequence[shapely.Geometry],
-        predicate: str = None,
-        distance: float | Sequence[float] = None,
-        unique=False,
+        predicate: str | None = None,
+        distance: float | Sequence[float] | None = None,
+        unique: bool = False,
     ):
         """Return a subset of a DataArray/Dataset filtered using a spatial query on
         :class:`~xvec.GeometryIndex`.
@@ -634,7 +624,7 @@ class XvecAccessor:
 
     def set_geom_indexes(
         self,
-        coord_names: str | Sequence[Hashable],
+        coord_names: str | Sequence[str],
         crs: Any = None,
         allow_override: bool = False,
         **kwargs,
@@ -736,7 +726,7 @@ class XvecAccessor:
         to_geodataframe
         """
         try:
-            import geopandas as gpd
+            import geopandas as gpd  # type: ignore
         except ImportError as err:
             raise ImportError(
                 "The geopandas package is required for `xvec.to_geodataframe()`. "
@@ -926,7 +916,7 @@ class XvecAccessor:
         y_coords: Hashable,
         stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
         name: Hashable = "geometry",
-        index: bool = None,
+        index: bool | None = None,
         method: str = "rasterize",
         all_touched: bool = False,
         n_jobs: int = -1,
@@ -1121,8 +1111,8 @@ class XvecAccessor:
         y_coords: Hashable,
         tolerance: float | None = None,
         name: str = "geometry",
-        crs: Any = None,
-        index: bool = None,
+        crs: Any | None = None,
+        index: bool | None = None,
     ):
         """Extract points from a DataArray or a Dataset indexed by spatial coordinates
 
