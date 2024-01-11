@@ -50,7 +50,7 @@ jobs:
 
       - name: run mypy
         if: contains(matrix.environment-file, 'ci/312.yaml') && contains(matrix.os, 'ubuntu')
-        run: mypy . --ignore-missing-imports
+        run: mypy xvec/ --install-types --ignore-missing-imports --non-interactive
 
       - uses: codecov/codecov-action@v3
 
