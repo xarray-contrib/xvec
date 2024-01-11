@@ -48,6 +48,10 @@ jobs:
         id: status
         run: pytest -v . --cov=xvec --cov-append --cov-report term-missing --cov-report xml --color=yes --report-log pytest-log.jsonl
 
+      - name: run mypy
+        if: contains(matrix.environment-file, 'ci/312.yaml') && contains(matrix.os, 'ubuntu')
+        run: mypy xvec/ --install-types --ignore-missing-imports --non-interactive
+
       - uses: codecov/codecov-action@v3
 
       - name: Generate and publish the report

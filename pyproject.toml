@@ -49,6 +49,7 @@ omit = ["xvec/tests/*"]
 exclude_lines = [
     "except ImportError",
     "except PackageNotFoundError",
+    "if TYPE_CHECKING:"
 ]
 
 [tool.ruff]
