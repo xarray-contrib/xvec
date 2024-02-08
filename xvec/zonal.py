@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import gc
-from collections.abc import Hashable, Sequence
-from typing import Callable
+from collections.abc import Hashable, Iterable, Sequence
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -30,13 +30,13 @@ def _zonal_stats_rasterize(
     x_coords: Hashable,
     y_coords: Hashable,
     stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
-    name: str = "geometry",
+    name: Hashable = "geometry",
     all_touched: bool = False,
     **kwargs,
-):
+) -> xr.DataArray | xr.Dataset:
     try:
-        import rasterio
         import rioxarray  # noqa: F401
+        from rasterio import features
     except ImportError as err:
         raise ImportError(
             "The rioxarray package is required for `zonal_stats()`. "
@@ -45,27 +45,27 @@ def _zonal_stats_rasterize(
         ) from err
 
     if hasattr(geometry, "crs"):
-        crs = geometry.crs
+        crs = geometry.crs  # type: ignore
     else:
         crs = None
 
     transform = acc._obj.rio.transform()
 
-    labels = rasterio.features.rasterize(
+    labels = features.rasterize(
         zip(geometry, range(len(geometry))),
         out_shape=(
             acc._obj[y_coords].shape[0],
             acc._obj[x_coords].shape[0],
         ),
         transform=transform,
-        fill=np.nan,
+        fill=np.nan,  # type: ignore
         all_touched=all_touched,
     )
     groups = acc._obj.groupby(xr.DataArray(labels, dims=(y_coords, x_coords)))
 
     if pd.api.types.is_list_like(stats):
         agg = {}
-        for stat in stats:
+        for stat in stats:  # type: ignore
             if isinstance(stat, str):
                 agg[stat] = _agg_rasterize(groups, stat, **kwargs)
             elif callable(stat):
@@ -76,19 +76,19 @@ def _zonal_stats_rasterize(
             else:
                 raise ValueError(f"{stat} is not a valid aggregation.")
 
-        agg = xr.concat(
+        agg_array = xr.concat(
             agg.values(),
             dim=xr.DataArray(
                 list(agg.keys()), name="zonal_statistics", dims="zonal_statistics"
             ),
         )
     elif isinstance(stats, str) or callable(stats):
-        agg = _agg_rasterize(groups, stats, **kwargs)
+        agg_array = _agg_rasterize(groups, stats, **kwargs)
     else:
         raise ValueError(f"{stats} is not a valid aggregation.")
 
     vec_cube = (
-        agg.reindex(group=range(len(geometry)))
+        agg_array.reindex(group=range(len(geometry)))
         .assign_coords(group=geometry)
         .rename(group=name)
     ).xvec.set_geom_indexes(name, crs=crs)
@@ -105,11 +105,11 @@ def _zonal_stats_iterative(
     x_coords: Hashable,
     y_coords: Hashable,
     stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
-    name: str = "geometry",
+    name: Hashable = "geometry",
     all_touched: bool = False,
     n_jobs: int = -1,
-    **kwargs,
-):
+    **kwargs: dict[str, Any],
+) -> xr.DataArray | xr.Dataset:
     """Extract the values from a dataset indexed by a set of geometries
 
     The CRS of the raster and that of geometry need to be equal.
@@ -163,7 +163,7 @@ def _zonal_stats_iterative(
         ) from err
 
     try:
-        from joblib import Parallel, delayed
+        from joblib import Parallel, delayed  # type: ignore
     except ImportError as err:
         raise ImportError(
             "The joblib package is required for `xvec._spatial_agg()`. "
@@ -187,11 +187,12 @@ def _zonal_stats_iterative(
         for geom in geometry
     )
     if hasattr(geometry, "crs"):
-        crs = geometry.crs
+        crs = geometry.crs  # type: ignore
     else:
         crs = None
     vec_cube = xr.concat(
-        zonal, dim=xr.DataArray(geometry, name=name, dims=name)
+        zonal,  # type: ignore
+        dim=xr.DataArray(geometry, name=name, dims=name),
     ).xvec.set_geom_indexes(name, crs=crs)
     gc.collect()
 
@@ -202,10 +203,10 @@ def _agg_geom(
     acc,
     geom,
     trans,
-    x_coords: str = None,
-    y_coords: str = None,
-    stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
-    all_touched=False,
+    x_coords: str | None = None,
+    y_coords: str | None = None,
+    stats: str | Callable | Iterable[str | Callable | tuple] = "mean",
+    all_touched: bool = False,
     **kwargs,
 ):
     """Aggregate the values from a dataset over a polygon geometry.
@@ -239,9 +240,9 @@ def _agg_geom(
         Aggregated values over the geometry.
 
     """
-    import rasterio
+    from rasterio import features
 
-    mask = rasterio.features.geometry_mask(
+    mask = features.geometry_mask(
         [geom],
         out_shape=(
             acc._obj[y_coords].shape[0],
@@ -254,7 +255,7 @@ def _agg_geom(
     masked = acc._obj.where(xr.DataArray(mask, dims=(y_coords, x_coords)))
     if pd.api.types.is_list_like(stats):
         agg = {}
-        for stat in stats:
+        for stat in stats:  # type: ignore
             if isinstance(stat, str):
                 agg[stat] = _agg_iterate(masked, stat, x_coords, y_coords, **kwargs)
             elif callable(stat):
