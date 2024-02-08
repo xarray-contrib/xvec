@@ -133,7 +133,7 @@ def _zonal_stats_iterative(
         :meth:`~xarray.DataArray.max`, or :meth:`~xarray.DataArray.quantile`,
         methods are available. Alternatively, you can pass a ``Callable`` supported
         by :meth:`~xarray.DataArray.reduce`.
-    name : Hashable, optional
+    name : str, optional
         Name of the dimension that will hold the ``geometry``, by default "geometry"
     all_touched : bool, optional
         If True, all pixels touched by geometries will be considered. If False, only
