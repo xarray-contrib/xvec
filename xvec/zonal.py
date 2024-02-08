@@ -30,7 +30,7 @@ def _zonal_stats_rasterize(
     x_coords: Hashable,
     y_coords: Hashable,
     stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
-    name: Hashable = "geometry",
+    name: str = "geometry",
     all_touched: bool = False,
     **kwargs,
 ) -> xr.DataArray | xr.Dataset:
@@ -105,7 +105,7 @@ def _zonal_stats_iterative(
     x_coords: Hashable,
     y_coords: Hashable,
     stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
-    name: Hashable = "geometry",
+    name: str = "geometry",
     all_touched: bool = False,
     n_jobs: int = -1,
     **kwargs: dict[str, Any],

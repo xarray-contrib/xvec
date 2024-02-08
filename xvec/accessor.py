@@ -919,7 +919,7 @@ class XvecAccessor:
         x_coords: Hashable,
         y_coords: Hashable,
         stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
-        name: Hashable = "geometry",
+        name: str = "geometry",
         index: bool | None = None,
         method: str = "rasterize",
         all_touched: bool = False,
@@ -959,7 +959,7 @@ class XvecAccessor:
             :meth:`~xarray.DataArray.reduce` or a list with ``strings``, ``callables``
             or ``tuples`` in a ``(name, func, {kwargs})`` format, where ``func`` can be
             a string or a callable.
-        name : Hashable, optional
+        name : str, optional
             Name of the dimension that will hold the ``geometry``, by default "geometry"
         index : bool, optional
             If ``geometry`` is a :class:`~geopandas.GeoSeries`, ``index=True`` will
