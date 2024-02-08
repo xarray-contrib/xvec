@@ -30,7 +30,7 @@ def _zonal_stats_rasterize(
     x_coords: Hashable,
     y_coords: Hashable,
     stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
-    name: Hashable = "geometry",
+    name: str = "geometry",
     all_touched: bool = False,
     **kwargs,
 ) -> xr.DataArray | xr.Dataset:
@@ -105,7 +105,7 @@ def _zonal_stats_iterative(
     x_coords: Hashable,
     y_coords: Hashable,
     stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
-    name: Hashable = "geometry",
+    name: str = "geometry",
     all_touched: bool = False,
     n_jobs: int = -1,
     **kwargs: dict[str, Any],
@@ -133,7 +133,7 @@ def _zonal_stats_iterative(
         :meth:`~xarray.DataArray.max`, or :meth:`~xarray.DataArray.quantile`,
         methods are available. Alternatively, you can pass a ``Callable`` supported
         by :meth:`~xarray.DataArray.reduce`.
-    name : Hashable, optional
+    name : str, optional
         Name of the dimension that will hold the ``geometry``, by default "geometry"
     all_touched : bool, optional
         If True, all pixels touched by geometries will be considered. If False, only
