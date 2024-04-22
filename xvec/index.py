@@ -273,3 +273,20 @@ class GeometryIndex(Index):
 
         srs = _format_crs(self.crs, max_width=max_width)
         return f"{self.__class__.__name__} (crs={srs})"
+
+    def __repr__(self) -> str:
+        srs = _format_crs(self.crs)
+        shape = self._index.index.shape[0]
+        if shape < 10:
+            wkts = [repr(g) for g in self._index.index]
+        else:
+            wkts = [repr(g) for g in self._index.index[:4]]
+            wkts.append("...")
+            wkts = wkts + [repr(g) for g in self._index.index[-4:]]
+
+        if len(wkts) == 1:
+            return f"GeometryIndex([{wkts[0]}], crs={srs})"
+        joined = "\n ".join(wkts[1:])
+        return f"GeometryIndex(\n[{wkts[0]}\n {joined}],\ncrs={srs})".replace(
+            "\n", "\n" + " " * 4
+        )

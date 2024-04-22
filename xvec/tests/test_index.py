@@ -172,3 +172,24 @@ def test_repr_inline(geom_dataset, geom_dataset_no_crs):
     actual = geom_dataset_no_crs.xindexes["geom"]._repr_inline_(70)
     expected = "GeometryIndex (crs=None)"
     assert actual == expected
+
+
+def test_repr(geom_dataset, geom_dataset_no_crs):
+    actual = repr(geom_dataset.xindexes["geom"])
+    expected = (
+        "GeometryIndex(\n    [<POINT (1 2)>\n     <POINT (3 4)>],\n    crs=EPSG:26915)"
+    )
+    assert actual == expected
+
+    actual = repr(geom_dataset_no_crs.xindexes["geom"])
+    expected = "GeometryIndex(\n    [<POINT (1 2)>\n     <POINT (3 4)>],\n    crs=None)"
+    assert actual == expected
+
+    single = geom_dataset.sel(geom=[shapely.Point(1, 2)])
+    actual = repr(single.xindexes["geom"])
+    expected = "GeometryIndex([<POINT (1 2)>], crs=EPSG:26915)"
+    assert actual == expected
+
+    long = xr.concat([geom_dataset] * 10, dim="geom")
+    actual = repr(long.xindexes["geom"])
+    expected = "GeometryIndex(\n    [<POINT (1 2)>\n     <POINT (3 4)>\n     <POINT (1 2)>\n     <POINT (3 4)>\n     ...\n     <POINT (1 2)>\n     <POINT (3 4)>\n     <POINT (1 2)>\n     <POINT (3 4)>],\n    crs=EPSG:26915)"
