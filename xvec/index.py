@@ -286,6 +286,7 @@ class GeometryIndex(Index):
 
         if len(wkts) == 1:
             return f"GeometryIndex([{wkts[0]}], crs={srs})"
-        return f"GeometryIndex(\n[{wkts[0]}\n {'\n '.join(wkts[1:])}],\ncrs={srs})".replace(
+        joined = "\n ".join(wkts[1:])
+        return f"GeometryIndex(\n[{wkts[0]}\n {joined}],\ncrs={srs})".replace(
             "\n", "\n" + " " * 4
         )
