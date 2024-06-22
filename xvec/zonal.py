@@ -283,3 +283,102 @@ def _agg_geom(
     gc.collect()
 
     return result
+
+
+def _zonal_stats_exactextract(
+    acc,
+    geometry: Sequence[shapely.Geometry],
+    x_coords: Hashable,
+    y_coords: Hashable,
+    stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
+    name: str = "geometry",
+    **kwargs,
+) -> xr.DataArray:
+    try:
+        import exactextract
+    except ImportError as err:
+        raise ImportError(
+            "The exactextract package is required for `zonal_stats()`. "
+            "You can install it using or 'pip install exactextract'."
+        ) from err
+
+    try:
+        import geopandas as gpd
+    except ImportError as err:
+        raise ImportError(
+            "The geopandas package is required for `xvec.to_geodataframe()`. "
+            "You can install it using 'conda install -c conda-forge geopandas' or "
+            "'pip install geopandas'."
+        ) from err
+
+    if hasattr(geometry, "crs"):
+        crs = geometry.crs  # type: ignore
+    else:
+        crs = None
+
+    # the input should be xarray.DataArray
+    if not isinstance(acc._obj, xr.core.dataarray.DataArray):
+        acc._obj = acc._obj.to_dataarray()
+
+    # Get all the dimensions execpt x_coords, y_coords, they will be used to stack the dataarray later
+    arr_dims = tuple(dim for dim in acc._obj.dims if dim not in [x_coords, y_coords])
+
+    # Get the original information to use for unstacking the resulte later
+    coords_info = {name: geometry}
+    original_shape = [geometry.size]
+    for dim in arr_dims:
+        original_shape.append(acc._obj[dim].size)
+        coords_info[dim] = acc._obj[dim].values
+
+    # Stack the other dimensions into one dimension called "location"
+    data = acc._obj.stack(location=arr_dims)
+    locs = data.location.size
+
+    # Check the order of dimensions
+    data = data.transpose("location", y_coords, x_coords)
+
+    # Aggregation result
+    stats = _prep_stats(stats)
+    results = exactextract.exact_extract(
+        rast=data, vec=gpd.GeoDataFrame(geometry), ops=stats, output="pandas"
+    )
+
+    # Unstack the results
+    agg = {}
+    i = 0
+    for stat in stats:
+        df = results.iloc[:, i : i + locs]
+
+        # Unstack the result
+        arr = df.values.reshape(original_shape)
+        result = xr.DataArray(
+            arr, coords=coords_info, dims=coords_info.keys()
+        ).xvec.set_geom_indexes(name, crs=crs)
+
+        agg[stat] = result
+
+        i += locs
+
+    vec_cube = xr.concat(
+        agg.values(),
+        dim=xr.DataArray(
+            list(agg.keys()), name="zonal_statistics", dims="zonal_statistics"
+        ),
+    )
+
+    return vec_cube
+
+
+def _prep_stats(stats):
+    if isinstance(stats, str):
+        stats = [stats]
+
+    prepared_stats = []
+    for stat in stats:
+        if isinstance(stat, str):
+            prepared_stats.append(stat)
+        else:
+            raise ValueError(
+                f'{stat} is not supported. It supports strings (e.g., "mean", "quantile(q=0.25)")'
+            )
+    return prepared_stats

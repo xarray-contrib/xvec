@@ -11,7 +11,11 @@ import xarray as xr
 from pyproj import CRS, Transformer
 
 from .index import GeometryIndex
-from .zonal import _zonal_stats_iterative, _zonal_stats_rasterize
+from .zonal import (
+    _zonal_stats_exactextract,
+    _zonal_stats_iterative,
+    _zonal_stats_rasterize,
+)
 
 if TYPE_CHECKING:
     from geopandas import GeoDataFrame
@@ -1086,6 +1090,16 @@ class XvecAccessor:
                 name=name,
                 all_touched=all_touched,
                 n_jobs=n_jobs,
+                **kwargs,
+            )
+        elif method == "exactextract":
+            result = _zonal_stats_exactextract(
+                self,
+                geometry=geometry,
+                x_coords=x_coords,
+                y_coords=y_coords,
+                stats=stats,
+                name=name,
                 **kwargs,
             )
         else:
