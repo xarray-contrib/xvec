@@ -347,7 +347,7 @@ def _zonal_stats_exactextract(
     if pd.api.types.is_list_like(stats):
         agg = {}
         i = 0
-        for stat in stats:
+        for stat in stats: # type: ignore
             df = results.iloc[:, i : i + locs]
             # Unstack the result
             arr = df.values.reshape(original_shape)
