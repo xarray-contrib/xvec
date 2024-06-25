@@ -11,7 +11,6 @@ dependencies:
   - rasterio
   - tqdm
   - pyproj
-  - exactextract
   # testing
   - pytest
   - pytest-cov
@@ -20,3 +19,6 @@ dependencies:
   - geopandas-base
   - geodatasets
   - pyogrio
+  - pip
+  - pip:
+    - exactextract==0.2.0.dev0
