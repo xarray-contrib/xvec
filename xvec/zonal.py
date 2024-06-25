@@ -325,7 +325,7 @@ def _zonal_stats_exactextract(
 
     # Get the original information to use for unstacking the resulte later
     coords_info = {name: geometry}
-    original_shape = [geometry.size]
+    original_shape = [len(geometry)]
     for dim in arr_dims:
         original_shape.append(acc._obj[dim].size)
         coords_info[dim] = acc._obj[dim].values
@@ -344,20 +344,18 @@ def _zonal_stats_exactextract(
     )
 
     # Unstack the results
-    agg = {}
-    i = 0
-    for stat in stats:
-        df = results.iloc[:, i : i + locs]
-
-        # Unstack the result
-        arr = df.values.reshape(original_shape)
-        result = xr.DataArray(
-            arr, coords=coords_info, dims=coords_info.keys()
-        ).xvec.set_geom_indexes(name, crs=crs)
-
-        agg[stat] = result
-
-        i += locs
+    if pd.api.types.is_list_like(stats):
+        agg = {}
+        i = 0
+        for stat in stats:
+            df = results.iloc[:, i : i + locs]
+            # Unstack the result
+            arr = df.values.reshape(original_shape)
+            result = xr.DataArray(
+                arr, coords=coords_info, dims=coords_info.keys()
+            ).xvec.set_geom_indexes(name, crs=crs)
+            agg[stat] = result
+            i += locs
 
     vec_cube = xr.concat(
         agg.values(),
