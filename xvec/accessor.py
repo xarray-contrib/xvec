@@ -962,7 +962,10 @@ class XvecAccessor:
             available. Alternatively, you can pass a ``Callable`` supported by
             :meth:`~xarray.DataArray.reduce` or a list with ``strings``, ``callables``
             or ``tuples`` in a ``(name, func, {kwargs})`` format, where ``func`` can be
-            a string or a callable.
+            a string or a callable. If the method is ``"exactextract"`` then the stats
+            should be string or list of strings that can be used
+            to construct :py:class:`Operation` objects supported
+            by :func:`exactextract.exact_extract` (e.g., ``"mean"``,``"quantile(q=0.20)"``)
         name : str, optional
             Name of the dimension that will hold the ``geometry``, by default "geometry"
         index : bool, optional
@@ -978,7 +981,10 @@ class XvecAccessor:
             information in case of small polygons or lines. Other option is
             ``"iterate"``, which iterates over geometries and uses
             :func:`rasterio.features.geometry_mask`. ``"iterate"`` method requires
-            ``joblib`` on top of ``rioxarray``.
+            ``joblib`` on top of ``rioxarray``. Other option is ``"exactextract"``,
+            which calculates precise stats by determining the fraction of each raster
+            cell that is covered by the polygon and uses
+            :func:`exactextract.exact_extract`.
         all_touched : bool, optional
             If True, all pixels touched by geometries will be considered. If False, only
             pixels whose center is within the polygon or that are selected by

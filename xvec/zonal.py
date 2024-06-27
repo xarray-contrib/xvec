@@ -290,10 +290,40 @@ def _zonal_stats_exactextract(
     geometry: Sequence[shapely.Geometry],
     x_coords: Hashable,
     y_coords: Hashable,
-    stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
+    stats: str | Sequence[str] = "mean",
     name: str = "geometry",
-    **kwargs,
 ) -> xr.DataArray:
+    """Extract the values from a dataset indexed by a set of geometries
+
+    The CRS of the raster and that of geometry need to be equal.
+    Xvec does not verify their equality.
+
+    Parameters
+    ----------
+    geometry : Sequence[shapely.Geometry]
+        An arrray-like (1-D) of shapely geometries, like a numpy array or
+        :class:`geopandas.GeoSeries`.
+    x_coords : Hashable
+        name of the coordinates containing ``x`` coordinates (i.e. the first value
+        in the coordinate pair encoding the vertex of the polygon)
+    y_coords : Hashable
+        name of the coordinates containing ``y`` coordinates (i.e. the second value
+        in the coordinate pair encoding the vertex of the polygon)
+    stats : Hashable
+        Spatial aggregation statistic method, by default "mean". Any of the
+        strings that can be used to construct :py:class:`Operation` objects
+        supported by :func:`exactextract.exact_extract` (e.g., ``"mean"``,
+        ``"quantile(q=0.20)"``)
+    name : str, optional
+        Name of the dimension that will hold the ``geometry``, by default "geometry"
+
+    Returns
+    -------
+    DataArray
+        A subset of the original object with N-1 dimensions indexed by
+        the the GeometryIndex.
+
+    """
     try:
         import exactextract
     except ImportError as err:
