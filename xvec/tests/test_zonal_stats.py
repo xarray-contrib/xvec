@@ -147,7 +147,7 @@ def test_stat(method):
             "longitude",
             "latitude",
             method=method,
-            stats="quantile(q=0.33)",
+            stats="quantile(q=0.2)",
         )
     else:
         quantile_ = ds.z.xvec.zonal_stats(
@@ -162,7 +162,7 @@ def test_stat(method):
     if method == "exactextract":
         assert mean_.mean() == pytest.approx(61625.53438858)
         assert median_.mean() == pytest.approx(61628.67168691)
-        assert quantile_.mean() == pytest.approx(61576.0883029)
+        assert quantile_.mean() == pytest.approx(61540.75632235)
     else:
         assert mean_.mean() == pytest.approx(61367.76185577)
         assert median_.mean() == pytest.approx(61370.18563539)
