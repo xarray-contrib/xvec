@@ -338,10 +338,8 @@ def _zonal_stats_exactextract(
     data = data.transpose("location", y_coords, x_coords)
 
     # Aggregation result
-    stats = _prep_stats(stats)
-    results = exactextract.exact_extract(
-        rast=data, vec=gpd.GeoDataFrame(geometry), ops=stats, output="pandas"
-    )
+    gdf = gpd.GeoDataFrame(geometry=geometry, crs=crs)
+    results = exactextract.exact_extract(rast=data, vec=gdf, ops=stats, output="pandas")
 
     # Unstack the results
     if pd.api.types.is_list_like(stats):
@@ -356,27 +354,19 @@ def _zonal_stats_exactextract(
             ).xvec.set_geom_indexes(name, crs=crs)
             agg[stat] = result
             i += locs
-
-    vec_cube = xr.concat(
-        agg.values(),
-        dim=xr.DataArray(
-            list(agg.keys()), name="zonal_statistics", dims="zonal_statistics"
-        ),
-    )
+        vec_cube = xr.concat(
+            agg.values(),
+            dim=xr.DataArray(
+                list(agg.keys()), name="zonal_statistics", dims="zonal_statistics"
+            ),
+        )
+    elif isinstance(stats, str):
+        # Unstack the result
+        arr = results.values.reshape(original_shape)
+        vec_cube = xr.DataArray(
+            arr, coords=coords_info, dims=coords_info.keys()
+        ).xvec.set_geom_indexes(name, crs=crs)
+    else:
+        raise ValueError(f"{stats} is not a valid aggregation for exactextract method.")
 
     return vec_cube
-
-
-def _prep_stats(stats):
-    if isinstance(stats, str):
-        stats = [stats]
-
-    prepared_stats = []
-    for stat in stats:
-        if isinstance(stat, str):
-            prepared_stats.append(stat)
-        else:
-            raise ValueError(
-                f'{stat} is not supported. It supports strings (e.g., "mean", "quantile(q=0.25)")'
-            )
-    return prepared_stats
