@@ -147,7 +147,7 @@ def test_stat(method):
             "longitude",
             "latitude",
             method=method,
-            stats="quantile(q=0.33)",
+            stats="quantile(q=0.2)",
         )
     else:
         quantile_ = ds.z.xvec.zonal_stats(
