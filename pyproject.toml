@@ -54,7 +54,8 @@ exclude_lines = [
 
 [tool.ruff]
 line-length = 88
-select = ["E", "F", "W", "I", "UP", "B", "A", "C4", "Q"]
 exclude = ["doc"]
-target-version = "py39"
+
+[tool.ruff.lint]
 ignore = ['E501', 'Q000', 'Q001', 'Q002', 'Q003', 'W191']
+select = ["E", "F", "W", "I", "UP", "B", "A", "C4", "Q"]

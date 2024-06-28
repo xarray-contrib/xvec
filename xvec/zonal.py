@@ -328,15 +328,16 @@ def _zonal_stats_exactextract(
         import exactextract
     except ImportError as err:
         raise ImportError(
-            "The exactextract package is required for `zonal_stats()`. "
-            "You can install it using or 'pip install exactextract'."
+            "The exactextract package is required for `zonal_stats()` with "
+            "method='exactextract'."
         ) from err
 
     try:
         import geopandas as gpd
     except ImportError as err:
         raise ImportError(
-            "The geopandas package is required for `xvec.to_geodataframe()`. "
+            "The geopandas package is required for `zonal_stats()` with "
+            "method='exactextract'. "
             "You can install it using 'conda install -c conda-forge geopandas' or "
             "'pip install geopandas'."
         ) from err
@@ -350,7 +351,8 @@ def _zonal_stats_exactextract(
     if not isinstance(acc._obj, xr.core.dataarray.DataArray):
         acc._obj = acc._obj.to_dataarray()
 
-    # Get all the dimensions execpt x_coords, y_coords, they will be used to stack the dataarray later
+    # Get all the dimensions execpt x_coords, y_coords, they will be used to stack the
+    # dataarray later
     arr_dims = tuple(dim for dim in acc._obj.dims if dim not in [x_coords, y_coords])
 
     # Get the original information to use for unstacking the resulte later
@@ -397,6 +399,8 @@ def _zonal_stats_exactextract(
             arr, coords=coords_info, dims=coords_info.keys()
         ).xvec.set_geom_indexes(name, crs=crs)
     else:
-        raise ValueError(f"{stats} is not a valid aggregation for exactextract method.")
+        raise ValueError(
+            f"{stats} is not a valid aggregation for the exactextract method."
+        )
 
     return vec_cube
