@@ -988,7 +988,8 @@ class XvecAccessor:
         all_touched : bool, optional
             If True, all pixels touched by geometries will be considered. If False, only
             pixels whose center is within the polygon or that are selected by
-            Bresenham’s line algorithm will be considered.
+            Bresenham’s line algorithm will be considered. Applies only if ``method="iterate"``
+            or ``method="rasterize"``.
         n_jobs : int, optional
             Number of parallel threads to use. It is recommended to set this to the
             number of physical cores of the CPU. ``-1`` uses all available cores.
