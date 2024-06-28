@@ -290,7 +290,7 @@ def _zonal_stats_exactextract(
     geometry: Sequence[shapely.Geometry],
     x_coords: Hashable,
     y_coords: Hashable,
-    stats: str | Sequence[str] = "mean",
+    stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
     name: str = "geometry",
 ) -> xr.DataArray:
     """Extract the values from a dataset indexed by a set of geometries
