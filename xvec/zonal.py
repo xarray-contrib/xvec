@@ -341,7 +341,7 @@ def _zonal_stats_exactextract(
     # Unstack the results
     agg = {}
     if pd.api.types.is_list_like(stats):
-        for stat in stats:
+        for stat in stats:  # type: ignore
             if not isinstance(stat, str):
                 raise ValueError(f"{stat} is not a valid aggregation.")
 
@@ -405,8 +405,8 @@ def _agg_exactextract(
     acc,
     geometry,
     crs,
-    x_coords: str | None = None,
-    y_coords: str | None = None,
+    x_coords: Hashable,
+    y_coords: Hashable,
     stats: str | Callable | Iterable[str | Callable | tuple] = "mean",
     name: str = "geometry",
     original_is_ds: bool = False,
