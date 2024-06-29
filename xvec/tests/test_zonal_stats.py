@@ -96,22 +96,34 @@ def test_match():
     xr.testing.assert_allclose(rasterize, iterate)
 
 
-@pytest.mark.parametrize("method", ["rasterize", "iterate"])
+@pytest.mark.parametrize("method", ["rasterize", "iterate", "exactextract"])
 def test_dataset(method):
     ds = xr.tutorial.open_dataset("eraint_uvz")
     world = gpd.read_file(geodatasets.get_path("naturalearth land"))
     result = ds.xvec.zonal_stats(world.geometry, "longitude", "latitude", method=method)
 
-    xr.testing.assert_allclose(
-        xr.Dataset(
-            {
-                "z": np.array(61367.76185577),
-                "u": np.array(4.19631497),
-                "v": np.array(-0.49170332),
-            }
-        ),
-        result.mean(),
-    )
+    if method == "exactextract":
+        xr.testing.assert_allclose(
+            xr.Dataset(
+                {
+                    "z": np.array(61625.53438858),
+                    "u": np.array(4.15009377),
+                    "v": np.array(-0.5161478),
+                }
+            ),
+            result.mean(),
+        )
+    else:
+        xr.testing.assert_allclose(
+            xr.Dataset(
+                {
+                    "z": np.array(61367.76185577),
+                    "u": np.array(4.19631497),
+                    "v": np.array(-0.49170332),
+                }
+            ),
+            result.mean(),
+        )
 
 
 @pytest.mark.parametrize("method", ["rasterize", "iterate", "exactextract"])
@@ -238,8 +250,15 @@ def test_crs(method):
         },
     ).xvec.set_geom_indexes("geometry", crs=None)
 
-    actual = da.xvec.zonal_stats(polygons, "x", "y", stats="sum", method=method)
-    xr.testing.assert_identical(actual, expected)
+    if method == "exactextract":
+        with pytest.raises(
+            AttributeError,
+            match="Geometry input does not have a Coordinate Reference System",
+        ):
+            da.xvec.zonal_stats(polygons, "x", "y", stats="sum", method=method)
+    else:
+        actual = da.xvec.zonal_stats(polygons, "x", "y", stats="sum", method=method)
+        xr.testing.assert_identical(actual, expected)
 
 
 @pytest.mark.parametrize("method", ["rasterize", "iterate"])
@@ -268,40 +287,65 @@ def test_callable(method):
     xr.testing.assert_identical(da_agg, da_std)
 
 
-@pytest.mark.parametrize("method", ["rasterize", "iterate"])
+@pytest.mark.parametrize("method", ["rasterize", "iterate", "exactextract"])
 def test_multiple(method):
     ds = xr.tutorial.open_dataset("eraint_uvz")
     world = gpd.read_file(geodatasets.get_path("naturalearth land"))
-    result = ds.xvec.zonal_stats(
-        world.geometry[:10].boundary,
-        "longitude",
-        "latitude",
-        stats=[
-            "mean",
-            "sum",
-            ("quantile", "quantile", {"q": [0.1, 0.2, 0.3]}),
-            ("numpymean", np.nanmean),
-            np.nanmean,
-        ],
-        method=method,
-        n_jobs=1,
-    )
-    assert sorted(result.dims) == sorted(
-        [
-            "level",
-            "zonal_statistics",
-            "geometry",
-            "month",
-            "quantile",
-        ]
-    )
+    if method == "exactextract":
+        result = ds.xvec.zonal_stats(
+            world.geometry[:10].boundary,
+            "longitude",
+            "latitude",
+            stats=[
+                "mean",
+                "sum",
+                "quantile(q=0.20)",
+            ],
+            method=method,
+            n_jobs=1,
+        )
+        assert sorted(result.dims) == sorted(
+            [
+                "level",
+                "zonal_statistics",
+                "geometry",
+                "month",
+            ]
+        )
 
-    assert (
-        result.zonal_statistics == ["mean", "sum", "quantile", "numpymean", "nanmean"]
-    ).all()
+        assert (result.zonal_statistics == ["mean", "sum", "quantile(q=0.20)"]).all()
+    else:
+        result = ds.xvec.zonal_stats(
+            world.geometry[:10].boundary,
+            "longitude",
+            "latitude",
+            stats=[
+                "mean",
+                "sum",
+                ("quantile", "quantile", {"q": [0.1, 0.2, 0.3]}),
+                ("numpymean", np.nanmean),
+                np.nanmean,
+            ],
+            method=method,
+            n_jobs=1,
+        )
+        assert sorted(result.dims) == sorted(
+            [
+                "level",
+                "zonal_statistics",
+                "geometry",
+                "month",
+                "quantile",
+            ]
+        )
+
+        assert (
+            result.zonal_statistics
+            == ["mean", "sum", "quantile", "numpymean", "nanmean"]
+        ).all()
 
 
-@pytest.mark.parametrize("method", ["rasterize", "iterate"])
+@pytest.mark.parametrize("method", ["rasterize", "iterate", "exactextract"])
 def test_invalid(method):
     ds = xr.tutorial.open_dataset("eraint_uvz")
     world = gpd.read_file(geodatasets.get_path("naturalearth land"))
