@@ -674,3 +674,26 @@ def test_extract_points_array():
             geometry=4326
         ),
     )
+
+
+@pytest.fixture(
+    params=[
+        "first_geom_dataset",
+        "multi_dataset",
+        "multi_geom_dataset",
+        "multi_geom_no_index_dataset",
+        "traffic_dataset",
+    ]
+)
+def all_datasets(request):
+    return request.getfixturevalue(request.param)
+
+
+def test_cf_roundtrip(all_datasets):
+    ds = all_datasets
+    copy = ds.copy(deep=True)
+    encoded = ds.xvec.encode_cf()
+    roundtripped = encoded.xvec.decode_cf()
+    xr.testing.assert_identical(ds, roundtripped)
+    # make sure we didn't modify the original dataset.
+    xr.testing.assert_identical(ds, copy)

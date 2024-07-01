@@ -1301,7 +1301,8 @@ class XvecAccessor:
             crs = CRS.from_cf(grid_mapping.attrs)
         except KeyError:
             crs = None
-        roundtripped = decoded.set_xindex(dim).xvec.set_geom_indexes(dim, crs=crs)
+        decoded = decoded.set_xindex(dim) if dim not in decoded._indexes else decoded
+        roundtripped = decoded.xvec.set_geom_indexes(dim, crs=crs)
         if crs:
             # remove spatial_ref so the coordinate system is only stored on the index
             del roundtripped[grid_mapping.name]
