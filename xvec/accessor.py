@@ -1307,7 +1307,7 @@ class XvecAccessor:
 
         decoded = cfxr.geometry.decode_geometries(self._obj.copy())
         crs = {
-            name: CRS.from_cf(var.attrs)
+            name: CRS.from_user_input(var.attrs["crs_wkt"])
             for name, var in decoded._variables.items()
             if "crs_wkt" in var.attrs or "grid_mapping_name" in var.attrs
         }
