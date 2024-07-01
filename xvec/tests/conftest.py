@@ -69,7 +69,7 @@ def multi_dataset(geom_array, geom_array_z):
 
 @pytest.fixture(scope="session")
 def multi_geom_dataset(geom_array, geom_array_z):
-    return (
+    ds = (
         xr.Dataset(
             coords={
                 "geom": geom_array,
@@ -80,11 +80,14 @@ def multi_geom_dataset(geom_array, geom_array_z):
         .set_xindex("geom", GeometryIndex, crs=26915)
         .set_xindex("geom_z", GeometryIndex, crs=26915)
     )
+    ds["geom"].attrs["crs"] = ds.xindexes["geom"].crs
+    ds["geom_z"].attrs["crs"] = ds.xindexes["geom_z"].crs
+    return ds
 
 
 @pytest.fixture(scope="session")
 def multi_geom_multi_crs_dataset(geom_array, geom_array_z):
-    return (
+    ds = (
         xr.Dataset(
             coords={
                 "geom": geom_array,
@@ -95,11 +98,14 @@ def multi_geom_multi_crs_dataset(geom_array, geom_array_z):
         .set_xindex("geom", GeometryIndex, crs=26915)
         .set_xindex("geom_z", GeometryIndex, crs="EPSG:4362")
     )
+    ds["geom"].attrs["crs"] = ds.xindexes["geom"].crs
+    ds["geom_z"].attrs["crs"] = ds.xindexes["geom_z"].crs
+    return ds
 
 
 @pytest.fixture(scope="session")
 def multi_geom_no_index_dataset(geom_array, geom_array_z):
-    return (
+    ds = (
         xr.Dataset(
             coords={
                 "geom": geom_array,
@@ -111,6 +117,9 @@ def multi_geom_no_index_dataset(geom_array, geom_array_z):
         .set_xindex("geom", GeometryIndex, crs=26915)
         .set_xindex("geom_z", GeometryIndex, crs=26915)
     )
+    ds["geom"].attrs["crs"] = ds.xindexes["geom"].crs
+    ds["geom_z"].attrs["crs"] = ds.xindexes["geom_z"].crs
+    return ds
 
 
 @pytest.fixture(scope="session")

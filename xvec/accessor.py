@@ -1263,7 +1263,6 @@ class XvecAccessor:
         import cf_xarray as cfxr
 
         ds = self._obj.copy()
-
         coords = self.geom_coords_indexed
 
         # TODO: this could use geoxarray, but is quite simple in any case
