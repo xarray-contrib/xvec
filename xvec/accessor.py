@@ -1292,14 +1292,13 @@ class XvecAccessor:
 
     def decode_cf(self) -> xr.Dataset:
         import cf_xarray as cfxr
-        import pyproj
 
         decoded = cfxr.geometry.decode_geometries(self._obj.copy())
         (dim,) = decoded.xvec.geom_coords.dims
 
         try:
             grid_mapping = self._obj.cf["grid_mapping"]
-            crs = pyproj.CRS.from_cf(grid_mapping.attrs)
+            crs = CRS.from_cf(grid_mapping.attrs)
         except KeyError:
             crs = None
         roundtripped = decoded.set_xindex(dim).xvec.set_geom_indexes(dim, crs=crs)
