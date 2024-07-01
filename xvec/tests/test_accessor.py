@@ -680,7 +680,14 @@ def test_cf_roundtrip(all_datasets):
     ds = all_datasets
     copy = ds.copy(deep=True)
     encoded = ds.xvec.encode_cf()
+
+    if unique_crs := {
+        idx.crs for idx in ds.xvec.geom_coords_indexed.xindexes.values() if idx.crs
+    }:
+        assert len(unique_crs) == len(encoded.cf[["grid_mapping"]])
+
     roundtripped = encoded.xvec.decode_cf()
+
     xr.testing.assert_identical(ds, roundtripped)
     # make sure we didn't modify the original dataset.
     xr.testing.assert_identical(ds, copy)

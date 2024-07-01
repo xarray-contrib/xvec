@@ -1266,25 +1266,35 @@ class XvecAccessor:
 
         coords = self.geom_coords_indexed
 
+        # TODO: this could use geoxarray, but is quite simple in any case
+        # Adapted from rioxarray
+        # preserve ordering for roundtripping
+        unique_crs = []
+        for _, xi in sorted(coords.xindexes.items()):
+            if xi.crs not in unique_crs:
+                unique_crs.append(xi.crs)
+        if len(unique_crs) == 1:
+            grid_mappings = {unique_crs.pop(): "spatial_ref"}
+        else:
+            grid_mappings = {
+                crs_: f"spatial_ref_{i}" for i, crs_ in enumerate(unique_crs)
+            }
+
+        for crs, grid_mapping in grid_mappings.items():
+            grid_mapping_attrs = crs.to_cf()
+            wkt_str = crs.to_wkt()
+            grid_mapping_attrs["spatial_ref"] = wkt_str
+            grid_mapping_attrs["crs_wkt"] = wkt_str
+            ds.coords[grid_mapping] = xr.Variable(
+                dims=(), data=0, attrs=grid_mapping_attrs
+            )
+
         for name, coord in coords.items():
             dims = set(coord.dims)
             index = coords.xindexes[name]
-
-            # TODO: this could use geoxarray, but is quite simple in any case
-            # Adapted from rioxarray
-            grid_mapping_attrs = index.crs.to_cf()
-            wkt_str = index.crs.to_wkt()
-            grid_mapping_attrs["spatial_ref"] = wkt_str
-            grid_mapping_attrs["crs_wkt"] = wkt_str
-
-            grid_mapping_name = "spatial_ref"
-            ds.coords[grid_mapping_name] = xr.Variable(
-                dims=(), data=0, attrs=grid_mapping_attrs
-            )
             varnames = (k for k, v in ds._variables.items() if dims & set(v.dims))
             for name in varnames:
-                ds._variables[name].attrs["grid_mapping"] = grid_mapping_name
-
+                ds._variables[name].attrs["grid_mapping"] = grid_mappings[index.crs]
         encoded = cfxr.geometry.encode_geometries(ds)
         return encoded
 
