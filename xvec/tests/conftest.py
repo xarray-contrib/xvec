@@ -157,3 +157,17 @@ def traffic_dataset(geom_array):
             "day": pd.date_range("2023-01-01", periods=10),
         },
     ).xvec.set_geom_indexes(["origin", "destination"], crs=26915)
+
+
+@pytest.fixture(
+    params=[
+        "first_geom_dataset",
+        "multi_dataset",
+        "multi_geom_dataset",
+        "multi_geom_no_index_dataset",
+        "traffic_dataset",
+    ],
+    scope="session",
+)
+def all_datasets(request):
+    return request.getfixturevalue(request.param)

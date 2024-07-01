@@ -676,19 +676,6 @@ def test_extract_points_array():
     )
 
 
-@pytest.fixture(
-    params=[
-        "first_geom_dataset",
-        "multi_dataset",
-        "multi_geom_dataset",
-        "multi_geom_no_index_dataset",
-        "traffic_dataset",
-    ]
-)
-def all_datasets(request):
-    return request.getfixturevalue(request.param)
-
-
 def test_cf_roundtrip(all_datasets):
     ds = all_datasets
     copy = ds.copy(deep=True)

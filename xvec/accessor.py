@@ -1265,8 +1265,6 @@ class XvecAccessor:
         ds = self._obj.copy()
 
         coords = self.geom_coords_indexed
-        if len(coords) > 1:
-            raise NotImplementedError("Multiple geometry indexes not supported yet.")
 
         for name, coord in coords.items():
             dims = set(coord.dims)
@@ -1294,22 +1292,26 @@ class XvecAccessor:
         import cf_xarray as cfxr
 
         decoded = cfxr.geometry.decode_geometries(self._obj.copy())
-        (dim,) = decoded.xvec.geom_coords.dims
-
         try:
+            # TODO: handle multiple CRS
             grid_mapping = self._obj.cf["grid_mapping"]
             crs = CRS.from_cf(grid_mapping.attrs)
         except KeyError:
             crs = None
-        decoded = decoded.set_xindex(dim) if dim not in decoded._indexes else decoded
-        roundtripped = decoded.xvec.set_geom_indexes(dim, crs=crs)
+
+        dims = decoded.xvec.geom_coords.dims
+        for dim in dims:
+            decoded = (
+                decoded.set_xindex(dim) if dim not in decoded._indexes else decoded
+            )
+            decoded = decoded.xvec.set_geom_indexes(dim, crs=crs)
         if crs:
             # remove spatial_ref so the coordinate system is only stored on the index
-            del roundtripped[grid_mapping.name]
-            for var in roundtripped._variables.values():
-                if dim in var.dims:
+            del decoded[grid_mapping.name]
+            for var in decoded._variables.values():
+                if set(dims) & set(var.dims):
                     var.attrs.pop("grid_mapping", None)
-        return roundtripped
+        return decoded
 
 
 def _resolve_input(
