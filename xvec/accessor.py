@@ -1258,6 +1258,59 @@ class XvecAccessor:
                 )
         return result
 
+    def encode_cf(self) -> xr.Dataset:
+        """Encode geometry variables and associated CRS with CF conventions"""
+        import cf_xarray as cfxr
+
+        ds = self._obj.copy()
+
+        coords = self.geom_coords_indexed
+        if len(coords) > 1:
+            raise NotImplementedError("Multiple geometry indexes not supported yet.")
+
+        for name, coord in coords.items():
+            dims = set(coord.dims)
+            index = coords.xindexes[name]
+
+            # TODO: this could use geoxarray, but is quite simple in any case
+            # Adapted from rioxarray
+            grid_mapping_attrs = index.crs.to_cf()
+            wkt_str = index.crs.to_wkt()
+            grid_mapping_attrs["spatial_ref"] = wkt_str
+            grid_mapping_attrs["crs_wkt"] = wkt_str
+
+            grid_mapping_name = "spatial_ref"
+            ds.coords[grid_mapping_name] = xr.Variable(
+                dims=(), data=0, attrs=grid_mapping_attrs
+            )
+            varnames = (k for k, v in ds._variables.items() if dims & set(v.dims))
+            for name in varnames:
+                ds._variables[name].attrs["grid_mapping"] = grid_mapping_name
+
+        encoded = cfxr.geometry.encode_geometries(ds)
+        return encoded
+
+    def decode_cf(self) -> xr.Dataset:
+        import cf_xarray as cfxr
+        import pyproj
+
+        decoded = cfxr.geometry.decode_geometries(self._obj.copy())
+        (dim,) = decoded.xvec.geom_coords.dims
+
+        try:
+            grid_mapping = self._obj.cf["grid_mapping"]
+            crs = pyproj.CRS.from_cf(grid_mapping.attrs)
+        except KeyError:
+            crs = None
+        roundtripped = decoded.set_xindex(dim).xvec.set_geom_indexes(dim, crs=crs)
+        if crs:
+            # remove spatial_ref so the coordinate system is only stored on the index
+            del roundtripped[grid_mapping.name]
+            for var in roundtripped._variables.values():
+                if dim in var.dims:
+                    var.attrs.pop("grid_mapping", None)
+        return roundtripped
+
 
 def _resolve_input(
     positional: Mapping[Any, Any] | None,
