@@ -1282,6 +1282,10 @@ class XvecAccessor:
 
         for crs, grid_mapping in grid_mappings.items():
             grid_mapping_attrs = crs.to_cf()
+            # TODO: not all CRS can be represented by CF grid_mappings
+            # For now, we allow this.
+            # if "grid_mapping_name" not in grid_mapping_attrs:
+            #     raise ValueError
             wkt_str = crs.to_wkt()
             grid_mapping_attrs["spatial_ref"] = wkt_str
             grid_mapping_attrs["crs_wkt"] = wkt_str
@@ -1302,25 +1306,25 @@ class XvecAccessor:
         import cf_xarray as cfxr
 
         decoded = cfxr.geometry.decode_geometries(self._obj.copy())
-        try:
-            # TODO: handle multiple CRS
-            grid_mapping = self._obj.cf["grid_mapping"]
-            crs = CRS.from_cf(grid_mapping.attrs)
-        except KeyError:
-            crs = None
-
+        crs = {
+            name: CRS.from_cf(var.attrs)
+            for name, var in decoded._variables.items()
+            if "crs_wkt" in var.attrs or "grid_mapping_name" in var.attrs
+        }
         dims = decoded.xvec.geom_coords.dims
         for dim in dims:
             decoded = (
                 decoded.set_xindex(dim) if dim not in decoded._indexes else decoded
             )
-            decoded = decoded.xvec.set_geom_indexes(dim, crs=crs)
-        if crs:
+            decoded = decoded.xvec.set_geom_indexes(
+                dim, crs=crs.get(decoded[dim].attrs.get("grid_mapping", None))
+            )
+        for name in crs:
             # remove spatial_ref so the coordinate system is only stored on the index
-            del decoded[grid_mapping.name]
-            for var in decoded._variables.values():
-                if set(dims) & set(var.dims):
-                    var.attrs.pop("grid_mapping", None)
+            del decoded[name]
+        for var in decoded._variables.values():
+            if set(dims) & set(var.dims):
+                var.attrs.pop("grid_mapping", None)
         return decoded
 
 

@@ -684,7 +684,8 @@ def test_cf_roundtrip(all_datasets):
     if unique_crs := {
         idx.crs for idx in ds.xvec.geom_coords_indexed.xindexes.values() if idx.crs
     }:
-        assert len(unique_crs) == len(encoded.cf[["grid_mapping"]])
+        nwkts = sum(1 for var in encoded._variables.values() if "crs_wkt" in var.attrs)
+        assert len(unique_crs) == nwkts
 
     roundtripped = encoded.xvec.decode_cf()
 

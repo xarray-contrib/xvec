@@ -83,6 +83,21 @@ def multi_geom_dataset(geom_array, geom_array_z):
 
 
 @pytest.fixture(scope="session")
+def multi_geom_multi_crs_dataset(geom_array, geom_array_z):
+    return (
+        xr.Dataset(
+            coords={
+                "geom": geom_array,
+                "geom_z": geom_array_z,
+            }
+        )
+        .drop_indexes(["geom", "geom_z"])
+        .set_xindex("geom", GeometryIndex, crs=26915)
+        .set_xindex("geom_z", GeometryIndex, crs="EPSG:4362")
+    )
+
+
+@pytest.fixture(scope="session")
 def multi_geom_no_index_dataset(geom_array, geom_array_z):
     return (
         xr.Dataset(
@@ -165,6 +180,7 @@ def traffic_dataset(geom_array):
         "multi_dataset",
         "multi_geom_dataset",
         "multi_geom_no_index_dataset",
+        "multi_geom_multi_crs_dataset",
         "traffic_dataset",
     ],
     scope="session",
