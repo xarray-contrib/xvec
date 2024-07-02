@@ -11,7 +11,11 @@ import xarray as xr
 from pyproj import CRS, Transformer
 
 from .index import GeometryIndex
-from .zonal import _zonal_stats_iterative, _zonal_stats_rasterize
+from .zonal import (
+    _zonal_stats_exactextract,
+    _zonal_stats_iterative,
+    _zonal_stats_rasterize,
+)
 
 if TYPE_CHECKING:
     from geopandas import GeoDataFrame
@@ -950,15 +954,21 @@ class XvecAccessor:
             name of the coordinates containing ``y`` coordinates (i.e. the second value
             in the coordinate pair encoding the vertex of the polygon)
         stats : string | Callable | Sequence[str | Callable | tuple]
-            Spatial aggregation statistic method, by default "mean". Any of the
-            aggregations available as :class:`xarray.DataArray` or
-            :class:`xarray.DataArrayGroupBy` methods like
+            Spatial aggregation statistic method, by default ``"mean"``.
+
+            Any of the aggregations available as :class:`xarray.DataArray` or
+            :class:`~xarray.core.groupby.DataArrayGroupBy` methods like
             :meth:`~xarray.DataArray.mean`, :meth:`~xarray.DataArray.min`,
             :meth:`~xarray.DataArray.max`, or :meth:`~xarray.DataArray.quantile` are
             available. Alternatively, you can pass a ``Callable`` supported by
             :meth:`~xarray.DataArray.reduce` or a list with ``strings``, ``callables``
             or ``tuples`` in a ``(name, func, {kwargs})`` format, where ``func`` can be
             a string or a callable.
+
+            If the method is ``"exactextract"`` then the stats should be string or list
+            of strings that can be used to construct :class:`exactextract.Operation`
+            objects supported by :func:`exactextract.exact_extract` (e.g., ``"mean"``,
+            ``"quantile(q=0.20)"``).
         name : str, optional
             Name of the dimension that will hold the ``geometry``, by default "geometry"
         index : bool, optional
@@ -969,16 +979,28 @@ class XvecAccessor:
             will never be stored. This is useful as an attribute link between the
             resulting array and the GeoPandas object from which the geometry is sourced.
         method : str, optional
-            The method of data extraction. The default is ``"rasterize"``, which uses
-            :func:`rasterio.features.rasterize` and is faster, but can lead to loss of
-            information in case of small polygons or lines. Other option is
-            ``"iterate"``, which iterates over geometries and uses
-            :func:`rasterio.features.geometry_mask`. ``"iterate"`` method requires
-            ``joblib`` on top of ``rioxarray``.
+            The method of data extraction.
+
+            ``"rasterize"``
+                uses :func:`rasterio.features.rasterize` and is faster, but can lead to
+                loss of information in case of small polygons or lines.
+
+            ``"iterate"``
+                iterates over geometries and uses
+                :func:`rasterio.features.geometry_mask`. Requires ``joblib`` on top of
+                ``rioxarray``.
+
+            ``"exactextract"``
+                calculates precise stats by determining the fraction of each raster cell
+                that is covered by the polygon and uses
+                :func:`exactextract.exact_extract`.
+
+            The default is ``"rasterize"``.
         all_touched : bool, optional
             If True, all pixels touched by geometries will be considered. If False, only
             pixels whose center is within the polygon or that are selected by
-            Bresenham’s line algorithm will be considered.
+            Bresenham’s line algorithm will be considered. Applies only if ``method="iterate"``
+            or ``method="rasterize"``.
         n_jobs : int, optional
             Number of parallel threads to use. It is recommended to set this to the
             number of physical cores of the CPU. ``-1`` uses all available cores.
@@ -1086,6 +1108,16 @@ class XvecAccessor:
                 name=name,
                 all_touched=all_touched,
                 n_jobs=n_jobs,
+                **kwargs,
+            )
+        elif method == "exactextract":
+            result = _zonal_stats_exactextract(
+                self,
+                geometry=geometry,
+                x_coords=x_coords,
+                y_coords=y_coords,
+                stats=stats,
+                name=name,
                 **kwargs,
             )
         else:

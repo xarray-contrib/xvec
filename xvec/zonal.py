@@ -283,3 +283,214 @@ def _agg_geom(
     gc.collect()
 
     return result
+
+
+def _zonal_stats_exactextract(
+    acc,
+    geometry: Sequence[shapely.Geometry],
+    x_coords: Hashable,
+    y_coords: Hashable,
+    stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
+    name: str = "geometry",
+) -> xr.DataArray | xr.Dataset:
+    """Extract the values from a dataset indexed by a set of geometries
+
+    The CRS of the raster and that of geometry need to be equal.
+    Xvec does not verify their equality.
+
+    Parameters
+    ----------
+    geometry : Sequence[shapely.Geometry]
+        An arrray-like (1-D) of shapely geometries, like a numpy array or
+        :class:`geopandas.GeoSeries`.
+    x_coords : Hashable
+        name of the coordinates containing ``x`` coordinates (i.e. the first value
+        in the coordinate pair encoding the vertex of the polygon)
+    y_coords : Hashable
+        name of the coordinates containing ``y`` coordinates (i.e. the second value
+        in the coordinate pair encoding the vertex of the polygon)
+    stats : Hashable
+        Spatial aggregation statistic method, by default "mean". Any of the
+        strings that can be used to construct :py:class:`Operation` objects
+        supported by :func:`exactextract.exact_extract` (e.g., ``"mean"``,
+        ``"quantile(q=0.20)"``)
+    name : str, optional
+        Name of the dimension that will hold the ``geometry``, by default "geometry"
+
+    Returns
+    -------
+    Dataset | DataArray
+        A subset of the original object with N-1 dimensions indexed by
+        the the GeometryIndex.
+
+    """
+    if hasattr(geometry, "crs"):
+        crs = geometry.crs  # type: ignore
+    else:
+        raise AttributeError(
+            "Geometry input does not have a Coordinate Reference System (CRS)."
+        )
+
+    # the input should be xarray.DataArray
+    original_is_ds = False
+    if not isinstance(acc._obj, xr.core.dataarray.DataArray):
+        original_ds = acc._obj
+        acc._obj = acc._obj.to_dataarray()
+        original_is_ds = True
+
+    # Unstack the results
+    agg = {}
+    if pd.api.types.is_list_like(stats):
+        for stat in stats:  # type: ignore
+            if not isinstance(stat, str):
+                raise ValueError(f"{stat} is not a valid aggregation.")
+
+        results, original_shape, coords_info, locs = _agg_exactextract(
+            acc, geometry, crs, x_coords, y_coords, stats, name, original_is_ds
+        )
+        i = 0
+        for stat in stats:  # type: ignore
+            df = results.iloc[:, i : i + locs]
+            # Unstack the result
+            arr = df.values.reshape(original_shape)
+            if original_is_ds is True:
+                data_vars = {}
+                for idx, data_var in enumerate(acc._obj["variable"].values):
+                    data_vars[data_var] = (coords_info.keys(), arr[:, idx])
+                result = xr.Dataset(
+                    data_vars=data_vars,
+                    coords=coords_info,
+                ).xvec.set_geom_indexes(name, crs=crs)
+            else:
+                result = xr.DataArray(
+                    arr, coords=coords_info, dims=coords_info.keys()
+                ).xvec.set_geom_indexes(name, crs=crs)
+
+            agg[stat] = result
+            i += locs
+        vec_cube = xr.concat(
+            agg.values(),
+            dim=xr.DataArray(
+                list(agg.keys()), name="zonal_statistics", dims="zonal_statistics"
+            ),
+        )
+    elif isinstance(stats, str):
+        results, original_shape, coords_info, _ = _agg_exactextract(
+            acc, geometry, crs, x_coords, y_coords, stats, name, original_is_ds
+        )
+        # Unstack the result
+        arr = results.values.reshape(original_shape)
+        if original_is_ds is True:
+            data_vars = {}
+            for idx, data_var in enumerate(acc._obj["variable"].values):
+                data_vars[data_var] = (coords_info.keys(), arr[:, idx])
+                vec_cube = xr.Dataset(
+                    data_vars=data_vars,
+                    coords=coords_info,
+                ).xvec.set_geom_indexes(name, crs=crs)
+        else:
+            vec_cube = xr.DataArray(
+                arr, coords=coords_info, dims=coords_info.keys()
+            ).xvec.set_geom_indexes(name, crs=crs)
+    else:
+        raise ValueError(f"{stats} is not a valid aggregation.")
+
+    vec_cube.attrs = acc._obj.attrs
+
+    if original_is_ds:
+        acc._obj = original_ds
+
+    return vec_cube
+
+
+def _agg_exactextract(
+    acc,
+    geometry,
+    crs,
+    x_coords: Hashable,
+    y_coords: Hashable,
+    stats: str | Callable | Iterable[str | Callable | tuple] = "mean",
+    name: str = "geometry",
+    original_is_ds: bool = False,
+):
+    """Extract the values from a dataset indexed by a set of geometries
+
+    The CRS of the raster and that of geometry need to be equal.
+    Xvec does not verify their equality.
+
+    Parameters
+    ----------
+    geometry : Sequence[shapely.Geometry]
+        An arrray-like (1-D) of shapely geometries, like a numpy array or
+        :class:`geopandas.GeoSeries`.
+    crs : Coordinate Reference System of the geometry objects.
+    x_coords : Hashable
+        name of the coordinates containing ``x`` coordinates (i.e. the first value
+        in the coordinate pair encoding the vertex of the polygon)
+    y_coords : Hashable
+        name of the coordinates containing ``y`` coordinates (i.e. the second value
+        in the coordinate pair encoding the vertex of the polygon)
+    stats : Hashable
+        Spatial aggregation statistic method, by default "mean". Any of the
+        strings that can be used to construct :py:class:`Operation` objects
+        supported by :func:`exactextract.exact_extract` (e.g., ``"mean"``,
+        ``"quantile(q=0.20)"``)
+    name : str, optional
+        Name of the dimension that will hold the ``geometry``, by default "geometry"
+    original_is_ds : bool
+        If True, all pixels touched by geometries will be considered. If False, only
+        pixels whose center is within the polygon or that are selected by
+        Bresenham’s line algorithm will be considered.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Aggregated values over the geometry.
+
+    """
+    try:
+        import exactextract
+    except ImportError as err:
+        raise ImportError(
+            "The exactextract package is required for `zonal_stats()` with "
+            "method='exactextract'."
+        ) from err
+    try:
+        import geopandas as gpd
+    except ImportError as err:
+        raise ImportError(
+            "The geopandas package is required for `zonal_stats()` with "
+            "method='exactextract'. "
+            "You can install it using 'conda install -c conda-forge geopandas' or "
+            "'pip install geopandas'."
+        ) from err
+
+    # Stack the other dimensions into one dimension called "location"
+    arr_dims = tuple(dim for dim in acc._obj.dims if dim not in [x_coords, y_coords])
+    data = acc._obj.stack(location=arr_dims)
+    locs = data.location.size
+
+    # Check the order of dimensions
+    data = data.transpose("location", y_coords, x_coords)
+
+    # Aggregation result
+    gdf = gpd.GeoDataFrame(geometry=geometry, crs=crs)
+    results = exactextract.exact_extract(rast=data, vec=gdf, ops=stats, output="pandas")
+    # Get all the dimensions execpt x_coords, y_coords, they will be used to stack the
+    # dataarray later
+    if original_is_ds is True:
+        # Get the original dataset information to use for unstacking the resulte later
+        coords_info = {name: geometry}
+        original_shape = [len(geometry)]
+        for dim in arr_dims:
+            original_shape.append(acc._obj[dim].size)
+            if dim != "variable":
+                coords_info[dim] = acc._obj[dim].values
+    else:
+        # Get the original dataarray information to use for unstacking the resulte later
+        coords_info = {name: geometry}
+        original_shape = [len(geometry)]
+        for dim in arr_dims:
+            original_shape.append(acc._obj[dim].size)
+            coords_info[dim] = acc._obj[dim].values
+    return results, original_shape, coords_info, locs

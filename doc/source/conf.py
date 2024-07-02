@@ -45,6 +45,7 @@ intersphinx_mapping = {
     "geopandas": ("https://geopandas.org/en/latest", None),
     "pandas": ("https://pandas.pydata.org/docs", None),
     "rasterio": ("https://rasterio.readthedocs.io/en/latest/", None),
+    "exactextract": ("https://isciences.github.io/exactextract/", None),
 }
 
 # -- Options for HTML output -------------------------------------------------
