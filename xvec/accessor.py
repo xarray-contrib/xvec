@@ -1267,6 +1267,7 @@ class XvecAccessor:
 
         # TODO: this could use geoxarray, but is quite simple in any case
         # Adapted from rioxarray
+        # 1. First find all unique CRS objects
         # preserve ordering for roundtripping
         unique_crs = []
         for _, xi in sorted(coords.xindexes.items()):
@@ -1279,6 +1280,7 @@ class XvecAccessor:
                 crs_: f"spatial_ref_{i}" for i, crs_ in enumerate(unique_crs)
             }
 
+        # 2. Convert CRS to grid_mapping variables and assign them
         for crs, grid_mapping in grid_mappings.items():
             grid_mapping_attrs = crs.to_cf()
             # TODO: not all CRS can be represented by CF grid_mappings
@@ -1292,12 +1294,16 @@ class XvecAccessor:
                 dims=(), data=0, attrs=grid_mapping_attrs
             )
 
+        # 3. Associate other variables with appropriate grid_mapping variable
+        #    We asumme that this relation follows from dimension names being shared between
+        #    the GeometryIndex and the variable being checked.
         for name, coord in coords.items():
             dims = set(coord.dims)
             index = coords.xindexes[name]
             varnames = (k for k, v in ds._variables.items() if dims & set(v.dims))
             for name in varnames:
                 ds._variables[name].attrs["grid_mapping"] = grid_mappings[index.crs]
+
         encoded = cfxr.geometry.encode_geometries(ds)
         return encoded
 
