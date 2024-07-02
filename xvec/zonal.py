@@ -395,6 +395,8 @@ def _zonal_stats_exactextract(
     else:
         raise ValueError(f"{stats} is not a valid aggregation.")
 
+    vec_cube.attrs = acc._obj.attrs
+
     if original_is_ds:
         acc._obj = original_ds
 
