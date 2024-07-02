@@ -377,6 +377,8 @@ class XvecAccessor:
         _obj = _obj.drop_indexes(variable_crs_solved.keys())
 
         for key, crs in variable_crs_solved.items():
+            if crs:
+                _obj[key].attrs["crs"] = CRS.from_user_input(crs)
             _obj = _obj.set_xindex([key], GeometryIndex, crs=crs)
 
         return _obj
@@ -505,6 +507,8 @@ class XvecAccessor:
         _obj = _obj.drop_indexes(variable_crs_solved.keys())
 
         for key, crs in variable_crs_solved.items():
+            if crs:
+                _obj[key].attrs["crs"] = CRS.from_user_input(crs)
             _obj = _obj.set_xindex([key], GeometryIndex, crs=crs)
 
         return _obj
@@ -694,18 +698,11 @@ class XvecAccessor:
         _obj = _obj.drop_indexes(coord_names)
 
         for coord in coord_names:
+            if crs:
+                _obj[coord].attrs["crs"] = CRS.from_user_input(crs)
             _obj = _obj.set_xindex(coord, GeometryIndex, crs=crs, **kwargs)
 
         return _obj
-
-    def _get_crs(self, name) -> CRS | None:
-        if name in self._geom_indexes:
-            crs = self._obj.xindexes[name].crs
-        elif name in self._geom_coords_all:
-            crs = self._obj[name].attrs.get("crs", None)
-        else:
-            crs = None
-        return crs
 
     def to_geopandas(self) -> GeoDataFrame | pd.DataFrame:
         """Convert this array into a GeoPandas :class:`~geopandas.GeoDataFrame`
@@ -780,13 +777,13 @@ class XvecAccessor:
         # ensure CRS of all columns is preserved
         for c in gdf.columns:
             if c in self._geom_coords_all:
-                gdf[c] = gpd.GeoSeries(gdf[c], crs=self._get_crs(c))
+                gdf[c] = gpd.GeoSeries(gdf[c], crs=self._obj[c].attrs.get("crs", None))
 
         # if geometry is an index, reset and assign as active
         index_name = gdf.index.name
-        if index_name in self._geom_indexes:
+        if index_name in self._geom_coords_all:
             return gdf.reset_index().set_geometry(
-                index_name, crs=self._get_crs(index_name)
+                index_name, crs=self._obj[index_name].attrs.get("crs", None)
             )  # type: ignore
 
         warnings.warn(
@@ -899,10 +896,12 @@ class XvecAccessor:
         # ensure CRS of all columns is preserved
         for c in df.columns:
             if c in self._geom_coords_all:
-                df[c] = gpd.GeoSeries(df[c], crs=self._get_crs(c))
+                df[c] = gpd.GeoSeries(df[c], crs=self._obj[c].attrs.get("crs", None))
 
         if geometry is not None:
-            return df.set_geometry(geometry, crs=self._get_crs(geometry))  # type: ignore
+            return df.set_geometry(
+                geometry, crs=self._obj[geometry].attrs.get("crs", None)
+            )  # type: ignore
 
         warnings.warn(
             "No active geometry column to be set. The resulting object "

@@ -36,6 +36,7 @@ def geom_dataset(geom_dataset_no_index):
     # a dataset with a geometry coordinate baked by a GeometryIndex
     crs = CRS.from_user_input(26915)
     ds = geom_dataset_no_index.copy()
+    ds["geom"].attrs["crs"] = crs
     return ds.set_xindex("geom", GeometryIndex, crs=crs)
 
 
@@ -52,6 +53,7 @@ def first_geom_dataset(geom_dataset, geom_array):
         .drop_indexes("geom")
         .set_xindex("geom", GeometryIndex, crs=geom_dataset.xindexes["geom"].crs)
     )
+    fg["geom"].attrs["crs"] = CRS.from_user_input(26915)
     return fg
 
 
@@ -78,6 +80,8 @@ def multi_geom_dataset(geom_array, geom_array_z):
         .set_xindex("geom", GeometryIndex, crs=26915)
         .set_xindex("geom_z", GeometryIndex, crs=26915)
     )
+    ds["geom"].attrs["crs"] = ds.xindexes["geom"].crs
+    ds["geom_z"].attrs["crs"] = ds.xindexes["geom_z"].crs
     return ds
 
 
@@ -94,6 +98,8 @@ def multi_geom_multi_crs_dataset(geom_array, geom_array_z):
         .set_xindex("geom", GeometryIndex, crs=26915)
         .set_xindex("geom_z", GeometryIndex, crs="EPSG:4362")
     )
+    ds["geom"].attrs["crs"] = ds.xindexes["geom"].crs
+    ds["geom_z"].attrs["crs"] = ds.xindexes["geom_z"].crs
     return ds
 
 
@@ -111,6 +117,8 @@ def multi_geom_no_index_dataset(geom_array, geom_array_z):
         .set_xindex("geom", GeometryIndex, crs=26915)
         .set_xindex("geom_z", GeometryIndex, crs=26915)
     )
+    ds["geom"].attrs["crs"] = ds.xindexes["geom"].crs
+    ds["geom_z"].attrs["crs"] = ds.xindexes["geom_z"].crs
     return ds
 
 
