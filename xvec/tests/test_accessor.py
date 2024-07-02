@@ -690,5 +690,13 @@ def test_cf_roundtrip(all_datasets):
     roundtripped = encoded.xvec.decode_cf()
 
     xr.testing.assert_identical(ds, roundtripped)
+    assert_indexes_equals(ds, roundtripped)
     # make sure we didn't modify the original dataset.
     xr.testing.assert_identical(ds, copy)
+
+
+def assert_indexes_equals(left, right):
+    # Till https://github.com/pydata/xarray/issues/5812 is resolved
+    assert sorted(left.xindexes.keys()) == sorted(right.xindexes.keys())
+    for k in left.xindexes:
+        assert left.xindexes[k].equals(right.xindexes[k])
