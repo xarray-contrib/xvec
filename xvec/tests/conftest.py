@@ -69,7 +69,7 @@ def multi_dataset(geom_array, geom_array_z):
 
 @pytest.fixture(scope="session")
 def multi_geom_dataset(geom_array, geom_array_z):
-    return (
+    ds = (
         xr.Dataset(
             coords={
                 "geom": geom_array,
@@ -80,11 +80,32 @@ def multi_geom_dataset(geom_array, geom_array_z):
         .set_xindex("geom", GeometryIndex, crs=26915)
         .set_xindex("geom_z", GeometryIndex, crs=26915)
     )
+    ds["geom"].attrs["crs"] = ds.xindexes["geom"].crs
+    ds["geom_z"].attrs["crs"] = ds.xindexes["geom_z"].crs
+    return ds
+
+
+@pytest.fixture(scope="session")
+def multi_geom_multi_crs_dataset(geom_array, geom_array_z):
+    ds = (
+        xr.Dataset(
+            coords={
+                "geom": geom_array,
+                "geom_z": geom_array_z,
+            }
+        )
+        .drop_indexes(["geom", "geom_z"])
+        .set_xindex("geom", GeometryIndex, crs=26915)
+        .set_xindex("geom_z", GeometryIndex, crs="EPSG:4362")
+    )
+    ds["geom"].attrs["crs"] = ds.xindexes["geom"].crs
+    ds["geom_z"].attrs["crs"] = ds.xindexes["geom_z"].crs
+    return ds
 
 
 @pytest.fixture(scope="session")
 def multi_geom_no_index_dataset(geom_array, geom_array_z):
-    return (
+    ds = (
         xr.Dataset(
             coords={
                 "geom": geom_array,
@@ -96,6 +117,9 @@ def multi_geom_no_index_dataset(geom_array, geom_array_z):
         .set_xindex("geom", GeometryIndex, crs=26915)
         .set_xindex("geom_z", GeometryIndex, crs=26915)
     )
+    ds["geom"].attrs["crs"] = ds.xindexes["geom"].crs
+    ds["geom_z"].attrs["crs"] = ds.xindexes["geom_z"].crs
+    return ds
 
 
 @pytest.fixture(scope="session")
@@ -157,3 +181,18 @@ def traffic_dataset(geom_array):
             "day": pd.date_range("2023-01-01", periods=10),
         },
     ).xvec.set_geom_indexes(["origin", "destination"], crs=26915)
+
+
+@pytest.fixture(
+    params=[
+        "first_geom_dataset",
+        "multi_dataset",
+        "multi_geom_dataset",
+        "multi_geom_no_index_dataset",
+        "multi_geom_multi_crs_dataset",
+        "traffic_dataset",
+    ],
+    scope="session",
+)
+def all_datasets(request):
+    return request.getfixturevalue(request.param)

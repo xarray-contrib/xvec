@@ -139,6 +139,7 @@ dmypy.json
 
 # sphinx
 doc/source/generated
+doc/source/geo-encoded*
 
 # ruff
 .ruff_cache
