@@ -56,6 +56,8 @@ Methods
     Dataset.xvec.to_geopandas
     Dataset.xvec.extract_points
     Dataset.xvec.zonal_stats
+    Dataset.xvec.encode_cf
+    Dataset.xvec.decode_cf
 
 
 DataArray.xvec

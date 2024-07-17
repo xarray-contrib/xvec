@@ -164,7 +164,7 @@ class XvecAccessor:
         ).coords
 
     @property
-    def geom_coords_indexed(self) -> Mapping[Hashable, xr.DataArray]:
+    def geom_coords_indexed(self) -> xr.Coordinates:
         """Returns a dictionary of xarray.DataArray objects corresponding to
         coordinate variables using :class:`~xvec.GeometryIndex`.
 
@@ -1289,6 +1289,126 @@ class XvecAccessor:
                     }
                 )
         return result
+
+    def encode_cf(self) -> xr.Dataset:
+        """
+        Encode all geometry variables and associated CRS with CF conventions.
+
+        Use this method prior to writing an Xarray dataset to any array format
+        (e.g. netCDF or Zarr).
+
+        The following invariant is satisfied:
+            ``assert ds.xvec.encode_cf().xvec.decode_cf().identical(ds) is True``
+
+        CRS information on the ``GeometryIndex`` is encoded using CF's ``grid_mapping`` convention.
+
+        This function uses ``cf_xarray.geometry.encode_geometries`` under the hood and will only
+        work on Datasets.
+
+        Returns
+        -------
+        Dataset
+        """
+        import cf_xarray as cfxr
+
+        if not isinstance(self._obj, xr.Dataset):
+            raise ValueError(
+                "CF encoding is only valid on Datasets. Convert to a dataset using `.to_dataset()` first."
+            )
+
+        ds = self._obj.copy()
+        coords = self.geom_coords_indexed
+
+        # TODO: this could use geoxarray, but is quite simple in any case
+        # Adapted from rioxarray
+        # 1. First find all unique CRS objects
+        # preserve ordering for roundtripping
+        unique_crs = []
+        for _, xi in sorted(coords.xindexes.items()):
+            if xi.crs not in unique_crs:
+                unique_crs.append(xi.crs)
+        if len(unique_crs) == 1:
+            grid_mappings = {unique_crs.pop(): "spatial_ref"}
+        else:
+            grid_mappings = {
+                crs_: f"spatial_ref_{i}" for i, crs_ in enumerate(unique_crs)
+            }
+
+        # 2. Convert CRS to grid_mapping variables and assign them
+        for crs, grid_mapping in grid_mappings.items():
+            grid_mapping_attrs = crs.to_cf()
+            # TODO: not all CRS can be represented by CF grid_mappings
+            # For now, we allow this.
+            # if "grid_mapping_name" not in grid_mapping_attrs:
+            #     raise ValueError
+            wkt_str = crs.to_wkt()
+            grid_mapping_attrs["spatial_ref"] = wkt_str
+            grid_mapping_attrs["crs_wkt"] = wkt_str
+            ds.coords[grid_mapping] = xr.Variable(
+                dims=(), data=0, attrs=grid_mapping_attrs
+            )
+
+        # 3. Associate other variables with appropriate grid_mapping variable
+        #    We asumme that this relation follows from dimension names being shared between
+        #    the GeometryIndex and the variable being checked.
+        for name, coord in coords.items():
+            dims = set(coord.dims)
+            index = coords.xindexes[name]
+            varnames = (k for k, v in ds._variables.items() if dims & set(v.dims))
+            for name in varnames:
+                if TYPE_CHECKING:
+                    assert isinstance(index, GeometryIndex)
+                ds._variables[name].attrs["grid_mapping"] = grid_mappings[index.crs]
+
+        encoded = cfxr.geometry.encode_geometries(ds)
+        return encoded
+
+    def decode_cf(self) -> xr.Dataset:
+        """
+        Decode geometries stored as CF-compliant arrays to shapely geometries.
+
+        The following invariant is satisfied:
+            ``assert ds.xvec.encode_cf().xvec.decode_cf().identical(ds) is True``
+
+
+        A ``GeometryIndex`` is created automatically and CRS information, if available
+        following CF's ``grid_mapping`` convention, will be associated with the ``GeometryIndex``.
+
+        This function uses ``cf_xarray.geometry.decode_geometries`` under the hood, and will only
+        work on Datasets.
+
+        Returns
+        -------
+        Dataset
+        """
+        import cf_xarray as cfxr
+
+        if not isinstance(self._obj, xr.Dataset):
+            raise ValueError(
+                "CF decoding is only supported on Datasets. Convert to a Dataset using `.to_dataset()` first."
+            )
+
+        decoded = cfxr.geometry.decode_geometries(self._obj.copy())
+        crs = {
+            name: CRS.from_user_input(var.attrs["crs_wkt"])
+            for name, var in decoded._variables.items()
+            if "crs_wkt" in var.attrs or "grid_mapping_name" in var.attrs
+        }
+        dims = decoded.xvec.geom_coords.dims
+        for dim in dims:
+            decoded = (
+                decoded.set_xindex(dim) if dim not in decoded._indexes else decoded
+            )
+            decoded = decoded.xvec.set_geom_indexes(
+                dim, crs=crs.get(decoded[dim].attrs.get("grid_mapping", None))
+            )
+        for name in crs:
+            # remove spatial_ref so the coordinate system is only stored on the index
+            del decoded[name]
+        for var in decoded._variables.values():
+            if set(dims) & set(var.dims):
+                var.attrs.pop("grid_mapping", None)
+        return decoded
 
 
 def _resolve_input(

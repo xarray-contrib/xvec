@@ -6,6 +6,7 @@ dependencies:
   # required
   - shapely=2
   - xarray
+  - cf_xarray
   # testing
   - pytest
   - pytest-cov
