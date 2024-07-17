@@ -160,7 +160,7 @@ class XvecAccessor:
         ).coords
 
     @property
-    def geom_coords_indexed(self) -> Mapping[Hashable, xr.DataArray]:
+    def geom_coords_indexed(self) -> xr.Coordinates:
         """Returns a dictionary of xarray.DataArray objects corresponding to
         coordinate variables using :class:`~xvec.GeometryIndex`.
 
@@ -1278,6 +1278,11 @@ class XvecAccessor:
         """
         import cf_xarray as cfxr
 
+        if isinstance(self._obj, xr.DataArray):
+            raise ValueError(
+                "CF encoding is only valid on Datasets. Convert to a dataset using `.to_dataset()` first."
+            )
+
         ds = self._obj.copy()
         coords = self.geom_coords_indexed
 
@@ -1318,6 +1323,8 @@ class XvecAccessor:
             index = coords.xindexes[name]
             varnames = (k for k, v in ds._variables.items() if dims & set(v.dims))
             for name in varnames:
+                if TYPE_CHECKING:
+                    assert isinstance(index, GeometryIndex)
                 ds._variables[name].attrs["grid_mapping"] = grid_mappings[index.crs]
 
         encoded = cfxr.geometry.encode_geometries(ds)
