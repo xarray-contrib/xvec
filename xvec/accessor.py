@@ -1259,7 +1259,23 @@ class XvecAccessor:
         return result
 
     def encode_cf(self) -> xr.Dataset:
-        """Encode geometry variables and associated CRS with CF conventions"""
+        """
+        Encode all geometry variables and associated CRS with CF conventions.
+
+        Use this method prior to writing an Xarray dataset to any array format
+        (e.g. netCDF or Zarr).
+
+        The following invariant is satisfied:
+            ``assert ds.xvec.encode_cf().xvec.decode_cf().identical(ds) is True``
+
+        CRS information on the ``GeometryIndex`` is encoded using CF's ``grid_mapping`` convention.
+
+        This function uses ``cf_xarray.geometry.encode_geometries`` under the hood.
+
+        Returns
+        -------
+        Dataset
+        """
         import cf_xarray as cfxr
 
         ds = self._obj.copy()
@@ -1308,6 +1324,22 @@ class XvecAccessor:
         return encoded
 
     def decode_cf(self) -> xr.Dataset:
+        """
+        Decode geometries stored as CF-compliant arrays to shapely geometries.
+
+        The following invariant is satisfied:
+            ``assert ds.xvec.encode_cf().xvec.decode_cf().identical(ds) is True``
+
+
+        A ``GeometryIndex`` is created automatically and CRS information, if available
+        following CF's ``grid_mapping`` convention, will be associated with the ``GeometryIndex``.
+
+        This function uses ``cf_xarray.geometry.decode_geometries`` under the hood.
+
+        Returns
+        -------
+        Dataset
+        """
         import cf_xarray as cfxr
 
         decoded = cfxr.geometry.decode_geometries(self._obj.copy())
