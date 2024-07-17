@@ -1270,7 +1270,8 @@ class XvecAccessor:
 
         CRS information on the ``GeometryIndex`` is encoded using CF's ``grid_mapping`` convention.
 
-        This function uses ``cf_xarray.geometry.encode_geometries`` under the hood.
+        This function uses ``cf_xarray.geometry.encode_geometries`` under the hood and will only
+        work on Datasets.
 
         Returns
         -------
@@ -1278,7 +1279,7 @@ class XvecAccessor:
         """
         import cf_xarray as cfxr
 
-        if isinstance(self._obj, xr.DataArray):
+        if not isinstance(self._obj, xr.Dataset):
             raise ValueError(
                 "CF encoding is only valid on Datasets. Convert to a dataset using `.to_dataset()` first."
             )
@@ -1341,13 +1342,19 @@ class XvecAccessor:
         A ``GeometryIndex`` is created automatically and CRS information, if available
         following CF's ``grid_mapping`` convention, will be associated with the ``GeometryIndex``.
 
-        This function uses ``cf_xarray.geometry.decode_geometries`` under the hood.
+        This function uses ``cf_xarray.geometry.decode_geometries`` under the hood, and will only
+        work on Datasets.
 
         Returns
         -------
         Dataset
         """
         import cf_xarray as cfxr
+
+        if not isinstance(self._obj, xr.Dataset):
+            raise ValueError(
+                "CF decoding is only supported on Datasets. Convert to a Dataset using `.to_dataset()` first."
+            )
 
         decoded = cfxr.geometry.decode_geometries(self._obj.copy())
         crs = {
