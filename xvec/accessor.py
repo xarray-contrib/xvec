@@ -766,7 +766,7 @@ class XvecAccessor:
                         gdf = gdf.T
                 return gdf.reset_index().set_geometry(  # type: ignore
                     self._geom_indexes[0],
-                    crs=self._obj.xindexes[self._geom_indexes[0]].crs,
+                    crs=self._obj.xindexes[self._geom_indexes[0]].crs,  # type: ignore
                 )
             warnings.warn(
                 "No geometry to return, falling back to DataArray.to_pandas().",
