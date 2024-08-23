@@ -60,6 +60,7 @@ def _zonal_stats_rasterize(
         transform=transform,
         fill=np.nan,  # type: ignore
         all_touched=all_touched,
+        dtype=np.float32,
     )
     groups = acc._obj.groupby(xr.DataArray(labels, dims=(y_coords, x_coords)))
 
