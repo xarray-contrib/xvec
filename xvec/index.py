@@ -277,6 +277,8 @@ class GeometryIndex(Index):
     def __repr__(self) -> str:
         srs = _format_crs(self.crs)
         shape = self._index.index.shape[0]
+        if shape == 0:
+            return f"GeometryIndex([], crs={srs})"
         if shape < 10:
             wkts = [repr(g) for g in self._index.index]
         else:
