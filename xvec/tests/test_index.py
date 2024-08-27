@@ -193,3 +193,8 @@ def test_repr(geom_dataset, geom_dataset_no_crs):
     long = xr.concat([geom_dataset] * 10, dim="geom")
     actual = repr(long.xindexes["geom"])
     expected = "GeometryIndex(\n    [<POINT (1 2)>\n     <POINT (3 4)>\n     <POINT (1 2)>\n     <POINT (3 4)>\n     ...\n     <POINT (1 2)>\n     <POINT (3 4)>\n     <POINT (1 2)>\n     <POINT (3 4)>],\n    crs=EPSG:26915)"
+
+    empty = geom_dataset.xvec.query("geom", shapely.Point(0, 0), predicate="intersects")
+    actual = repr(empty.xindexes["geom"])
+    expected = "GeometryIndex([], crs=EPSG:26915)"
+    assert actual == expected
