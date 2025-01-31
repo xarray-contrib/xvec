@@ -9,7 +9,6 @@ dependencies:
   - rioxarray
   - joblib
   - rasterio
-  - exactextract
   - tqdm
   - pyproj
   # testing
@@ -21,4 +20,8 @@ dependencies:
   - geodatasets
   - pyogrio
   - mypy
+  - pip
+  - pip:
+    - exactextract
+
 
