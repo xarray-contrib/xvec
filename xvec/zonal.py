@@ -194,7 +194,7 @@ def _zonal_stats_iterative(
     vec_cube = xr.concat(
         zonal,  # type: ignore
         # astype('O') is a temporary fix for #87
-        dim=xr.DataArray(geometry.astype("O"), name=name, dims=name),
+        dim=xr.DataArray(np.asarray(geometry).astype("O"), name=name, dims=name),
     ).xvec.set_geom_indexes(name, crs=crs)
     gc.collect()
 
