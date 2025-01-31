@@ -10,6 +10,7 @@ dependencies:
   - rioxarray
   - joblib
   - rasterio
+  - exactextract
   - tqdm
   # testing
   - pytest
@@ -24,4 +25,3 @@ dependencies:
       - git+https://github.com/shapely/shapely.git@main
       - git+https://github.com/pydata/xarray.git@main
       - git+https://github.com/pyproj4/pyproj.git
-      - exactextract==0.2.0.dev0
