@@ -9,6 +9,7 @@ dependencies:
   - rioxarray
   - joblib
   - rasterio
+  - exactextract
   - tqdm
   - pyproj
   # testing
