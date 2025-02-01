@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import gc
-from collections.abc import Hashable, Iterable, Sequence
-from typing import Any, Callable
+from collections.abc import Callable, Hashable, Iterable, Sequence
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -52,7 +52,7 @@ def _zonal_stats_rasterize(
     transform = acc._obj.rio.transform()
 
     labels = features.rasterize(
-        zip(geometry, range(len(geometry))),
+        zip(geometry, range(len(geometry)), strict=False),
         out_shape=(
             acc._obj[y_coords].shape[0],
             acc._obj[x_coords].shape[0],
