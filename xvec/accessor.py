@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Hashable, Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Callable, cast
+from collections.abc import Callable, Hashable, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import pandas as pd
