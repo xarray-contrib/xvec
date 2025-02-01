@@ -20,8 +20,5 @@ dependencies:
   - geodatasets
   - pyogrio
   - mypy
-  - pip
-  - pip:
-    - exactextract
 
 
