@@ -1410,6 +1410,61 @@ class XvecAccessor:
                 var.attrs.pop("grid_mapping", None)
         return decoded
 
+    def summarize_geometry(self, dim, aggfunc="envelope"):
+        def _summarize(x, axis, **kwargs):
+            if not isinstance(axis, tuple):
+                axis = (axis,)
+            new_shape = list(x.shape)
+            flatten_dim = np.prod([new_shape[i] for i in axis])
+            for i in sorted(axis, reverse=True):
+                del new_shape[i]
+            new_shape.insert(min(axis), flatten_dim)
+            x_reshaped = x.reshape(new_shape)
+            return kwargs["agg"](x_reshaped).data
+
+        remaining_dims = (d for d in self._obj.dims if d != dim)
+        match aggfunc:
+            case "envelope":
+                summary = shapely.envelope(
+                    self._obj.reduce(
+                        _summarize, remaining_dims, agg=shapely.geometrycollections
+                    )
+                ).data
+            case "centroid":
+                summary = shapely.centroid(
+                    self._obj.reduce(
+                        _summarize, remaining_dims, agg=shapely.geometrycollections
+                    )
+                ).data
+            case "oriented_envelope":
+                summary = shapely.oriented_envelope(
+                    self._obj.reduce(
+                        _summarize, remaining_dims, agg=shapely.geometrycollections
+                    )
+                ).data
+            case "convex_hull":
+                summary = shapely.convex_hull(
+                    self._obj.reduce(
+                        _summarize, remaining_dims, agg=shapely.geometrycollections
+                    )
+                ).data
+            case "collection":
+                summary = self._obj.reduce(
+                    _summarize, remaining_dims, agg=shapely.geometrycollections
+                ).data
+            case "union":
+                summary = self._obj.reduce(
+                    _summarize,
+                    remaining_dims,
+                    agg=lambda x: shapely.union_all(x, axis=1),
+                ).data
+
+        return (
+            self._obj.assign_coords(summary_geometry=(dim, summary))
+            .set_xindex("summary_geometry")
+            .xvec.set_geom_indexes("summary_geometry")  # TODO: resolve CRS passthrough
+        )
+
 
 def _resolve_input(
     positional: Mapping[Any, Any] | None,
