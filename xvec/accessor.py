@@ -520,7 +520,7 @@ class XvecAccessor:
 
     def query(
         self,
-        coord_name: str,
+        coord_name: str | None,
         geometry: shapely.Geometry | Sequence[shapely.Geometry],
         predicate: str | None = None,
         distance: float | Sequence[float] | None = None,
@@ -543,8 +543,10 @@ class XvecAccessor:
 
         Parameters
         ----------
-        coord_name : str
-            name of the coordinate axis backed by :class:`~xvec.GeometryIndex`
+        coord_name : str | None
+            name of the coordinate axis backed by :class:`~xvec.GeometryIndex`. If None,
+            the query is done against the DataArray.data assuming it contains shapely
+            geometries.
         geometry : shapely.Geometry | Sequence[shapely.Geometry]
             Input geometries to query the :class:`~xvec.GeometryIndex` and filter
             results using the optional predicate.
@@ -617,19 +619,33 @@ class XvecAccessor:
             geom     GeometryIndex (crs=EPSG:4326)
 
         """
-        if isinstance(geometry, shapely.Geometry):
-            ilocs = self._obj.xindexes[coord_name].sindex.query(  # type: ignore
-                geometry, predicate=predicate, distance=distance
-            )
+        if coord_name:
+            if isinstance(geometry, shapely.Geometry):
+                ilocs = self._obj.xindexes[coord_name].sindex.query(  # type: ignore
+                    geometry, predicate=predicate, distance=distance
+                )
 
+            else:
+                _, ilocs = self._obj.xindexes[coord_name].sindex.query(  # type: ignore
+                    geometry, predicate=predicate, distance=distance
+                )
+                if unique:
+                    ilocs = np.unique(ilocs)
+
+            return self._obj.isel({coord_name: ilocs})
+
+        cube_data = self._obj.data.ravel()
+        tree = shapely.STRtree(cube_data)
+        indices = tree.query(geometry, predicate=predicate, distance=distance)
+        if indices.ndim == 1:
+            dense = np.zeros(len(cube_data), dtype=bool)
+            dense[indices] = True
         else:
-            _, ilocs = self._obj.xindexes[coord_name].sindex.query(  # type: ignore
-                geometry, predicate=predicate, distance=distance
-            )
-            if unique:
-                ilocs = np.unique(ilocs)
-
-        return self._obj.isel({coord_name: ilocs})
+            dense = np.zeros((len(cube_data), len(geometry)), dtype=bool)
+            tree, other = indices[::-1]
+            dense[tree, other] = True
+            dense = dense.any(axis=1)
+        return self._obj.where(dense.reshape(self._obj.shape))
 
     def set_geom_indexes(
         self,
@@ -907,6 +923,14 @@ class XvecAccessor:
             return df.set_geometry(
                 geometry, crs=self._obj[geometry].attrs.get("crs", None)
             )  # type: ignore
+
+        # check if the geometry comes from the values, rather than an index
+        name = (
+            name if name else (self._obj.name if hasattr(self._obj, "name") else None)
+        )
+        if name is not None:
+            if shapely.is_geometry(df[name]).any():
+                return df.set_geometry(name, crs=self._obj.proj.crs)
 
         warnings.warn(
             "No active geometry column to be set. The resulting object "
