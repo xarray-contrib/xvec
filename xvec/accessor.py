@@ -12,6 +12,7 @@ import xproj  # noqa: F401
 from pyproj import CRS, Transformer
 
 from .index import GeometryIndex
+from .plotting import _plot
 from .zonal import (
     _zonal_stats_exactextract,
     _zonal_stats_iterative,
@@ -1488,6 +1489,26 @@ class XvecAccessor:
             self._obj.assign_coords(summary_geometry=(dim, summary))
             .set_xindex("summary_geometry")
             .xvec.set_geom_indexes("summary_geometry", crs=self._obj.proj.crs)
+        )
+
+    def plot(
+        self,
+        *,
+        row=None,
+        col=None,
+        col_wrap=None,
+        ax=None,
+        subplot_kws=None,
+        **kwargs,
+    ):
+        return _plot(
+            self._obj,
+            row=row,
+            col=col,
+            col_wrap=col_wrap,
+            ax=ax,
+            subplot_kws=subplot_kws,
+            **kwargs,
         )
 
 
