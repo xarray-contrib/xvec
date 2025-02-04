@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import shapely
 import xarray as xr
+import xproj  # noqa: F401
 from pyproj import CRS, Transformer
 
 from .index import GeometryIndex
@@ -1462,7 +1463,7 @@ class XvecAccessor:
         return (
             self._obj.assign_coords(summary_geometry=(dim, summary))
             .set_xindex("summary_geometry")
-            .xvec.set_geom_indexes("summary_geometry")  # TODO: resolve CRS passthrough
+            .xvec.set_geom_indexes("summary_geometry", crs=self._obj.proj.crs)
         )
 
 
