@@ -52,7 +52,7 @@ def _zonal_stats_rasterize(
 
     transform = acc._obj.rio.transform()
     length = len(geometry)
-    dtype = np.int16 if length < np.iinfo(np.int16).max else np.int32
+    dtype = np.min_scalar_type(length + 1)
 
     labels = features.rasterize(
         zip(geometry, range(length), strict=False),
