@@ -1499,6 +1499,10 @@ class XvecAccessor:
         col_wrap=None,
         ax=None,
         subplot_kws=None,
+        figsize=None,
+        aspect=1,
+        size=3,
+        geometry=None,
         **kwargs,
     ):
         return _plot(
@@ -1508,6 +1512,10 @@ class XvecAccessor:
             col_wrap=col_wrap,
             ax=ax,
             subplot_kws=subplot_kws,
+            figsize=figsize,
+            aspect=aspect,
+            size=size,
+            geometry=geometry,
             **kwargs,
         )
 
