@@ -84,11 +84,12 @@ def _plot(
         if (
             not col and geometry in arr.xvec._geom_coords_all
         ):  # Dataset with geometry variable
-            # if np.all(shapely.is_valid_input(arr[geometry].data)):
             arr[geometry].drop_vars([geometry]).xvec.to_geodataframe().plot(ax=axs)
             axs.set_xlabel(x_label, fontsize="small")
             axs.set_ylabel(y_label, fontsize="small")
         else:
+            if hue:
+                cmap_params = _determine_cmap_params(arr[hue].data, **kwargs)
             axs = axs.flatten()
             for i_c, col_val in enumerate(arr[col]):
                 sliced = arr.sel({col: col_val}).drop_vars([col])
@@ -96,10 +97,20 @@ def _plot(
                     vals = sliced[hue].data
                     if geometry in arr.coords:
                         arr[geometry].drop_vars([geometry]).xvec.to_geodataframe().plot(
-                            vals, ax=axs[i_c]
+                            vals,
+                            ax=axs[i_c],
+                            vmin=cmap_params["vmin"],
+                            vmax=cmap_params["vmax"],
+                            cmap=cmap_params["cmap"],
                         )
                     else:
-                        sliced[geometry].xvec.to_geodataframe().plot(vals, ax=axs[i_c])
+                        sliced[geometry].xvec.to_geodataframe().plot(
+                            vals,
+                            ax=axs[i_c],
+                            vmin=cmap_params["vmin"],
+                            vmax=cmap_params["vmax"],
+                            cmap=cmap_params["cmap"],
+                        )
                 else:
                     sliced[geometry].xvec.to_geodataframe().plot(ax=axs[i_c])
 
@@ -114,6 +125,25 @@ def _plot(
             used_axes = arr[col].shape[0]
             for ax in axs.flatten()[used_axes:]:
                 fig.delaxes(ax)
+
+            if hue:
+                if not cmap_params["norm"]:
+                    cmap_params["norm"] = Normalize(
+                        vmin=cmap_params["vmin"], vmax=cmap_params["vmax"]
+                    )
+
+                n_cmap = cm.ScalarMappable(
+                    norm=cmap_params["norm"], cmap=cmap_params["cmap"]
+                )
+
+                fig.subplots_adjust(right=0.85)
+                cbar_ax = fig.add_axes([0.9, 0.15, 0.03, 0.7])
+                fig.colorbar(
+                    n_cmap,
+                    cax=cbar_ax,
+                    label=hue,
+                    extend=cmap_params["extend"],
+                )
 
     elif isinstance(arr, xr.DataArray) and np.all(
         shapely.is_valid_input(arr.data)
