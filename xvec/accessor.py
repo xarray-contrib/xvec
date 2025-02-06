@@ -1519,6 +1519,32 @@ class XvecAccessor:
             **kwargs,
         )
 
+    def to_wkb(self):
+        # process coordinate geometries
+        obj = self._obj.assign_coords(
+            {coord: shapely.to_wkb(self._obj[coord]) for coord in self._geom_coords_all}
+        )
+        for coord in self._geom_coords_all:
+            obj[coord].attrs["crs"] = obj[coord].attrs["crs"].to_json()
+
+        if isinstance(obj, xr.DataArray):
+            if np.all(shapely.is_valid_input(obj.data)):
+                obj = shapely.to_wkb(obj)
+                if obj.proj.crs:
+                    obj.attrs["crs"] = obj.proj.crs.to_json()
+
+            return obj
+
+        for data in obj.data_vars:
+            if np.all(shapely.is_valid_input(obj[data].data)):
+                obj[data] = shapely.to_wkb(obj[data])
+                if obj[data].proj.crs:
+                    obj[data].attrs["crs"] = obj[data].proj.crs.to_json()
+
+        return obj
+
+    # def from_wkb(self):
+
 
 def _resolve_input(
     positional: Mapping[Any, Any] | None,
