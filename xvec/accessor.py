@@ -1437,8 +1437,14 @@ class XvecAccessor:
                 var.attrs.pop("grid_mapping", None)
         return decoded
 
-    def summarize_geometry(self, dim, aggfunc="envelope"):
-        # todo: make this work for datasets
+    def summarize_geometry(self, dim, geom_array=None, aggfunc="envelope", **kwargs):
+        if isinstance(self._obj, xr.Dataset):
+            if geom_array is None:
+                raise
+            obj = self._obj[geom_array]
+        else:
+            obj = self._obj
+
         def _summarize(x, axis, **kwargs):
             if not isinstance(axis, tuple):
                 axis = (axis,)
@@ -1454,38 +1460,46 @@ class XvecAccessor:
         match aggfunc:
             case "envelope":
                 summary = shapely.envelope(
-                    self._obj.reduce(
+                    obj.reduce(
                         _summarize, remaining_dims, agg=shapely.geometrycollections
                     )
                 ).data
             case "centroid":
                 summary = shapely.centroid(
-                    self._obj.reduce(
+                    obj.reduce(
                         _summarize, remaining_dims, agg=shapely.geometrycollections
                     )
                 ).data
             case "oriented_envelope":
                 summary = shapely.oriented_envelope(
-                    self._obj.reduce(
+                    obj.reduce(
                         _summarize, remaining_dims, agg=shapely.geometrycollections
                     )
                 ).data
             case "convex_hull":
                 summary = shapely.convex_hull(
-                    self._obj.reduce(
+                    obj.reduce(
                         _summarize, remaining_dims, agg=shapely.geometrycollections
                     )
                 ).data
+            case "concave_hull":
+                summary = shapely.concave_hull(
+                    obj.reduce(
+                        _summarize, remaining_dims, agg=shapely.geometrycollections
+                    ),
+                    **kwargs,
+                ).data
             case "collection":
-                summary = self._obj.reduce(
+                summary = obj.reduce(
                     _summarize, remaining_dims, agg=shapely.geometrycollections
                 ).data
             case "union":
-                summary = self._obj.reduce(
+                summary = obj.reduce(
                     _summarize,
                     remaining_dims,
                     agg=lambda x: shapely.union_all(x, axis=1),
                 ).data
+            # TODO allow custom aggfunc
 
         return (
             self._obj.assign_coords(summary_geometry=(dim, summary))

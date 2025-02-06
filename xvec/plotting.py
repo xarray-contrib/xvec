@@ -20,8 +20,10 @@ def _plot(
     aspect=1,
     size=3,
     geometry=None,
+    alpha=None,
     **kwargs,
 ):
+    # TODO: pass possible kwargs to geopandas
     if row and col:
         if len(arr.dims) != 3:
             raise ValueError(
@@ -84,7 +86,9 @@ def _plot(
         if (
             not col and geometry in arr.xvec._geom_coords_all
         ):  # Dataset with geometry variable
-            arr[geometry].drop_vars([geometry]).xvec.to_geodataframe().plot(ax=axs)
+            arr[geometry].drop_vars([geometry]).xvec.to_geodataframe().plot(
+                ax=axs, alpha=alpha
+            )
             axs.set_xlabel(x_label, fontsize="small")
             axs.set_ylabel(y_label, fontsize="small")
         else:
@@ -102,6 +106,7 @@ def _plot(
                             vmin=cmap_params["vmin"],
                             vmax=cmap_params["vmax"],
                             cmap=cmap_params["cmap"],
+                            alpha=alpha,
                         )
                     else:
                         sliced[geometry].xvec.to_geodataframe().plot(
@@ -110,9 +115,12 @@ def _plot(
                             vmin=cmap_params["vmin"],
                             vmax=cmap_params["vmax"],
                             cmap=cmap_params["cmap"],
+                            alpha=alpha,
                         )
                 else:
-                    sliced[geometry].xvec.to_geodataframe().plot(ax=axs[i_c])
+                    sliced[geometry].xvec.to_geodataframe().plot(
+                        ax=axs[i_c], alpha=alpha
+                    )
 
                 axs[i_c].set_title(f"{col} = {arr[col][i_c].item()}", fontsize="small")
 
