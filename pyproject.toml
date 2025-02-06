@@ -56,8 +56,11 @@ exclude_lines = [
 
 [tool.ruff]
 line-length = 88
-exclude = ["doc"]
+exclude = ["doc/source/conf.py"]
 
 [tool.ruff.lint]
-ignore = ['E501', 'Q000', 'Q001', 'Q002', 'Q003', 'W191']
+ignore = ['E501', 'Q000', 'Q001', 'Q002', 'Q003', 'W191', 'C408']
 select = ["E", "F", "W", "I", "UP", "B", "A", "C4", "Q"]
+
+[tool.ruff.lint.per-file-ignores]
+"doc/**" = ["F401"]
