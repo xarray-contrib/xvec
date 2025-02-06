@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import warnings
 from collections.abc import Callable, Hashable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, cast
@@ -1437,6 +1438,7 @@ class XvecAccessor:
         return decoded
 
     def summarize_geometry(self, dim, aggfunc="envelope"):
+        # todo: make this work for datasets
         def _summarize(x, axis, **kwargs):
             if not isinstance(axis, tuple):
                 axis = (axis,)
@@ -1519,31 +1521,61 @@ class XvecAccessor:
             **kwargs,
         )
 
-    def to_wkb(self):
+    def encode_wkb(self):
         # process coordinate geometries
         obj = self._obj.assign_coords(
             {coord: shapely.to_wkb(self._obj[coord]) for coord in self._geom_coords_all}
         )
-        for coord in self._geom_coords_all:
-            obj[coord].attrs["crs"] = obj[coord].attrs["crs"].to_json()
-
         if isinstance(obj, xr.DataArray):
             if np.all(shapely.is_valid_input(obj.data)):
                 obj = shapely.to_wkb(obj)
                 if obj.proj.crs:
                     obj.attrs["crs"] = obj.proj.crs.to_json()
+                obj.attrs["wkb_encoded_geometry"] = True
 
-            return obj
+        else:
+            for data in obj.data_vars:
+                if np.all(shapely.is_valid_input(obj[data].data)):
+                    obj[data] = shapely.to_wkb(obj[data])
+                    if obj[data].proj.crs:
+                        obj[data].attrs["crs"] = obj[data].proj.crs.to_json()
+                    obj[data].attrs["wkb_encoded_geometry"] = True
 
-        for data in obj.data_vars:
-            if np.all(shapely.is_valid_input(obj[data].data)):
-                obj[data] = shapely.to_wkb(obj[data])
-                if obj[data].proj.crs:
-                    obj[data].attrs["crs"] = obj[data].proj.crs.to_json()
+        for coord in self._geom_coords_all:
+            obj[coord].attrs["crs"] = obj[coord].crs.to_json()
+            obj[coord].attrs["wkb_encoded_geometry"] = True
 
         return obj
 
-    # def from_wkb(self):
+    def decode_wkb(self):
+        obj = self._obj.copy()
+
+        if isinstance(obj, xr.DataArray):
+            if obj.attrs.get("wkb_encoded_geometry", False):
+                obj = shapely.from_wkb(obj)
+                if "crs" in obj.attrs:
+                    obj = obj.proj.assign_crs(json.loads(obj.attrs.pop("crs")))
+
+        else:
+            for data in obj.data_vars:
+                if obj[data].attrs.get("wkb_encoded_geometry", False):
+                    obj[data].data = shapely.from_wkb(obj[data])
+                    if "crs" in obj[data].attrs:
+                        obj = obj.proj.assign_crs(
+                            spatial_ref=json.loads(obj[data].attrs.pop("crs"))
+                        )
+                    del obj[data].attrs["wkb_encoded_geometry"]
+
+        for coord in obj.coords:
+            if obj[coord].attrs.get("wkb_encoded_geometry", False):
+                obj[coord].data = shapely.from_wkb(obj[coord]).data
+                obj = obj.set_xindex(coord)
+                obj = obj.xvec.set_geom_indexes(
+                    coord, crs=obj[coord].attrs.pop("crs", None)
+                )
+                del obj[coord].attrs["wkb_encoded_geometry"]
+
+        return obj
 
 
 def _resolve_input(
