@@ -145,5 +145,6 @@ doc/source/geo-encoded*
 .ruff_cache
 doc/source/cube.joblib.compressed
 doc/source/cube.pickle
+doc/source/*zarr
 
 cache/
