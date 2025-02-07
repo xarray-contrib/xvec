@@ -15,6 +15,7 @@ from pyproj import CRS, Transformer
 from .index import GeometryIndex
 from .plotting import _plot
 from .zonal import (
+    _variable_zonal,
     _zonal_stats_exactextract,
     _zonal_stats_iterative,
     _zonal_stats_rasterize,
@@ -1167,6 +1168,23 @@ class XvecAccessor:
         # standardize the shape - each method comes with a different one
         return result.transpose(name, ...)
 
+    def zonal_stats_variable(
+        self,
+        variable_geometry: xr.DataArray,
+        x_coords: Hashable,
+        y_coords: Hashable,
+        stats="mean",
+        all_touched: bool = False,
+    ):
+        return _variable_zonal(
+            self,
+            variable_geometry=variable_geometry,
+            x_coords=x_coords,
+            y_coords=y_coords,
+            stats=stats,
+            all_touched=all_touched,
+        )
+
     def extract_points(
         self,
         points: Sequence[shapely.Geometry],
@@ -1445,60 +1463,30 @@ class XvecAccessor:
         else:
             obj = self._obj
 
-        def _summarize(x, axis, **kwargs):
-            if not isinstance(axis, tuple):
-                axis = (axis,)
-            new_shape = list(x.shape)
-            flatten_dim = np.prod([new_shape[i] for i in axis])
-            for i in sorted(axis, reverse=True):
-                del new_shape[i]
-            new_shape.insert(min(axis), flatten_dim)
-            x_reshaped = x.reshape(new_shape)
-            return kwargs["agg"](x_reshaped).data
+        def _collect(x):
+            return xr.DataArray(shapely.geometrycollections(np.ravel(x)))
 
-        remaining_dims = (d for d in self._obj.dims if d != dim)
+        def _union(x):
+            return xr.DataArray(shapely.union_all(np.ravel(x)))
+
         match aggfunc:
             case "envelope":
-                summary = shapely.envelope(
-                    obj.reduce(
-                        _summarize, remaining_dims, agg=shapely.geometrycollections
-                    )
-                ).data
+                summary = shapely.envelope(obj.groupby(dim).map(_collect)).data
             case "centroid":
-                summary = shapely.centroid(
-                    obj.reduce(
-                        _summarize, remaining_dims, agg=shapely.geometrycollections
-                    )
-                ).data
+                summary = shapely.centroid(obj.groupby(dim).map(_collect)).data
             case "oriented_envelope":
-                summary = shapely.oriented_envelope(
-                    obj.reduce(
-                        _summarize, remaining_dims, agg=shapely.geometrycollections
-                    )
-                ).data
+                summary = shapely.oriented_envelope(obj.groupby(dim).map(_collect)).data
             case "convex_hull":
-                summary = shapely.convex_hull(
-                    obj.reduce(
-                        _summarize, remaining_dims, agg=shapely.geometrycollections
-                    )
-                ).data
+                summary = shapely.convex_hull(obj.groupby(dim).map(_collect)).data
             case "concave_hull":
                 summary = shapely.concave_hull(
-                    obj.reduce(
-                        _summarize, remaining_dims, agg=shapely.geometrycollections
-                    ),
+                    obj.groupby(dim).map(_collect),
                     **kwargs,
                 ).data
             case "collection":
-                summary = obj.reduce(
-                    _summarize, remaining_dims, agg=shapely.geometrycollections
-                ).data
+                summary = obj.groupby(dim).map(_collect).data
             case "union":
-                summary = obj.reduce(
-                    _summarize,
-                    remaining_dims,
-                    agg=lambda x: shapely.union_all(x, axis=1),
-                ).data
+                summary = obj.groupby(dim).map(_union).data
             # TODO allow custom aggfunc
 
         return (
