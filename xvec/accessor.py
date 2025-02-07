@@ -161,11 +161,13 @@ class XvecAccessor:
         geom_coords_indexed
         is_geom_variable
         """
-        # TODO: use xarray.Coordinates constructor instead once available in xarray
-        return xr.DataArray(
-            coords={c: self._obj[c] for c in self._geom_coords_all},
-            dims=self._geom_coords_all,
-        ).coords
+        return xr.Coordinates(
+            {
+                c: coo
+                for c, coo in self._obj.coords.items()
+                if c in self._geom_coords_all
+            }
+        )
 
     @property
     def geom_coords_indexed(self) -> xr.Coordinates:
@@ -923,6 +925,10 @@ class XvecAccessor:
                 df[c] = gpd.GeoSeries(df[c], crs=self._obj[c].attrs.get("crs", None))
 
         if geometry is not None:
+            if geometry not in self._geom_coords_all:  # variable geometry
+                return df.set_geometry(geometry, crs=self._obj.proj.crs)
+
+            # coordinate geometry
             return df.set_geometry(
                 geometry, crs=self._obj[geometry].attrs.get("crs", None)
             )  # type: ignore
@@ -931,9 +937,8 @@ class XvecAccessor:
         name = (
             name if name else (self._obj.name if hasattr(self._obj, "name") else None)
         )
-        if name is not None:
-            if shapely.is_geometry(df[name]).any():
-                return df.set_geometry(name, crs=self._obj.proj.crs)
+        if name is not None and shapely.is_valid_input(df[name]).all():
+            return df.set_geometry(name, crs=self._obj.proj.crs)
 
         warnings.warn(
             "No active geometry column to be set. The resulting object "

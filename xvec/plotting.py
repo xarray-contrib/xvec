@@ -25,19 +25,19 @@ def _plot(
 ):
     # TODO: pass possible kwargs to geopandas
     if row and col:
-        if len(arr.dims) != 3:
-            raise ValueError(
-                "To plot with row and col, the DataArray needs to have "
-                "3 dimensions, one of which is indexed by xvec.GeometryIndex."
-            )
+        # if len(arr.dims) != 3:
+        #     raise ValueError(
+        #         "To plot with row and col, the DataArray needs to have "
+        #         "3 dimensions, one of which is indexed by xvec.GeometryIndex."
+        #     )
         n_rows = arr[row].shape[0]
         n_cols = arr[col].shape[0]
     elif col:
-        if len(arr.dims) != 2:
-            raise ValueError(
-                "To plot with col, the DataArray needs to have "
-                "2 dimensions, one of which is indexed by xvec.GeometryIndex."
-            )
+        # if len(arr.dims) != 2:
+        #     raise ValueError(
+        #         "To plot with col, the DataArray needs to have "
+        #         "2 dimensions, one of which is indexed by xvec.GeometryIndex."
+        #     )
         total = arr[col].shape[0]
         if col_wrap:
             n_rows = int(np.ceil(total / col_wrap))
@@ -82,24 +82,30 @@ def _plot(
         subplot_kw=subplot_kws,
     )
 
+    if hue:
+        cmap_params = _determine_cmap_params(arr[hue].data, **kwargs)
+
+    # user defined geometry, either variable or coordinate
     if geometry is not None:
-        if (
-            not col and geometry in arr.xvec._geom_coords_all
-        ):  # Dataset with geometry variable
+        # coordinate geometry with no value to show and no faceting
+        if not col and geometry in arr.xvec._geom_coords_all:
             arr[geometry].drop_vars([geometry]).xvec.to_geodataframe().plot(
                 ax=axs, alpha=alpha
             )
             axs.set_xlabel(x_label, fontsize="small")
             axs.set_ylabel(y_label, fontsize="small")
+
+        # faceting needed
         else:
-            if hue:
-                cmap_params = _determine_cmap_params(arr[hue].data, **kwargs)
+            # grid faceting by col x row
             if col and row:
                 for i_r, row_val in enumerate(arr[row]):
                     for i_c, col_val in enumerate(arr[col]):
                         sliced = arr.sel({row: row_val, col: col_val}).drop_vars(
                             [col, row]
                         )
+
+                        # value to show on each
                         if hue:
                             vals = sliced[hue].data
                             sliced.xvec.to_geodataframe(geometry=geometry).plot(
@@ -110,6 +116,8 @@ def _plot(
                                 cmap=cmap_params["cmap"],
                                 alpha=alpha,
                             )
+
+                        # no value, just geometry - makes sense for variable geoms only
                         else:
                             sliced[geometry].xvec.to_geodataframe().plot(
                                 ax=axs[i_r, i_c], alpha=alpha
@@ -130,12 +138,18 @@ def _plot(
                         labelpad=12,
                     )
                     axs[i, 0].set_ylabel(y_label, fontsize="small")
+
+            # grid faceting by col and col_wrap
             else:
                 axs = axs.flatten()
                 for i_c, col_val in enumerate(arr[col]):
                     sliced = arr.sel({col: col_val}).drop_vars([col])
+
+                    # value to show on each
                     if hue:
                         vals = sliced[hue].data
+
+                        # coordinate geometry
                         if geometry in arr.coords:
                             sliced[geometry].drop_vars(
                                 [geometry]
@@ -147,6 +161,8 @@ def _plot(
                                 cmap=cmap_params["cmap"],
                                 alpha=alpha,
                             )
+
+                        # variable geometry
                         else:
                             sliced[geometry].drop_vars(
                                 sliced.xvec.geom_coords
@@ -158,24 +174,28 @@ def _plot(
                                 cmap=cmap_params["cmap"],
                                 alpha=alpha,
                             )
+
+                    # no value, just geometry
                     else:
                         sliced[geometry].xvec.to_geodataframe().plot(
                             ax=axs[i_c], alpha=alpha
                         )
 
-                    # axs[i_c].set_title(
-                    #     f"{col} = {arr[col][i_c].item()}", fontsize="small"
-                    # )
+                    axs[i_c].set_title(
+                        f"{col} = {arr[col][i_c].item()}", fontsize="small"
+                    )
 
+            # add axes labels
             axs = axs.reshape(n_rows, n_cols)
             for i in range(n_cols):
                 axs[-1, i].set_xlabel(x_label, fontsize="small")
             for i in range(n_rows):
                 axs[i, 0].set_ylabel(y_label, fontsize="small")
 
-            used_axes = arr[col].shape[0]
-            for ax in axs.flatten()[used_axes:]:
-                fig.delaxes(ax)
+            if not row:
+                used_axes = arr[col].shape[0]
+                for ax in axs.flatten()[used_axes:]:
+                    fig.delaxes(ax)
 
             if hue:
                 if not cmap_params["norm"]:
@@ -196,16 +216,71 @@ def _plot(
                     extend=cmap_params["extend"],
                 )
 
-    elif isinstance(arr, xr.DataArray) and np.all(
-        shapely.is_valid_input(arr.data)
-    ):  # data array with geometry
-        axs = axs.flatten()
-        for i_c, col_val in enumerate(arr[col]):
-            arr.sel({col: col_val}).drop_vars([col]).xvec.to_geodataframe().plot(
-                ax=axs[i_c]
-            )
+    # no geometry specified - infer whether to plot on coordinate or variable geometry
 
-            axs[i_c].set_title(f"{col} = {arr[col][i_c].item()}", fontsize="small")
+    # input is datarray of variable geometry - faceting on col to show the geometries
+    elif isinstance(arr, xr.DataArray) and np.all(shapely.is_valid_input(arr.data)):
+        # grid faceting by col x row
+        if col and row:
+            for i_r, row_val in enumerate(arr[row]):
+                for i_c, col_val in enumerate(arr[col]):
+                    sliced = arr.sel({row: [row_val.item()], col: [col_val.item()]})
+
+                    # show value from coordinates
+                    if hue:
+                        sliced.xvec.to_geodataframe().reset_index().plot(
+                            hue,
+                            ax=axs[i_r, i_c],
+                            vmin=cmap_params["vmin"],
+                            vmax=cmap_params["vmax"],
+                            cmap=cmap_params["cmap"],
+                            alpha=alpha,
+                        )
+
+                    # no value, just geometry
+                    else:
+                        sliced.xvec.to_geodataframe().plot(
+                            ax=axs[i_r, i_c], alpha=alpha
+                        )
+
+            for i in range(n_cols):
+                axs[0, i].set_title(f"{col} = {arr[col][i].item()}", fontsize="small")
+                axs[-1, i].set_xlabel(x_label, fontsize="small")
+
+            for i in range(n_rows):
+                axs[i, -1].yaxis.set_label_position("right")
+                axs[i, -1].set_ylabel(
+                    f"{row} = {arr[row][i].item()}",
+                    fontsize="small",
+                    rotation=270,
+                    labelpad=12,
+                )
+                axs[i, 0].set_ylabel(y_label, fontsize="small")
+
+        # faceting on col and col_wrap
+        else:
+            axs = axs.flatten()
+            for i_c, col_val in enumerate(arr[col]):
+                # show value from coordinates
+                if hue:
+                    arr.sel({col: col_val}).drop_vars(
+                        [col]
+                    ).xvec.to_geodataframe().reset_index().plot(
+                        hue,
+                        ax=axs[i_c],
+                        vmin=cmap_params["vmin"],
+                        vmax=cmap_params["vmax"],
+                        cmap=cmap_params["cmap"],
+                        alpha=alpha,
+                    )
+
+                # show polygons only
+                else:
+                    arr.sel({col: col_val}).drop_vars(
+                        [col]
+                    ).xvec.to_geodataframe().plot(ax=axs[i_c], alpha=alpha)
+
+                axs[i_c].set_title(f"{col} = {arr[col][i_c].item()}", fontsize="small")
 
         axs = axs.reshape(n_rows, n_cols)
         for i in range(n_cols):
@@ -213,16 +288,38 @@ def _plot(
         for i in range(n_rows):
             axs[i, 0].set_ylabel(y_label, fontsize="small")
 
-        used_axes = arr[col].shape[0]
-        for ax in axs.flatten()[used_axes:]:
-            fig.delaxes(ax)
+        if not row:
+            used_axes = arr[col].shape[0]
+            for ax in axs.flatten()[used_axes:]:
+                fig.delaxes(ax)
 
+        if hue:
+            if not cmap_params["norm"]:
+                cmap_params["norm"] = Normalize(
+                    vmin=cmap_params["vmin"], vmax=cmap_params["vmax"]
+                )
+
+            n_cmap = cm.ScalarMappable(
+                norm=cmap_params["norm"], cmap=cmap_params["cmap"]
+            )
+
+            fig.subplots_adjust(right=0.85)
+            cbar_ax = fig.add_axes([0.9, 0.15, 0.03, 0.7])
+            fig.colorbar(
+                n_cmap,
+                cax=cbar_ax,
+                label=hue,
+                extend=cmap_params["extend"],
+            )
+
+    # show DataArray variable on coordinate geometry - use the first one if there's more
     else:
         name = arr.name if arr.name else "value"
         geometry = arr.xvec._geom_coords_all[0]
 
         cmap_params = _determine_cmap_params(arr.data, **kwargs)
 
+        # grid faceting by col x row
         if row and col:
             for i_r, row_val in enumerate(arr[row]):
                 for i_c, col_val in enumerate(arr[col]):
@@ -250,6 +347,7 @@ def _plot(
                 )
                 axs[i, 0].set_ylabel(y_label, fontsize="small")
 
+        # faceting on col and col_wrap
         else:
             axs = axs.flatten()
             for i_c, col_val in enumerate(arr[col]):
