@@ -55,7 +55,7 @@ def _plot(
         elif np.all(shapely.is_valid_input(arr.data)):
             crs = arr.proj.crs
         else:
-            crs = arr[list(arr.xvec.geom_coords)[0]].crs
+            crs = arr[list(arr.xvec._geom_coords_all)[0]].crs
     else:
         crs = arr[geometry].crs if hasattr(arr[geometry], "crs") else arr.proj.crs
 
@@ -94,35 +94,78 @@ def _plot(
         else:
             if hue:
                 cmap_params = _determine_cmap_params(arr[hue].data, **kwargs)
-            axs = axs.flatten()
-            for i_c, col_val in enumerate(arr[col]):
-                sliced = arr.sel({col: col_val}).drop_vars([col])
-                if hue:
-                    vals = sliced[hue].data
-                    if geometry in arr.coords:
-                        arr[geometry].drop_vars([geometry]).xvec.to_geodataframe().plot(
-                            vals,
-                            ax=axs[i_c],
-                            vmin=cmap_params["vmin"],
-                            vmax=cmap_params["vmax"],
-                            cmap=cmap_params["cmap"],
-                            alpha=alpha,
+            if col and row:
+                for i_r, row_val in enumerate(arr[row]):
+                    for i_c, col_val in enumerate(arr[col]):
+                        sliced = arr.sel({row: row_val, col: col_val}).drop_vars(
+                            [col, row]
                         )
+                        if hue:
+                            vals = sliced[hue].data
+                            sliced.xvec.to_geodataframe(geometry=geometry).plot(
+                                vals,
+                                ax=axs[i_r, i_c],
+                                vmin=cmap_params["vmin"],
+                                vmax=cmap_params["vmax"],
+                                cmap=cmap_params["cmap"],
+                                alpha=alpha,
+                            )
+                        else:
+                            sliced[geometry].xvec.to_geodataframe().plot(
+                                ax=axs[i_r, i_c], alpha=alpha
+                            )
+
+                for i in range(n_cols):
+                    axs[0, i].set_title(
+                        f"{col} = {arr[col][i].item()}", fontsize="small"
+                    )
+                    axs[-1, i].set_xlabel(x_label, fontsize="small")
+
+                for i in range(n_rows):
+                    axs[i, -1].yaxis.set_label_position("right")
+                    axs[i, -1].set_ylabel(
+                        f"{row} = {arr[row][i].item()}",
+                        fontsize="small",
+                        rotation=270,
+                        labelpad=12,
+                    )
+                    axs[i, 0].set_ylabel(y_label, fontsize="small")
+            else:
+                axs = axs.flatten()
+                for i_c, col_val in enumerate(arr[col]):
+                    sliced = arr.sel({col: col_val}).drop_vars([col])
+                    if hue:
+                        vals = sliced[hue].data
+                        if geometry in arr.coords:
+                            sliced[geometry].drop_vars(
+                                [geometry]
+                            ).xvec.to_geodataframe().plot(
+                                vals,
+                                ax=axs[i_c],
+                                vmin=cmap_params["vmin"],
+                                vmax=cmap_params["vmax"],
+                                cmap=cmap_params["cmap"],
+                                alpha=alpha,
+                            )
+                        else:
+                            sliced[geometry].drop_vars(
+                                sliced.xvec.geom_coords
+                            ).xvec.to_geodataframe().plot(
+                                vals,
+                                ax=axs[i_c],
+                                vmin=cmap_params["vmin"],
+                                vmax=cmap_params["vmax"],
+                                cmap=cmap_params["cmap"],
+                                alpha=alpha,
+                            )
                     else:
                         sliced[geometry].xvec.to_geodataframe().plot(
-                            vals,
-                            ax=axs[i_c],
-                            vmin=cmap_params["vmin"],
-                            vmax=cmap_params["vmax"],
-                            cmap=cmap_params["cmap"],
-                            alpha=alpha,
+                            ax=axs[i_c], alpha=alpha
                         )
-                else:
-                    sliced[geometry].xvec.to_geodataframe().plot(
-                        ax=axs[i_c], alpha=alpha
-                    )
 
-                axs[i_c].set_title(f"{col} = {arr[col][i_c].item()}", fontsize="small")
+                    # axs[i_c].set_title(
+                    #     f"{col} = {arr[col][i_c].item()}", fontsize="small"
+                    # )
 
             axs = axs.reshape(n_rows, n_cols)
             for i in range(n_cols):
@@ -176,6 +219,7 @@ def _plot(
 
     else:
         name = arr.name if arr.name else "value"
+        geometry = arr.xvec._geom_coords_all[0]
 
         cmap_params = _determine_cmap_params(arr.data, **kwargs)
 
@@ -184,7 +228,7 @@ def _plot(
                 for i_c, col_val in enumerate(arr[col]):
                     arr.sel({row: row_val, col: col_val}).drop_vars(
                         [col, row]
-                    ).xvec.to_geodataframe(name=name).plot(
+                    ).xvec.to_geodataframe(name=name, geometry=geometry).plot(
                         name,
                         ax=axs[i_r, i_c],
                         vmin=cmap_params["vmin"],
