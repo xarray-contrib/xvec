@@ -1460,18 +1460,146 @@ class XvecAccessor:
                 var.attrs.pop("grid_mapping", None)
         return decoded
 
-    def summarize_geometry(self, dim, geom_array=None, aggfunc="envelope", **kwargs):
+    def encode_wkb(self) -> xr.DataArray | xr.Dataset:
+        """
+        Encode geometries to Well-Known Binary (WKB) format.
+
+        This method converts all geometry coordinates and data variables in the
+        DataArray or Dataset to WKB format. CRS information is stored in the
+        attributes of the encoded geometries as PROJJSON. CRS information on variable
+        geometry is assumed to be stored using the ``xproj`` package. Additionally, the
+        ``wkb_encoded_geometry`` attribute equal to ``True`` is added to avoid ambiguity
+        during the decoding step.
+
+        Returns
+        -------
+        xr.DataArray or xr.Dataset
+            A new object with geometries encoded in WKB format.
+        """
+        # process coordinate geometries
+        obj = self._obj.assign_coords(
+            {coord: shapely.to_wkb(self._obj[coord]) for coord in self._geom_coords_all}
+        )
+        if isinstance(obj, xr.DataArray):
+            if np.all(shapely.is_valid_input(obj.data)):
+                obj = shapely.to_wkb(obj)
+                if obj.proj.crs:
+                    obj.attrs["crs"] = obj.proj.crs.to_json()
+                obj.attrs["wkb_encoded_geometry"] = True
+
+        else:
+            for data in obj.data_vars:
+                if np.all(shapely.is_valid_input(obj[data].data)):
+                    obj[data] = shapely.to_wkb(obj[data])
+                    if obj[data].proj.crs:
+                        obj[data].attrs["crs"] = obj[data].proj.crs.to_json()
+                    obj[data].attrs["wkb_encoded_geometry"] = True
+
+        for coord in self._geom_coords_all:
+            obj[coord].attrs["crs"] = obj[coord].crs.to_json()
+            obj[coord].attrs["wkb_encoded_geometry"] = True
+
+        return obj
+
+    def decode_wkb(self) -> xr.DataArray | xr.Dataset:
+        """
+        Decode geometries from Well-Known Binary (WKB) format.
+
+        This method converts all geometry coordinates and data variables in the
+        DataArray or Dataset from WKB format back to shapely geometries. CRS information
+        is restored from the attributes of the encoded geometries. CRS information on variable
+        geometry will be stored using the ``xproj`` package. The
+        ``wkb_encoded_geometry=True`` atrribute needs to be present at every variable
+        that is supposed to be decoded.
+
+        Returns
+        -------
+        xr.DataArray or xr.Dataset
+            A new object with geometries decoded from WKB format to shapely geometries.
+        """
+        obj = self._obj.copy()
+
+        if isinstance(obj, xr.DataArray):
+            if obj.attrs.get("wkb_encoded_geometry", False):
+                obj = shapely.from_wkb(obj)
+                if "crs" in obj.attrs:
+                    obj = obj.proj.assign_crs(json.loads(obj.attrs.pop("crs")))
+
+        else:
+            for data in obj.data_vars:
+                if obj[data].attrs.get("wkb_encoded_geometry", False):
+                    obj[data].data = shapely.from_wkb(obj[data])
+                    if "crs" in obj[data].attrs:
+                        obj = obj.proj.assign_crs(
+                            spatial_ref=json.loads(obj[data].attrs.pop("crs"))
+                        )
+                    del obj[data].attrs["wkb_encoded_geometry"]
+
+        for coord in obj.coords:
+            if obj[coord].attrs.get("wkb_encoded_geometry", False):
+                obj[coord].data = shapely.from_wkb(obj[coord]).data
+                obj = obj.set_xindex(coord)
+                obj = obj.xvec.set_geom_indexes(
+                    coord, crs=obj[coord].attrs.pop("crs", None)
+                )
+                del obj[coord].attrs["wkb_encoded_geometry"]
+
+        return obj
+
+    def summarize_geometry(
+        self,
+        dim: Hashable,
+        geom_array: Hashable | None = None,
+        aggfunc: str | Callable = "envelope",
+        **kwargs: Any,
+    ) -> xr.DataArray | xr.Dataset:
+        """
+        Summarize the geometry of an variable geometry along a specified dimension.
+
+        Given a DataArray of variable geometry, summary geometry captures the overall
+        spatial extent of a series of individual geometry objects along a single
+        dimension. A typical use case would be a summary geometry of a moving object
+        based on its ID.
+
+        Parameters
+        ----------
+        dim : Hashable
+            The dimension along which to summarize the geometry.
+        geom_array : Hashable, optional
+            The name of the geometry array to use for xr.Dataset objects. Must be
+            specified for a xr.Dataset, ignored for a xr.DataArray.
+        aggfunc : str or Callable, default "envelope"
+            The aggregation function to use for summarizing the geometry. Can be one of the following strings:
+
+            - ``"envelope"``: Computes the envelope (bounding box) of the geometries.
+            - ``"centroid"``: Computes the centroid of the geometries.
+            - ``"oriented_envelope"``: Computes the oriented envelope of the geometries.
+            - ``"convex_hull"``: Computes the convex hull of the geometries.
+            - ``"concave_hull"``: Computes the concave hull of the geometries. Additional parameters can be passed via ``kwargs``.
+            - ``"collection"``: Collects the geometries into a geometry collection.
+            - ``"union"``: Computes the union of the geometries.
+
+            Or a callable that takes an ``xr.DataArray`` and returns an ``xr.DataArray``.
+        **kwargs : Any
+            Additional keyword arguments to pass to the aggregation function if it is callable.
+
+        Returns
+        -------
+        xr.DataArray or xr.Dataset
+            The original xarray DataArray or Dataset with a new coordinate geometry
+            ``summary_geometry`` with a ``GeometryIndex`` linked to a given dimension.
+        """
         if isinstance(self._obj, xr.Dataset):
             if geom_array is None:
-                raise
+                raise ValueError("geom_array must be specified for xr.Dataset objects.")
             obj = self._obj[geom_array]
         else:
             obj = self._obj
 
-        def _collect(x):
+        def _collect(x: xr.DataArray) -> xr.DataArray:
             return xr.DataArray(shapely.geometrycollections(np.ravel(x)))
 
-        def _union(x):
+        def _union(x: xr.DataArray) -> xr.DataArray:
             return xr.DataArray(shapely.union_all(np.ravel(x)))
 
         match aggfunc:
@@ -1492,7 +1620,8 @@ class XvecAccessor:
                 summary = obj.groupby(dim).map(_collect).data
             case "union":
                 summary = obj.groupby(dim).map(_union).data
-            # TODO allow custom aggfunc
+            case _ if callable(aggfunc):
+                summary = obj.groupby(dim).map(aggfunc, **kwargs).data
 
         return (
             self._obj.assign_coords(summary_geometry=(dim, summary))
@@ -1527,62 +1656,6 @@ class XvecAccessor:
             geometry=geometry,
             **kwargs,
         )
-
-    def encode_wkb(self):
-        # process coordinate geometries
-        obj = self._obj.assign_coords(
-            {coord: shapely.to_wkb(self._obj[coord]) for coord in self._geom_coords_all}
-        )
-        if isinstance(obj, xr.DataArray):
-            if np.all(shapely.is_valid_input(obj.data)):
-                obj = shapely.to_wkb(obj)
-                if obj.proj.crs:
-                    obj.attrs["crs"] = obj.proj.crs.to_json()
-                obj.attrs["wkb_encoded_geometry"] = True
-
-        else:
-            for data in obj.data_vars:
-                if np.all(shapely.is_valid_input(obj[data].data)):
-                    obj[data] = shapely.to_wkb(obj[data])
-                    if obj[data].proj.crs:
-                        obj[data].attrs["crs"] = obj[data].proj.crs.to_json()
-                    obj[data].attrs["wkb_encoded_geometry"] = True
-
-        for coord in self._geom_coords_all:
-            obj[coord].attrs["crs"] = obj[coord].crs.to_json()
-            obj[coord].attrs["wkb_encoded_geometry"] = True
-
-        return obj
-
-    def decode_wkb(self):
-        obj = self._obj.copy()
-
-        if isinstance(obj, xr.DataArray):
-            if obj.attrs.get("wkb_encoded_geometry", False):
-                obj = shapely.from_wkb(obj)
-                if "crs" in obj.attrs:
-                    obj = obj.proj.assign_crs(json.loads(obj.attrs.pop("crs")))
-
-        else:
-            for data in obj.data_vars:
-                if obj[data].attrs.get("wkb_encoded_geometry", False):
-                    obj[data].data = shapely.from_wkb(obj[data])
-                    if "crs" in obj[data].attrs:
-                        obj = obj.proj.assign_crs(
-                            spatial_ref=json.loads(obj[data].attrs.pop("crs"))
-                        )
-                    del obj[data].attrs["wkb_encoded_geometry"]
-
-        for coord in obj.coords:
-            if obj[coord].attrs.get("wkb_encoded_geometry", False):
-                obj[coord].data = shapely.from_wkb(obj[coord]).data
-                obj = obj.set_xindex(coord)
-                obj = obj.xvec.set_geom_indexes(
-                    coord, crs=obj[coord].attrs.pop("crs", None)
-                )
-                del obj[coord].attrs["wkb_encoded_geometry"]
-
-        return obj
 
 
 def _resolve_input(
