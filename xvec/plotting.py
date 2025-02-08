@@ -188,6 +188,8 @@ def _plot(
     norm=None,
     **kwargs,
 ):
+    # TODO: support plotting of categorical data
+
     # Calculate grid dimensions
     if row and col:
         n_rows, n_cols = arr[row].shape[0], arr[col].shape[0]
