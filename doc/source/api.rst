@@ -61,6 +61,7 @@ Methods
     Dataset.xvec.encode_wkb
     Dataset.xvec.decode_wkb
     Dataset.xvec.summarize_geometry
+    Dataset.xvec.plot
 
 
 DataArray.xvec
@@ -100,3 +101,4 @@ Methods
     DataArray.xvec.encode_wkb
     DataArray.xvec.decode_wkb
     DataArray.xvec.summarize_geometry
+    DataArray.xvec.plot

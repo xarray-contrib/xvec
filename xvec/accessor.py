@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import warnings
-from collections.abc import Callable, Hashable, Mapping, Sequence
+from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
@@ -1579,7 +1579,7 @@ class XvecAccessor:
             - ``"collection"``: Collects the geometries into a geometry collection.
             - ``"union"``: Computes the union of the geometries.
 
-            Or a callable that takes an ``xr.DataArray`` and returns an ``xr.DataArray``.
+            Or a callable that takes an ``xr.DataArray`` and returns an scalar ``xr.DataArray`` with shapely geometry.
         **kwargs : Any
             Additional keyword arguments to pass to the aggregation function if it is callable.
 
@@ -1632,28 +1632,117 @@ class XvecAccessor:
     def plot(
         self,
         *,
-        row=None,
-        col=None,
-        col_wrap=None,
-        ax=None,
-        subplot_kws=None,
-        figsize=None,
-        aspect=1,
-        size=3,
-        geometry=None,
-        **kwargs,
-    ):
+        row: Hashable | None = None,
+        col: Hashable | None = None,
+        col_wrap: int | None = None,
+        hue: Hashable | None = None,
+        subplot_kws: dict[str, Any] | None = None,
+        figsize: Iterable[float] | None = None,
+        geometry: Hashable | None = None,
+        vmin: float | None = None,
+        vmax: float | None = None,
+        cmap: str | Any | None = None,
+        center: float | bool | None = None,
+        robust: bool = False,
+        extend: str | None = None,
+        levels: int | Iterable[float] | None = None,
+        norm: Any | None = None,
+        **kwargs: dict[str, Any],
+    ) -> tuple[Any, Any]:
+        """
+        Plot geometry with optional faceting and color mapping.
+
+        Uses GeoPandas to plot the geometry and data from the object.
+
+        Parameters
+        ----------
+        arr : xarray.DataArray or xarray.Dataset
+            The data to be plotted.
+        row : Hashable or None, optional
+            If passed, make row faceted plots on this dimension name.
+        col : Hashable or None, optional
+            If passed, make column faceted plots on this dimension name.
+        col_wrap : int, optional
+            Number of columns to wrap facets into. Use together with ``col``.
+        hue : Hashable or None, optional
+            If passed, make faceted plots with value on from this dimension.
+        subplot_kws : dict, optional
+            Dictionary of keyword arguments for Matplotlib subplots
+            (see :py:meth:`~matplotlib:matplotlib.figure.Figure.add_subplot`).
+        figsize : tuple, optional
+            A tuple (width, height) of the figure in inches.
+        geometry : str, optional
+            Geometry array to use for plotting. Could be both coordinate geometry and
+            variable geometry. If None, the method tries to infer the geometry when
+            plotting a DataArray. Must be specified for a Dataset.
+        vmin : float or None, optional
+            Lower value to anchor the colormap, otherwise it is inferred from the
+            data and other keyword arguments. When a diverging dataset is inferred,
+            setting `vmin` or `vmax` will fix the other by symmetry around
+            ``center``. Setting both values prevents use of a diverging colormap.
+            If discrete levels are provided as an explicit list, both of these
+            values are ignored.
+        vmax : float or None, optional
+            Upper value to anchor the colormap, otherwise it is inferred from the
+            data and other keyword arguments. When a diverging dataset is inferred,
+            setting `vmin` or `vmax` will fix the other by symmetry around
+            ``center``. Setting both values prevents use of a diverging colormap.
+            If discrete levels are provided as an explicit list, both of these
+            values are ignored.
+        cmap : matplotlib colormap name or colormap, optional
+            The mapping from data values to color space. Either a
+            Matplotlib colormap name or object. If not provided, this will
+            be either ``'viridis'`` (if the function infers a sequential
+            dataset) or ``'RdBu_r'`` (if the function infers a diverging
+            dataset).
+            See :doc:`Choosing Colormaps in Matplotlib <matplotlib:users/explain/colors/colormaps>`
+            for more information.
+        center : float or False, optional
+            The value at which to center the colormap. Passing this value implies
+            use of a diverging colormap. Setting it to ``False`` prevents use of a
+            diverging colormap.
+        robust : bool, optional
+            If ``True`` and ``vmin`` or ``vmax`` are absent, the colormap range is
+            computed with 2nd and 98th percentiles instead of the extreme values.
+        extend : {'neither', 'both', 'min', 'max'}, optional
+            How to draw arrows extending the colorbar beyond its limits. If not
+            provided, ``extend`` is inferred from ``vmin``, ``vmax`` and the data limits.
+        levels : int or array-like, optional
+            Split the colormap (``cmap``) into discrete color intervals. If an integer
+            is provided, "nice" levels are chosen based on the data range: this can
+            imply that the final number of levels is not exactly the expected one.
+            Setting ``vmin`` and/or ``vmax`` with ``levels=N`` is equivalent to
+            setting ``levels=np.linspace(vmin, vmax, N)``.
+        norm : matplotlib.colors.Normalize, optional
+            If ``norm`` has ``vmin`` or ``vmax`` specified, the corresponding
+            kwarg must be ``None``.
+        **kwargs : dict
+            Additional keyword arguments passed to geopandas plotting method.
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+            The figure object containing the plot.
+        axs : numpy.ndarray of matplotlib.axes.Axes
+            Array of axes objects for the plot.
+        """
         return _plot(
             self._obj,
             row=row,
             col=col,
             col_wrap=col_wrap,
-            ax=ax,
+            hue=hue,
             subplot_kws=subplot_kws,
             figsize=figsize,
-            aspect=aspect,
-            size=size,
             geometry=geometry,
+            vmin=vmin,
+            vmax=vmax,
+            cmap=cmap,
+            center=center,
+            robust=robust,
+            extend=extend,
+            levels=levels,
+            norm=norm,
             **kwargs,
         )
 
