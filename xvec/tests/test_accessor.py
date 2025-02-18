@@ -705,3 +705,107 @@ def assert_indexes_equals(left, right):
         if not isinstance(left.xindexes[k], GeometryIndex):
             continue
         assert left.xindexes[k].equals(right.xindexes[k])
+
+
+@pytest.mark.parametrize("dim", ["gid", "date"])
+@pytest.mark.parametrize(
+    "agg",
+    [
+        "envelope",
+        "centroid",
+        "oriented_envelope",
+        "convex_hull",
+        "collection",
+        "union",
+    ],
+)
+def test_summarize_geometry(dim, agg):
+    cube = xr.DataArray(
+        shapely.points(
+            np.tile(np.arange(0, 20, 4), 5), np.repeat(np.arange(5), 5)
+        ).reshape(5, 5),
+        coords=[
+            ["a", "b", "c", "d", "e"],
+            ["2020-10-01", "2020-10-02", "2020-10-03", "2020-10-04", "2020-10-05"],
+        ],
+        dims=["gid", "date"],
+    ).proj.assign_crs(spatial_ref=3857)
+
+    result = cube.xvec.summarize_geometry(dim, aggfunc=agg)
+
+    assert "summary_geometry" in result.xvec.geom_coords
+    assert result.summary_geometry.crs.equals(3857)
+
+
+@pytest.mark.parametrize("dim", ["gid", "date"])
+def test_summarize_geometry_params(dim):
+    cube = xr.DataArray(
+        shapely.points(
+            np.tile(np.arange(0, 20, 4), 5), np.repeat(np.arange(5), 5)
+        ).reshape(5, 5),
+        coords=[
+            ["a", "b", "c", "d", "e"],
+            ["2020-10-01", "2020-10-02", "2020-10-03", "2020-10-04", "2020-10-05"],
+        ],
+        dims=["gid", "date"],
+    ).proj.assign_crs(spatial_ref=3857)
+
+    result = cube.xvec.summarize_geometry(dim, aggfunc="concave_hull", ratio=0.5)
+
+    assert "summary_geometry" in result.xvec.geom_coords
+    assert result.summary_geometry.crs.equals(3857)
+
+
+def test_summarize_geometry_callable():
+    def custom_aggfunc(geometries):
+        return xr.DataArray(shapely.union_all(geometries))
+
+    cube = xr.DataArray(
+        shapely.points(
+            np.tile(np.arange(0, 20, 4), 5), np.repeat(np.arange(5), 5)
+        ).reshape(5, 5),
+        coords=[
+            ["a", "b", "c", "d", "e"],
+            ["2020-10-01", "2020-10-02", "2020-10-03", "2020-10-04", "2020-10-05"],
+        ],
+        dims=["gid", "date"],
+    ).proj.assign_crs(spatial_ref=3857)
+
+    result = cube.xvec.summarize_geometry("gid", aggfunc=custom_aggfunc)
+
+    assert "summary_geometry" in result.xvec.geom_coords
+    assert result.summary_geometry.crs.equals(3857)
+
+
+@pytest.mark.parametrize("dim", ["gid", "date"])
+@pytest.mark.parametrize(
+    "agg",
+    [
+        "envelope",
+        "centroid",
+        "oriented_envelope",
+        "convex_hull",
+        "collection",
+        "union",
+    ],
+)
+def test_summarize_geometry_dataset(dim, agg):
+    ds = xr.Dataset(
+        {
+            "geometry": (
+                ["gid", "date"],
+                shapely.points(
+                    np.tile(np.arange(0, 20, 4), 5), np.repeat(np.arange(5), 5)
+                ).reshape(5, 5),
+            )
+        },
+        coords={
+            "gid": ["a", "b", "c", "d", "e"],
+            "date": pd.date_range("2020-10-01", periods=5),
+        },
+    ).proj.assign_crs(spatial_ref=3857)
+
+    result = ds.xvec.summarize_geometry(dim, geom_array="geometry", aggfunc=agg)
+
+    assert "summary_geometry" in result.xvec.geom_coords
+    assert result.summary_geometry.crs.equals(3857)
