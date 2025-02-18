@@ -4,8 +4,14 @@ from typing import Any
 import numpy as np
 import shapely
 import xarray as xr
-import xproj  # noqa: F401
 from xarray.plot.utils import _determine_cmap_params, label_from_attrs
+
+try:
+    import xproj  # noqa: F401
+
+    HAS_XPROJ = True
+except ImportError:
+    HAS_XPROJ = False
 
 
 def _setup_axes(n_rows, n_cols, arr, geometry, crs, subplot_kws, figsize):
@@ -61,9 +67,15 @@ def _get_crs(arr, geometry=None):
         if geometry:
             return arr[geometry].crs
         elif np.all(shapely.is_valid_input(arr.data)):
-            return arr.proj.crs
+            return arr.proj.crs if HAS_XPROJ else None
         return arr.xindexes[list(arr.xvec._geom_coords_all)[0]].crs
-    return arr[geometry].crs if hasattr(arr[geometry], "crs") else arr.proj.crs
+    return (
+        arr[geometry].crs
+        if hasattr(arr[geometry], "crs")
+        else arr.proj.crs
+        if HAS_XPROJ
+        else None
+    )
 
 
 def _setup_colorbar(fig, cmap_params, label=None):
