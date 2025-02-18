@@ -21,5 +21,6 @@ dependencies:
   - geodatasets
   - pyogrio
   - mypy
+  - xproj
 
 

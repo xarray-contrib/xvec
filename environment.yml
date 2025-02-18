@@ -18,6 +18,7 @@ dependencies:
   - numpydoc
   - geopandas
   - pyarrow
+  - xproj
   # linting
   - ruff
   - black
