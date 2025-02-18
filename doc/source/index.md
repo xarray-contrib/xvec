@@ -17,6 +17,9 @@ projections
 geopandas
 extract_pts
 zonal_stats
+summary_geometry
+plotting
+plotting-temp
 io
 ```
 
