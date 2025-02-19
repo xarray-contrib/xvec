@@ -630,21 +630,46 @@ class XvecAccessor:
             geom     GeometryIndex (crs=EPSG:4326)
 
         """
-        if coord_name:
-            if isinstance(geometry, shapely.Geometry):
-                ilocs = self._obj.xindexes[coord_name].sindex.query(  # type: ignore
-                    geometry, predicate=predicate, distance=distance
-                )
+        if isinstance(geometry, shapely.Geometry):
+            ilocs = self._obj.xindexes[coord_name].sindex.query(  # type: ignore
+                geometry, predicate=predicate, distance=distance
+            )
 
-            else:
-                _, ilocs = self._obj.xindexes[coord_name].sindex.query(  # type: ignore
-                    geometry, predicate=predicate, distance=distance
-                )
-                if unique:
-                    ilocs = np.unique(ilocs)
+        else:
+            _, ilocs = self._obj.xindexes[coord_name].sindex.query(  # type: ignore
+                geometry, predicate=predicate, distance=distance
+            )
+            if unique:
+                ilocs = np.unique(ilocs)
 
-            return self._obj.isel({coord_name: ilocs})
+        return self._obj.isel({coord_name: ilocs})
 
+    def mask(
+        self,
+        geometry: shapely.Geometry | Sequence[shapely.Geometry],
+        predicate: str | None = None,
+        distance: float | Sequence[float] | None = None,
+    ):
+        """
+        Return boolean array representing the outcome of spatial predicate query
+
+        Take the DataArray containing variable geometry and return a mask matching
+        the spaital predicate query.
+
+        Parameters
+        ----------
+        geometry : shapely.Geometry or Sequence[shapely.Geometry]
+            The geometry or sequence of geometries to use for masking.
+        predicate : str, optional
+            The spatial predicate to use for the query (e.g., 'intersects', 'contains'). Default is None.
+        distance : float or Sequence[float], optional
+            The distance or sequence of distances to use for the query. Default is None.
+
+        Returns
+        -------
+        xr.DataArray
+            A DataArray with the same shape as the original, where the elements matching the predicate are set to True.
+        """
         cube_data = self._obj.data.ravel()
         tree = shapely.STRtree(cube_data)
         indices = tree.query(geometry, predicate=predicate, distance=distance)
@@ -656,7 +681,7 @@ class XvecAccessor:
             tree, other = indices[::-1]
             dense[tree, other] = True
             dense = dense.any(axis=1)  # type: ignore
-        return self._obj.where(dense.reshape(self._obj.shape))
+        return xr.DataArray(dense.reshape(self._obj.shape), coords=self._obj.coords)
 
     def set_geom_indexes(
         self,

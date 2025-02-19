@@ -94,6 +94,7 @@ Methods
     DataArray.xvec.to_crs
     DataArray.xvec.set_crs
     DataArray.xvec.query
+    DataArray.xvec.mask
     DataArray.xvec.to_geodataframe
     DataArray.xvec.to_geopandas
     DataArray.xvec.extract_points
