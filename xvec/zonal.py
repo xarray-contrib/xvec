@@ -27,7 +27,7 @@ def _agg_iterate(masked, stats, x_coords, y_coords, **kwargs):
 
 def _zonal_stats_rasterize(
     acc,
-    geometry: Sequence[shapely.Geometry],
+    geometry: Sequence[shapely.Geometry] | xr.DataArray,
     x_coords: Hashable,
     y_coords: Hashable,
     stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
@@ -117,7 +117,7 @@ def _zonal_stats_rasterize(
 
 def _zonal_stats_iterative(
     acc,
-    geometry: Sequence[shapely.Geometry],
+    geometry: Sequence[shapely.Geometry] | xr.DataArray,
     x_coords: Hashable,
     y_coords: Hashable,
     stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
@@ -304,7 +304,7 @@ def _agg_geom(
 
 def _zonal_stats_exactextract(
     acc,
-    geometry: Sequence[shapely.Geometry],
+    geometry: Sequence[shapely.Geometry] | xr.DataArray,
     x_coords: Hashable,
     y_coords: Hashable,
     stats: str | Callable | Sequence[str | Callable | tuple] = "mean",

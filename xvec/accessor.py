@@ -1539,7 +1539,7 @@ class XvecAccessor:
         for coord in obj.coords:
             if obj[coord].attrs.get("wkb_encoded_geometry", False):
                 obj[coord].data = shapely.from_wkb(obj[coord]).data
-                obj = obj.set_xindex(coord)
+                obj = obj.set_xindex(coord)  # type: ignore
                 obj = obj.xvec.set_geom_indexes(
                     coord, crs=obj[coord].attrs.pop("crs", None)
                 )
@@ -1549,7 +1549,11 @@ class XvecAccessor:
 
     def summarize_geometry(
         self,
-        dim: Hashable,
+        dim: str
+        | xr.DataArray
+        | xr.IndexVariable
+        | Sequence[Hashable]
+        | Mapping[Any, xr.groupers.Grouper],
         geom_array: Hashable | None = None,
         aggfunc: str | Callable = "envelope",
         **kwargs: Any,
