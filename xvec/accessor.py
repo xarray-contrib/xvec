@@ -960,7 +960,7 @@ class XvecAccessor:
 
     def zonal_stats(
         self,
-        geometry: Sequence[shapely.Geometry],
+        geometry: Sequence[shapely.Geometry] | xr.DataArray,
         x_coords: Hashable,
         y_coords: Hashable,
         stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
