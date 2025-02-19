@@ -1128,6 +1128,16 @@ class XvecAccessor:
         --------
         extract_points : extraction of values for the raster object for points
         """
+        if isinstance(geometry, xr.DataArray) and len(geometry.dims) > 1:
+            return _variable_zonal(
+                self,
+                variable_geometry=geometry,
+                x_coords=x_coords,
+                y_coords=y_coords,
+                stats=stats,
+                all_touched=all_touched,
+            )
+
         if method == "rasterize":
             result = _zonal_stats_rasterize(
                 self,
@@ -1180,23 +1190,6 @@ class XvecAccessor:
 
         # standardize the shape - each method comes with a different one
         return result.transpose(name, ...)
-
-    def zonal_stats_variable(
-        self,
-        variable_geometry: xr.DataArray,
-        x_coords: Hashable,
-        y_coords: Hashable,
-        stats="mean",
-        all_touched: bool = False,
-    ):
-        return _variable_zonal(
-            self,
-            variable_geometry=variable_geometry,
-            x_coords=x_coords,
-            y_coords=y_coords,
-            stats=stats,
-            all_touched=all_touched,
-        )
 
     def extract_points(
         self,
