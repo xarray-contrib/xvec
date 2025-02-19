@@ -652,10 +652,10 @@ class XvecAccessor:
             dense = np.zeros(len(cube_data), dtype=bool)
             dense[indices] = True
         else:
-            dense = np.zeros((len(cube_data), len(geometry)), dtype=bool)
+            dense = np.zeros((len(cube_data), len(geometry)), dtype=bool)  # type: ignore
             tree, other = indices[::-1]
             dense[tree, other] = True
-            dense = dense.any(axis=1)
+            dense = dense.any(axis=1)  # type: ignore
         return self._obj.where(dense.reshape(self._obj.shape))
 
     def set_geom_indexes(
