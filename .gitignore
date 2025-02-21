@@ -148,3 +148,5 @@ doc/source/cube.pickle
 doc/source/*zarr
 
 cache/
+
+result_images/
