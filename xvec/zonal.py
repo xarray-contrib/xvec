@@ -27,7 +27,7 @@ def _agg_iterate(masked, stats, x_coords, y_coords, **kwargs):
 
 def _zonal_stats_rasterize(
     acc,
-    geometry: Sequence[shapely.Geometry],
+    geometry: Sequence[shapely.Geometry] | xr.DataArray,
     x_coords: Hashable,
     y_coords: Hashable,
     stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
@@ -117,7 +117,7 @@ def _zonal_stats_rasterize(
 
 def _zonal_stats_iterative(
     acc,
-    geometry: Sequence[shapely.Geometry],
+    geometry: Sequence[shapely.Geometry] | xr.DataArray,
     x_coords: Hashable,
     y_coords: Hashable,
     stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
@@ -304,7 +304,7 @@ def _agg_geom(
 
 def _zonal_stats_exactextract(
     acc,
-    geometry: Sequence[shapely.Geometry],
+    geometry: Sequence[shapely.Geometry] | xr.DataArray,
     x_coords: Hashable,
     y_coords: Hashable,
     stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
@@ -511,3 +511,74 @@ def _agg_exactextract(
             original_shape.append(acc._obj[dim].size)
             coords_info[dim] = acc._obj[dim].values
     return results, original_shape, coords_info, locs
+
+
+def _get_mean(
+    geom_arr, obj, x_coords, y_coords, transform, all_touched, stats, dims, **kwargs
+):
+    from rasterio import features
+
+    mask = features.geometry_mask(
+        [geom_arr.item()],
+        out_shape=(
+            obj[y_coords].shape[0],
+            obj[x_coords].shape[0],
+        ),
+        transform=transform,
+        invert=True,
+        all_touched=all_touched,
+    )
+    masked = obj.where(xr.DataArray(mask, dims=(y_coords, x_coords)))
+    if pd.api.types.is_list_like(stats):
+        agg = {}
+        for stat in stats:  # type: ignore
+            if isinstance(stat, str):
+                agg[stat] = _agg_iterate(masked, stat, x_coords, y_coords, **kwargs)
+            elif callable(stat):
+                agg[stat.__name__] = _agg_iterate(
+                    masked, stat, x_coords, y_coords, **kwargs
+                )
+            elif isinstance(stat, tuple):
+                kws = stat[2] if len(stat) == 3 else {}
+                agg[stat[0]] = _agg_iterate(masked, stat[1], x_coords, y_coords, **kws)
+            else:
+                raise ValueError(f"{stat} is not a valid aggregation.")
+
+        result = xr.concat(
+            agg.values(),
+            dim=xr.DataArray(
+                list(agg.keys()), name="zonal_statistics", dims="zonal_statistics"
+            ),
+            coords="minimal",
+        )
+    elif isinstance(stats, str) or callable(stats):
+        result = _agg_iterate(masked, stats, x_coords, y_coords, **kwargs)
+    else:
+        raise ValueError(f"{stats} is not a valid aggregation.")
+    result = result.expand_dims({dim: [geom_arr[dim].item()] for dim in dims})
+    return result
+
+
+def _variable_zonal(
+    acc,
+    variable_geometry: xr.DataArray,
+    x_coords: Hashable,
+    y_coords: Hashable,
+    stats="mean",
+    all_touched: bool = False,
+):
+    transform = acc._obj.rio.transform()
+    dims = variable_geometry.dims
+    stacked = variable_geometry.stack(all_coords=variable_geometry.dims)
+    r = []
+
+    for x in stacked:
+        m = _get_mean(
+            x, acc._obj, x_coords, y_coords, transform, all_touched, stats, dims
+        )
+        m.name = "statistics"
+        r.append(m)
+
+    combined = xr.combine_by_coords(r)
+
+    return combined

@@ -12,12 +12,13 @@ dependencies:
   - pytest-cov
   - pytest-xdist
   # documentation
-  - sphinx
+  - sphinx<8.2
   - myst-nb
   - sphinx-copybutton
   - numpydoc
   - geopandas
   - pyarrow
+  - xproj
   # linting
   - ruff
   - black

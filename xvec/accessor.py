@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import json
 import warnings
-from collections.abc import Callable, Hashable, Mapping, Sequence
+from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
@@ -11,7 +12,9 @@ import xarray as xr
 from pyproj import CRS, Transformer
 
 from .index import GeometryIndex
+from .plotting import _plot
 from .zonal import (
+    _variable_zonal,
     _zonal_stats_exactextract,
     _zonal_stats_iterative,
     _zonal_stats_rasterize,
@@ -19,6 +22,13 @@ from .zonal import (
 
 if TYPE_CHECKING:
     from geopandas import GeoDataFrame
+
+try:
+    import xproj  # noqa: F401
+
+    HAS_XPROJ = True
+except ImportError:
+    HAS_XPROJ = False
 
 
 @xr.register_dataarray_accessor("xvec")
@@ -157,11 +167,13 @@ class XvecAccessor:
         geom_coords_indexed
         is_geom_variable
         """
-        # TODO: use xarray.Coordinates constructor instead once available in xarray
-        return xr.DataArray(
-            coords={c: self._obj[c] for c in self._geom_coords_all},
-            dims=self._geom_coords_all,
-        ).coords
+        return xr.Coordinates(
+            {
+                c: coo
+                for c, coo in self._obj.coords.items()
+                if c in self._geom_coords_all
+            }
+        )
 
     @property
     def geom_coords_indexed(self) -> xr.Coordinates:
@@ -519,7 +531,7 @@ class XvecAccessor:
 
     def query(
         self,
-        coord_name: str,
+        coord_name: str | None,
         geometry: shapely.Geometry | Sequence[shapely.Geometry],
         predicate: str | None = None,
         distance: float | Sequence[float] | None = None,
@@ -542,8 +554,10 @@ class XvecAccessor:
 
         Parameters
         ----------
-        coord_name : str
-            name of the coordinate axis backed by :class:`~xvec.GeometryIndex`
+        coord_name : str | None
+            name of the coordinate axis backed by :class:`~xvec.GeometryIndex`. If None,
+            the query is done against the DataArray.data assuming it contains shapely
+            geometries.
         geometry : shapely.Geometry | Sequence[shapely.Geometry]
             Input geometries to query the :class:`~xvec.GeometryIndex` and filter
             results using the optional predicate.
@@ -629,6 +643,45 @@ class XvecAccessor:
                 ilocs = np.unique(ilocs)
 
         return self._obj.isel({coord_name: ilocs})
+
+    def mask(
+        self,
+        geometry: shapely.Geometry | Sequence[shapely.Geometry],
+        predicate: str | None = None,
+        distance: float | Sequence[float] | None = None,
+    ) -> xr.DataArray:
+        """
+        Return boolean array representing the outcome of spatial predicate query
+
+        Take the DataArray containing variable geometry and return a mask matching
+        the spaital predicate query.
+
+        Parameters
+        ----------
+        geometry : shapely.Geometry or Sequence[shapely.Geometry]
+            The geometry or sequence of geometries to use for masking.
+        predicate : str, optional
+            The spatial predicate to use for the query (e.g., 'intersects', 'contains'). Default is None.
+        distance : float or Sequence[float], optional
+            The distance or sequence of distances to use for the query. Default is None.
+
+        Returns
+        -------
+        xr.DataArray
+            A DataArray with the same shape as the original, where the elements matching the predicate are set to True.
+        """
+        cube_data = self._obj.data.ravel()
+        tree = shapely.STRtree(cube_data)
+        indices = tree.query(geometry, predicate=predicate, distance=distance)
+        if indices.ndim == 1:
+            dense = np.zeros(len(cube_data), dtype=bool)
+            dense[indices] = True
+        else:
+            dense = np.zeros((len(cube_data), len(geometry)), dtype=bool)  # type: ignore
+            tree, other = indices[::-1]
+            dense[tree, other] = True
+            dense = dense.any(axis=1)  # type: ignore
+        return xr.DataArray(dense.reshape(self._obj.shape), coords=self._obj.coords)
 
     def set_geom_indexes(
         self,
@@ -903,9 +956,22 @@ class XvecAccessor:
                 df[c] = gpd.GeoSeries(df[c], crs=self._obj[c].attrs.get("crs", None))
 
         if geometry is not None:
+            if geometry not in self._geom_coords_all:  # variable geometry
+                return df.set_geometry(
+                    geometry, crs=self._obj.proj.crs if HAS_XPROJ else None
+                )
+
+            # coordinate geometry
             return df.set_geometry(
                 geometry, crs=self._obj[geometry].attrs.get("crs", None)
             )  # type: ignore
+
+        # check if the geometry comes from the values, rather than an index
+        name = (
+            name if name else (self._obj.name if hasattr(self._obj, "name") else None)
+        )
+        if name is not None and shapely.is_valid_input(df[name]).all():
+            return df.set_geometry(name, crs=self._obj.proj.crs if HAS_XPROJ else None)
 
         warnings.warn(
             "No active geometry column to be set. The resulting object "
@@ -919,7 +985,7 @@ class XvecAccessor:
 
     def zonal_stats(
         self,
-        geometry: Sequence[shapely.Geometry],
+        geometry: Sequence[shapely.Geometry] | xr.DataArray,
         x_coords: Hashable,
         y_coords: Hashable,
         stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
@@ -1087,6 +1153,16 @@ class XvecAccessor:
         --------
         extract_points : extraction of values for the raster object for points
         """
+        if isinstance(geometry, xr.DataArray) and len(geometry.dims) > 1:
+            return _variable_zonal(
+                self,
+                variable_geometry=geometry,
+                x_coords=x_coords,
+                y_coords=y_coords,
+                stats=stats,
+                all_touched=all_touched,
+            )
+
         if method == "rasterize":
             result = _zonal_stats_rasterize(
                 self,
@@ -1409,6 +1485,301 @@ class XvecAccessor:
             if set(dims) & set(var.dims):
                 var.attrs.pop("grid_mapping", None)
         return decoded
+
+    def encode_wkb(self) -> xr.DataArray | xr.Dataset:
+        """
+        Encode geometries to Well-Known Binary (WKB) format.
+
+        This method converts all geometry coordinates and data variables in the
+        DataArray or Dataset to WKB format. CRS information is stored in the
+        attributes of the encoded geometries as PROJJSON. CRS information on variable
+        geometry is assumed to be stored using the ``xproj`` package. Additionally, the
+        ``wkb_encoded_geometry`` attribute equal to ``True`` is added to avoid ambiguity
+        during the decoding step.
+
+        Returns
+        -------
+        xr.DataArray or xr.Dataset
+            A new object with geometries encoded in WKB format.
+        """
+        # process coordinate geometries
+        obj = self._obj.assign_coords(
+            {coord: shapely.to_wkb(self._obj[coord]) for coord in self._geom_coords_all}
+        )
+        if isinstance(obj, xr.DataArray):
+            if np.all(shapely.is_valid_input(obj.data)):
+                obj = shapely.to_wkb(obj)
+                if HAS_XPROJ and obj.proj.crs:
+                    obj.attrs["crs"] = obj.proj.crs.to_json()
+                obj.attrs["wkb_encoded_geometry"] = True
+
+        else:
+            for data in obj.data_vars:
+                if np.all(shapely.is_valid_input(obj[data].data)):
+                    obj[data] = shapely.to_wkb(obj[data])
+                    if HAS_XPROJ and obj[data].proj.crs:
+                        obj[data].attrs["crs"] = obj[data].proj.crs.to_json()
+                    obj[data].attrs["wkb_encoded_geometry"] = True
+
+        for coord in self._geom_coords_all:
+            if hasattr(obj[coord], "crs"):
+                obj[coord].attrs["crs"] = obj[coord].crs.to_json()
+            obj[coord].attrs["wkb_encoded_geometry"] = True
+
+        return obj
+
+    def decode_wkb(self) -> xr.DataArray | xr.Dataset:
+        """
+        Decode geometries from Well-Known Binary (WKB) format.
+
+        This method converts all geometry coordinates and data variables in the
+        DataArray or Dataset from WKB format back to shapely geometries. CRS information
+        is restored from the attributes of the encoded geometries. CRS information on variable
+        geometry will be stored using the ``xproj`` package. The
+        ``wkb_encoded_geometry=True`` atrribute needs to be present at every variable
+        that is supposed to be decoded.
+
+        Returns
+        -------
+        xr.DataArray or xr.Dataset
+            A new object with geometries decoded from WKB format to shapely geometries.
+        """
+        obj = self._obj.copy()
+
+        if isinstance(obj, xr.DataArray):
+            if obj.attrs.get("wkb_encoded_geometry", False):
+                obj.data = shapely.from_wkb(obj)
+                if HAS_XPROJ and "crs" in obj.attrs:
+                    obj = obj.proj.assign_crs(
+                        spatial_ref=json.loads(obj.attrs.pop("crs")),
+                        allow_override=True,
+                    )
+                del obj.attrs["wkb_encoded_geometry"]
+
+        else:
+            for data in obj.data_vars:
+                if obj[data].attrs.get("wkb_encoded_geometry", False):
+                    obj[data].data = shapely.from_wkb(obj[data])
+                    if HAS_XPROJ and "crs" in obj[data].attrs:
+                        obj = obj.proj.assign_crs(
+                            spatial_ref=json.loads(obj[data].attrs.pop("crs")),
+                            allow_override=True,
+                        )
+                    del obj[data].attrs["wkb_encoded_geometry"]
+
+        for coord in obj.coords:
+            if obj[coord].attrs.get("wkb_encoded_geometry", False):
+                crs = obj[coord].attrs.pop("crs", None)
+                obj = obj.assign_coords({coord: shapely.from_wkb(obj[coord]).data})
+                obj = obj.xvec.set_geom_indexes(coord, crs=crs)
+
+        return obj
+
+    def summarize_geometry(
+        self,
+        dim: str
+        | xr.DataArray
+        | xr.IndexVariable
+        | Sequence[Hashable]
+        | Mapping[Any, xr.groupers.Grouper],
+        geom_array: Hashable | None = None,
+        aggfunc: str | Callable = "envelope",
+        **kwargs: Any,
+    ) -> xr.DataArray | xr.Dataset:
+        """
+        Summarize the geometry of an variable geometry along a specified dimension.
+
+        Given a DataArray of variable geometry, summary geometry captures the overall
+        spatial extent of a series of individual geometry objects along a single
+        dimension. A typical use case would be a summary geometry of a moving object
+        based on its ID.
+
+        Parameters
+        ----------
+        dim : Hashable
+            The dimension along which to summarize the geometry.
+        geom_array : Hashable, optional
+            The name of the geometry array to use for xr.Dataset objects. Must be
+            specified for a xr.Dataset, ignored for a xr.DataArray.
+        aggfunc : str or Callable, default "envelope"
+            The aggregation function to use for summarizing the geometry. Can be one of the following strings:
+
+            - ``"envelope"``: Computes the envelope (bounding box) of the geometries.
+            - ``"centroid"``: Computes the centroid of the geometries.
+            - ``"oriented_envelope"``: Computes the oriented envelope of the geometries.
+            - ``"convex_hull"``: Computes the convex hull of the geometries.
+            - ``"concave_hull"``: Computes the concave hull of the geometries. Additional parameters can be passed via ``kwargs``.
+            - ``"collection"``: Collects the geometries into a geometry collection.
+            - ``"union"``: Computes the union of the geometries.
+
+            Or a callable that takes an ``xr.DataArray`` and returns an scalar ``xr.DataArray`` with shapely geometry.
+        **kwargs : Any
+            Additional keyword arguments to pass to the aggregation function if it is callable.
+
+        Returns
+        -------
+        xr.DataArray or xr.Dataset
+            The original xarray DataArray or Dataset with a new coordinate geometry
+            ``summary_geometry`` with a ``GeometryIndex`` linked to a given dimension.
+        """
+        if isinstance(self._obj, xr.Dataset):
+            if geom_array is None:
+                raise ValueError("geom_array must be specified for xr.Dataset objects.")
+            obj = self._obj[geom_array]
+        else:
+            obj = self._obj
+
+        def _collect(x: xr.DataArray) -> xr.DataArray:
+            return xr.DataArray(shapely.geometrycollections(np.ravel(x)))
+
+        def _union(x: xr.DataArray) -> xr.DataArray:
+            return xr.DataArray(shapely.union_all(np.ravel(x)))
+
+        match aggfunc:
+            case "envelope":
+                summary = shapely.envelope(obj.groupby(dim).map(_collect)).data
+            case "centroid":
+                summary = shapely.centroid(obj.groupby(dim).map(_collect)).data
+            case "oriented_envelope":
+                summary = shapely.oriented_envelope(obj.groupby(dim).map(_collect)).data
+            case "convex_hull":
+                summary = shapely.convex_hull(obj.groupby(dim).map(_collect)).data
+            case "concave_hull":
+                summary = shapely.concave_hull(
+                    obj.groupby(dim).map(_collect),
+                    **kwargs,
+                ).data
+            case "collection":
+                summary = obj.groupby(dim).map(_collect).data
+            case "union":
+                summary = obj.groupby(dim).map(_union).data
+            case _ if callable(aggfunc):
+                summary = obj.groupby(dim).map(aggfunc, **kwargs).data
+
+        return (
+            self._obj.assign_coords(summary_geometry=(dim, summary))
+            .set_xindex("summary_geometry")
+            .xvec.set_geom_indexes(
+                "summary_geometry", crs=self._obj.proj.crs if HAS_XPROJ else None
+            )
+        )
+
+    def plot(
+        self,
+        *,
+        row: Hashable | None = None,
+        col: Hashable | None = None,
+        col_wrap: int | None = None,
+        hue: Hashable | None = None,
+        subplot_kws: dict[str, Any] | None = None,
+        figsize: Iterable[float] | None = None,
+        geometry: Hashable | None = None,
+        vmin: float | None = None,
+        vmax: float | None = None,
+        cmap: str | Any | None = None,
+        center: float | bool | None = None,
+        robust: bool = False,
+        extend: str | None = None,
+        levels: int | Iterable[float] | None = None,
+        norm: Any | None = None,
+        **kwargs: dict[str, Any],
+    ) -> tuple[Any, Any]:
+        """
+        Plot geometry with optional faceting and color mapping.
+
+        Uses GeoPandas to plot the geometry and data from the object.
+
+        Parameters
+        ----------
+        arr : xarray.DataArray or xarray.Dataset
+            The data to be plotted.
+        row : Hashable or None, optional
+            If passed, make row faceted plots on this dimension name.
+        col : Hashable or None, optional
+            If passed, make column faceted plots on this dimension name.
+        col_wrap : int, optional
+            Number of columns to wrap facets into. Use together with ``col``.
+        hue : Hashable or None, optional
+            If passed, make faceted plots with value on from this dimension.
+        subplot_kws : dict, optional
+            Dictionary of keyword arguments for Matplotlib subplots
+            (see :py:meth:`~matplotlib:matplotlib.figure.Figure.add_subplot`).
+        figsize : tuple, optional
+            A tuple (width, height) of the figure in inches.
+        geometry : str, optional
+            Geometry array to use for plotting. Could be both coordinate geometry and
+            variable geometry. If None, the method tries to infer the geometry when
+            plotting a DataArray. Must be specified for a Dataset.
+        vmin : float or None, optional
+            Lower value to anchor the colormap, otherwise it is inferred from the
+            data and other keyword arguments. When a diverging dataset is inferred,
+            setting `vmin` or `vmax` will fix the other by symmetry around
+            ``center``. Setting both values prevents use of a diverging colormap.
+            If discrete levels are provided as an explicit list, both of these
+            values are ignored.
+        vmax : float or None, optional
+            Upper value to anchor the colormap, otherwise it is inferred from the
+            data and other keyword arguments. When a diverging dataset is inferred,
+            setting `vmin` or `vmax` will fix the other by symmetry around
+            ``center``. Setting both values prevents use of a diverging colormap.
+            If discrete levels are provided as an explicit list, both of these
+            values are ignored.
+        cmap : matplotlib colormap name or colormap, optional
+            The mapping from data values to color space. Either a
+            Matplotlib colormap name or object. If not provided, this will
+            be either ``'viridis'`` (if the function infers a sequential
+            dataset) or ``'RdBu_r'`` (if the function infers a diverging
+            dataset).
+            See :doc:`Choosing Colormaps in Matplotlib <matplotlib:users/explain/colors/colormaps>`
+            for more information.
+        center : float or False, optional
+            The value at which to center the colormap. Passing this value implies
+            use of a diverging colormap. Setting it to ``False`` prevents use of a
+            diverging colormap.
+        robust : bool, optional
+            If ``True`` and ``vmin`` or ``vmax`` are absent, the colormap range is
+            computed with 2nd and 98th percentiles instead of the extreme values.
+        extend : {'neither', 'both', 'min', 'max'}, optional
+            How to draw arrows extending the colorbar beyond its limits. If not
+            provided, ``extend`` is inferred from ``vmin``, ``vmax`` and the data limits.
+        levels : int or array-like, optional
+            Split the colormap (``cmap``) into discrete color intervals. If an integer
+            is provided, "nice" levels are chosen based on the data range: this can
+            imply that the final number of levels is not exactly the expected one.
+            Setting ``vmin`` and/or ``vmax`` with ``levels=N`` is equivalent to
+            setting ``levels=np.linspace(vmin, vmax, N)``.
+        norm : matplotlib.colors.Normalize, optional
+            If ``norm`` has ``vmin`` or ``vmax`` specified, the corresponding
+            kwarg must be ``None``.
+        **kwargs : dict
+            Additional keyword arguments passed to geopandas plotting method.
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+            The figure object containing the plot.
+        axs : numpy.ndarray of matplotlib.axes.Axes
+            Array of axes objects for the plot.
+        """
+        return _plot(
+            self._obj,
+            row=row,
+            col=col,
+            col_wrap=col_wrap,
+            hue=hue,
+            subplot_kws=subplot_kws,
+            figsize=figsize,
+            geometry=geometry,
+            vmin=vmin,
+            vmax=vmax,
+            cmap=cmap,
+            center=center,
+            robust=robust,
+            extend=extend,
+            levels=levels,
+            norm=norm,
+            **kwargs,
+        )
 
 
 def _resolve_input(

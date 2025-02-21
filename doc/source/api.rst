@@ -58,6 +58,10 @@ Methods
     Dataset.xvec.zonal_stats
     Dataset.xvec.encode_cf
     Dataset.xvec.decode_cf
+    Dataset.xvec.encode_wkb
+    Dataset.xvec.decode_wkb
+    Dataset.xvec.summarize_geometry
+    Dataset.xvec.plot
 
 
 DataArray.xvec
@@ -90,7 +94,12 @@ Methods
     DataArray.xvec.to_crs
     DataArray.xvec.set_crs
     DataArray.xvec.query
+    DataArray.xvec.mask
     DataArray.xvec.to_geodataframe
     DataArray.xvec.to_geopandas
     DataArray.xvec.extract_points
     DataArray.xvec.zonal_stats
+    DataArray.xvec.encode_wkb
+    DataArray.xvec.decode_wkb
+    DataArray.xvec.summarize_geometry
+    DataArray.xvec.plot

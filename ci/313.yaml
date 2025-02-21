@@ -19,6 +19,8 @@ dependencies:
   - geopandas-base
   - geodatasets
   - pyogrio
+  - xproj
+  - matplotlib
   - pip
   - pip:
     - exactextract

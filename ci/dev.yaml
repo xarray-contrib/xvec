@@ -20,6 +20,8 @@ dependencies:
   - geopandas-base
   - geodatasets
   - pyogrio
+  - xproj
+  - matplotlib
   - pip
   - pip:
       - git+https://github.com/shapely/shapely.git@main

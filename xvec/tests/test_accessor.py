@@ -694,6 +694,53 @@ def test_cf_roundtrip(all_datasets):
     xr.testing.assert_identical(ds, copy)
 
 
+def test_encode_decode_wkb_roundtrip(all_datasets):
+    ds = all_datasets
+    encoded = ds.xvec.encode_wkb()
+    for name, da in encoded.coords.items():
+        if name in ds.xvec._geom_coords_all:
+            sample = da.data.flat[0]
+            assert isinstance(sample, bytes)
+    roundtripped = encoded.xvec.decode_wkb()
+    xr.testing.assert_identical(ds, roundtripped)
+
+
+def test_encode_decode_wkb_dataarray_with_variable_geometry():
+    geoms = np.array(
+        [shapely.Point(0, 0), shapely.Point(1, 1), shapely.Point(2, 2)],
+        dtype=object,
+    )
+    da = xr.DataArray(geoms, dims=["geom"], name="geometry_data").proj.assign_crs(
+        spatial_ref="EPSG:4326"
+    )
+
+    encoded = da.xvec.encode_wkb()
+    for item in encoded.data.flat:
+        assert isinstance(item, bytes)
+
+    decoded = encoded.xvec.decode_wkb()
+    xr.testing.assert_identical(da, decoded)
+
+
+def test_encode_decode_wkb_dataset_with_variable_geometry():
+    geoms = np.array(
+        [shapely.Point(0, 0), shapely.Point(1, 1), shapely.Point(2, 2)],
+        dtype=object,
+    )
+    da = (
+        xr.DataArray(geoms, dims=["geom"], name="geometry_data")
+        .proj.assign_crs(spatial_ref="EPSG:4326")
+        .to_dataset()
+    )
+
+    encoded = da.xvec.encode_wkb()
+    for item in encoded.geometry_data.data.flat:
+        assert isinstance(item, bytes)
+
+    decoded = encoded.xvec.decode_wkb()
+    xr.testing.assert_identical(da, decoded)
+
+
 def assert_indexes_equals(left, right):
     # Till https://github.com/pydata/xarray/issues/5812 is resolved
     # Also, we don't record whether an unindexed coordinate was serialized
@@ -705,3 +752,161 @@ def assert_indexes_equals(left, right):
         if not isinstance(left.xindexes[k], GeometryIndex):
             continue
         assert left.xindexes[k].equals(right.xindexes[k])
+
+
+@pytest.mark.parametrize("dim", ["gid", "date"])
+@pytest.mark.parametrize(
+    "agg",
+    [
+        "envelope",
+        "centroid",
+        "oriented_envelope",
+        "convex_hull",
+        "collection",
+        "union",
+    ],
+)
+def test_summarize_geometry(dim, agg):
+    cube = xr.DataArray(
+        shapely.points(
+            np.tile(np.arange(0, 20, 4), 5), np.repeat(np.arange(5), 5)
+        ).reshape(5, 5),
+        coords=[
+            ["a", "b", "c", "d", "e"],
+            ["2020-10-01", "2020-10-02", "2020-10-03", "2020-10-04", "2020-10-05"],
+        ],
+        dims=["gid", "date"],
+    ).proj.assign_crs(spatial_ref=3857)
+
+    result = cube.xvec.summarize_geometry(dim, aggfunc=agg)
+
+    assert "summary_geometry" in result.xvec.geom_coords
+    assert result.summary_geometry.crs.equals(3857)
+
+
+@pytest.mark.parametrize("dim", ["gid", "date"])
+def test_summarize_geometry_params(dim):
+    cube = xr.DataArray(
+        shapely.points(
+            np.tile(np.arange(0, 20, 4), 5), np.repeat(np.arange(5), 5)
+        ).reshape(5, 5),
+        coords=[
+            ["a", "b", "c", "d", "e"],
+            ["2020-10-01", "2020-10-02", "2020-10-03", "2020-10-04", "2020-10-05"],
+        ],
+        dims=["gid", "date"],
+    ).proj.assign_crs(spatial_ref=3857)
+
+    result = cube.xvec.summarize_geometry(dim, aggfunc="concave_hull", ratio=0.5)
+
+    assert "summary_geometry" in result.xvec.geom_coords
+    assert result.summary_geometry.crs.equals(3857)
+
+
+def test_summarize_geometry_callable():
+    def custom_aggfunc(geometries):
+        return xr.DataArray(shapely.union_all(geometries))
+
+    cube = xr.DataArray(
+        shapely.points(
+            np.tile(np.arange(0, 20, 4), 5), np.repeat(np.arange(5), 5)
+        ).reshape(5, 5),
+        coords=[
+            ["a", "b", "c", "d", "e"],
+            ["2020-10-01", "2020-10-02", "2020-10-03", "2020-10-04", "2020-10-05"],
+        ],
+        dims=["gid", "date"],
+    ).proj.assign_crs(spatial_ref=3857)
+
+    result = cube.xvec.summarize_geometry("gid", aggfunc=custom_aggfunc)
+
+    assert "summary_geometry" in result.xvec.geom_coords
+    assert result.summary_geometry.crs.equals(3857)
+
+
+@pytest.mark.parametrize("dim", ["gid", "date"])
+@pytest.mark.parametrize(
+    "agg",
+    [
+        "envelope",
+        "centroid",
+        "oriented_envelope",
+        "convex_hull",
+        "collection",
+        "union",
+    ],
+)
+def test_summarize_geometry_dataset(dim, agg):
+    ds = xr.Dataset(
+        {
+            "geometry": (
+                ["gid", "date"],
+                shapely.points(
+                    np.tile(np.arange(0, 20, 4), 5), np.repeat(np.arange(5), 5)
+                ).reshape(5, 5),
+            )
+        },
+        coords={
+            "gid": ["a", "b", "c", "d", "e"],
+            "date": pd.date_range("2020-10-01", periods=5),
+        },
+    ).proj.assign_crs(spatial_ref=3857)
+
+    result = ds.xvec.summarize_geometry(dim, geom_array="geometry", aggfunc=agg)
+
+    assert "summary_geometry" in result.xvec.geom_coords
+    assert result.summary_geometry.crs.equals(3857)
+
+    # Test for the mask method in the .xvec accessor
+
+
+def test_mask_single_geometry():
+    points = np.array(
+        [shapely.Point(0, 0), shapely.Point(1, 1), shapely.Point(2, 2)],
+        dtype=object,
+    )
+    da = xr.DataArray(points, dims=["geom"], coords={"geom": points})
+    query_geom = shapely.box(-0.5, -0.5, 1.5, 1.5)
+    mask = da.xvec.mask(query_geom, predicate="intersects")
+
+    expected = xr.DataArray(
+        np.array([True, True, False]),
+        dims=["geom"],
+        coords={"geom": points},
+    )
+    xr.testing.assert_equal(mask, expected)
+
+
+def test_mask_multiple_geometries():
+    points = np.array(
+        [shapely.Point(0, 0), shapely.Point(1, 1), shapely.Point(2, 2)],
+        dtype=object,
+    )
+    da = xr.DataArray(points, dims=["geom"], coords={"geom": points})
+    poly1 = shapely.box(-0.5, -0.5, 0.5, 0.5)
+    poly2 = shapely.box(0.5, 0.5, 1.5, 1.5)
+    mask = da.xvec.mask([poly1, poly2], predicate="intersects")
+
+    expected = xr.DataArray(
+        np.array([True, True, False]),
+        dims=["geom"],
+        coords={"geom": points},
+    )
+    xr.testing.assert_equal(mask, expected)
+
+
+def test_mask_with_distance():
+    points = np.array(
+        [shapely.Point(0, 0), shapely.Point(2, 2), shapely.Point(4, 4)],
+        dtype=object,
+    )
+    da = xr.DataArray(points, dims=["geom"], coords={"geom": points})
+    query_geom = shapely.Point(0, 0)
+    mask = da.xvec.mask(query_geom, predicate="dwithin", distance=3)
+
+    expected = xr.DataArray(
+        np.array([True, True, False]),
+        dims=["geom"],
+        coords={"geom": points},
+    )
+    xr.testing.assert_equal(mask, expected)
