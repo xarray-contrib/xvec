@@ -722,6 +722,25 @@ def test_encode_decode_wkb_dataarray_with_variable_geometry():
     xr.testing.assert_identical(da, decoded)
 
 
+def test_encode_decode_wkb_dataset_with_variable_geometry():
+    geoms = np.array(
+        [shapely.Point(0, 0), shapely.Point(1, 1), shapely.Point(2, 2)],
+        dtype=object,
+    )
+    da = (
+        xr.DataArray(geoms, dims=["geom"], name="geometry_data")
+        .proj.assign_crs(spatial_ref="EPSG:4326")
+        .to_dataset()
+    )
+
+    encoded = da.xvec.encode_wkb()
+    for item in encoded.geometry_data.data.flat:
+        assert isinstance(item, bytes)
+
+    decoded = encoded.xvec.decode_wkb()
+    xr.testing.assert_identical(da, decoded)
+
+
 def assert_indexes_equals(left, right):
     # Till https://github.com/pydata/xarray/issues/5812 is resolved
     # Also, we don't record whether an unindexed coordinate was serialized

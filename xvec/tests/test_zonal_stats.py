@@ -3,10 +3,31 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
+import rioxarray
 import shapely
 import xarray as xr
 
 import xvec  # noqa: F401
+
+
+@pytest.fixture()
+def glaciers():
+    sentinel_2 = rioxarray.open_rasterio(
+        "https://zenodo.org/records/14906864/files/svalbard.tiff?download=1"
+    )
+
+    glaciers_df = gpd.read_file(
+        "https://github.com/loreabad6/post/raw/refs/heads/main/inst/extdata/svalbard.gpkg"
+    ).to_crs(sentinel_2.rio.crs)
+    glaciers = (
+        glaciers_df.set_index(["year", "name"])
+        .to_xarray()
+        .proj.assign_crs(
+            spatial_ref=glaciers_df.crs
+        )  # use xproj to store the CRS information
+    )
+
+    return glaciers, sentinel_2
 
 
 @pytest.mark.parametrize("method", ["rasterize", "iterate", "exactextract"])
@@ -371,3 +392,36 @@ def test_invalid(method):
             method=method,
             n_jobs=1,
         )
+
+
+def test_variable_geometry_multiple(glaciers):
+    da, sentinel_2 = glaciers
+
+    result = sentinel_2.xvec.zonal_stats(
+        da.geometry,
+        x_coords="x",
+        y_coords="y",
+        stats=[
+            "mean",
+            "sum",
+            ("numpymean", np.nanmean),
+            np.nanmean,
+        ],
+    )
+
+    assert result.sizes == {"year": 3, "name": 5, "zonal_statistics": 4, "band": 11}
+    assert result.statistics.mean() == 17067828
+
+
+def test_variable_geometry_single(glaciers):
+    da, sentinel_2 = glaciers
+
+    result = sentinel_2.xvec.zonal_stats(
+        da.geometry,
+        x_coords="x",
+        y_coords="y",
+        stats="mean",
+    )
+
+    assert result.sizes == {"year": 3, "name": 5, "band": 11}
+    assert result.statistics.mean() == 13168.585
