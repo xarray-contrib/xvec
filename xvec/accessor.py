@@ -649,7 +649,7 @@ class XvecAccessor:
         geometry: shapely.Geometry | Sequence[shapely.Geometry],
         predicate: str | None = None,
         distance: float | Sequence[float] | None = None,
-    ):
+    ) -> xr.DataArray:
         """
         Return boolean array representing the outcome of spatial predicate query
 

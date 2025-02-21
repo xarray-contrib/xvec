@@ -809,3 +809,57 @@ def test_summarize_geometry_dataset(dim, agg):
 
     assert "summary_geometry" in result.xvec.geom_coords
     assert result.summary_geometry.crs.equals(3857)
+
+    # Test for the mask method in the .xvec accessor
+
+
+def test_mask_single_geometry():
+    points = np.array(
+        [shapely.Point(0, 0), shapely.Point(1, 1), shapely.Point(2, 2)],
+        dtype=object,
+    )
+    da = xr.DataArray(points, dims=["geom"], coords={"geom": points})
+    query_geom = shapely.box(-0.5, -0.5, 1.5, 1.5)
+    mask = da.xvec.mask(query_geom, predicate="intersects")
+
+    expected = xr.DataArray(
+        np.array([True, True, False]),
+        dims=["geom"],
+        coords={"geom": points},
+    )
+    xr.testing.assert_equal(mask, expected)
+
+
+def test_mask_multiple_geometries():
+    points = np.array(
+        [shapely.Point(0, 0), shapely.Point(1, 1), shapely.Point(2, 2)],
+        dtype=object,
+    )
+    da = xr.DataArray(points, dims=["geom"], coords={"geom": points})
+    poly1 = shapely.box(-0.5, -0.5, 0.5, 0.5)
+    poly2 = shapely.box(0.5, 0.5, 1.5, 1.5)
+    mask = da.xvec.mask([poly1, poly2], predicate="intersects")
+
+    expected = xr.DataArray(
+        np.array([True, True, False]),
+        dims=["geom"],
+        coords={"geom": points},
+    )
+    xr.testing.assert_equal(mask, expected)
+
+
+def test_mask_with_distance():
+    points = np.array(
+        [shapely.Point(0, 0), shapely.Point(2, 2), shapely.Point(4, 4)],
+        dtype=object,
+    )
+    da = xr.DataArray(points, dims=["geom"], coords={"geom": points})
+    query_geom = shapely.Point(0, 0)
+    mask = da.xvec.mask(query_geom, predicate="dwithin", distance=3)
+
+    expected = xr.DataArray(
+        np.array([True, True, False]),
+        dims=["geom"],
+        coords={"geom": points},
+    )
+    xr.testing.assert_equal(mask, expected)
