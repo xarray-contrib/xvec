@@ -694,6 +694,34 @@ def test_cf_roundtrip(all_datasets):
     xr.testing.assert_identical(ds, copy)
 
 
+def test_encode_decode_wkb_roundtrip(all_datasets):
+    ds = all_datasets
+    encoded = ds.xvec.encode_wkb()
+    for name, da in encoded.coords.items():
+        if name in ds.xvec._geom_coords_all:
+            sample = da.data.flat[0]
+            assert isinstance(sample, bytes)
+    roundtripped = encoded.xvec.decode_wkb()
+    xr.testing.assert_identical(ds, roundtripped)
+
+
+def test_encode_decode_wkb_dataarray_with_variable_geometry():
+    geoms = np.array(
+        [shapely.Point(0, 0), shapely.Point(1, 1), shapely.Point(2, 2)],
+        dtype=object,
+    )
+    da = xr.DataArray(geoms, dims=["geom"], name="geometry_data").proj.assign_crs(
+        spatial_ref="EPSG:4326"
+    )
+
+    encoded = da.xvec.encode_wkb()
+    for item in encoded.data.flat:
+        assert isinstance(item, bytes)
+
+    decoded = encoded.xvec.decode_wkb()
+    xr.testing.assert_identical(da, decoded)
+
+
 def assert_indexes_equals(left, right):
     # Till https://github.com/pydata/xarray/issues/5812 is resolved
     # Also, we don't record whether an unindexed coordinate was serialized

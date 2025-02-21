@@ -1522,7 +1522,8 @@ class XvecAccessor:
                     obj[data].attrs["wkb_encoded_geometry"] = True
 
         for coord in self._geom_coords_all:
-            obj[coord].attrs["crs"] = obj[coord].crs.to_json()
+            if hasattr(obj[coord], "crs"):
+                obj[coord].attrs["crs"] = obj[coord].crs.to_json()
             obj[coord].attrs["wkb_encoded_geometry"] = True
 
         return obj
@@ -1547,9 +1548,13 @@ class XvecAccessor:
 
         if isinstance(obj, xr.DataArray):
             if obj.attrs.get("wkb_encoded_geometry", False):
-                obj = shapely.from_wkb(obj)
+                obj.data = shapely.from_wkb(obj)
                 if HAS_XPROJ and "crs" in obj.attrs:
-                    obj = obj.proj.assign_crs(json.loads(obj.attrs.pop("crs")))
+                    obj = obj.proj.assign_crs(
+                        spatial_ref=json.loads(obj.attrs.pop("crs")),
+                        allow_override=True,
+                    )
+                del obj.attrs["wkb_encoded_geometry"]
 
         else:
             for data in obj.data_vars:
@@ -1557,18 +1562,16 @@ class XvecAccessor:
                     obj[data].data = shapely.from_wkb(obj[data])
                     if HAS_XPROJ and "crs" in obj[data].attrs:
                         obj = obj.proj.assign_crs(
-                            spatial_ref=json.loads(obj[data].attrs.pop("crs"))
+                            spatial_ref=json.loads(obj[data].attrs.pop("crs")),
+                            allow_override=True,
                         )
                     del obj[data].attrs["wkb_encoded_geometry"]
 
         for coord in obj.coords:
             if obj[coord].attrs.get("wkb_encoded_geometry", False):
-                obj[coord].data = shapely.from_wkb(obj[coord]).data
-                obj = obj.set_xindex(coord)  # type: ignore
-                obj = obj.xvec.set_geom_indexes(
-                    coord, crs=obj[coord].attrs.pop("crs", None)
-                )
-                del obj[coord].attrs["wkb_encoded_geometry"]
+                crs = obj[coord].attrs.pop("crs", None)
+                obj = obj.assign_coords({coord: shapely.from_wkb(obj[coord]).data})
+                obj = obj.xvec.set_geom_indexes(coord, crs=crs)
 
         return obj
 
