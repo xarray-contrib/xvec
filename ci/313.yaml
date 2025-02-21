@@ -20,6 +20,7 @@ dependencies:
   - geodatasets
   - pyogrio
   - xproj
+  - matplotlib
   - pip
   - pip:
     - exactextract
