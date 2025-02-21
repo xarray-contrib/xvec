@@ -25,7 +25,7 @@ def _setup_axes(n_rows, n_cols, arr, geometry, crs, subplot_kws, figsize):
         else:
             geoms = arr[list(arr.xvec._geom_coords_all)[0]]
 
-        bounds = shapely.total_bounds(geoms)
+        bounds = shapely.total_bounds(np.asarray(geoms))
 
         width = bounds[2] - bounds[0]
         height = bounds[3] - bounds[1]
