@@ -123,7 +123,7 @@ class XvecAccessor:
         return False
 
     @property
-    def geom_coords(self) -> Mapping[Hashable, xr.DataArray]:
+    def geom_coords(self) -> xr.Coordinates:
         """Returns a dictionary of xarray.DataArray objects corresponding to
         coordinate variables composed of :class:`shapely.Geometry` objects.
 
@@ -168,11 +168,16 @@ class XvecAccessor:
         is_geom_variable
         """
         return xr.Coordinates(
-            {
+            coords={
                 c: coo
                 for c, coo in self._obj.coords.items()
                 if c in self._geom_coords_all
-            }
+            },
+            indexes={
+                c: self._obj.xindexes[c]
+                for c in self._obj.coords
+                if c in self._geom_coords_all and c in self._obj.xindexes
+            },
         )
 
     @property
@@ -220,10 +225,16 @@ class XvecAccessor:
         is_geom_variable
 
         """
-        # TODO: use xarray.Coordinates constructor instead once available in xarray
-        return self._obj.drop_vars(
-            [c for c in self._obj.coords if c not in self._geom_indexes]
-        ).coords
+        return xr.Coordinates(
+            coords={
+                c: coo for c, coo in self._obj.coords.items() if c in self._geom_indexes
+            },
+            indexes={
+                c: self._obj.xindexes[c]
+                for c in self._obj.coords
+                if c in self._geom_indexes and c in self._obj.xindexes
+            },
+        )
 
     def to_crs(
         self,
