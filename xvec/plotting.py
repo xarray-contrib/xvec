@@ -82,19 +82,20 @@ def _setup_colorbar(fig, cmap_params, label=None):
     from matplotlib import cm
     from matplotlib.colors import Normalize
 
-    if not cmap_params["norm"]:
-        cmap_params["norm"] = Normalize(
-            vmin=cmap_params["vmin"], vmax=cmap_params["vmax"]
+    if cmap_params:
+        if not cmap_params["norm"]:
+            cmap_params["norm"] = Normalize(
+                vmin=cmap_params["vmin"], vmax=cmap_params["vmax"]
+            )
+        n_cmap = cm.ScalarMappable(norm=cmap_params["norm"], cmap=cmap_params["cmap"])
+        fig.subplots_adjust(right=0.85)
+        cbar_ax = fig.add_axes([0.9, 0.15, 0.03, 0.7])
+        fig.colorbar(
+            n_cmap,
+            cax=cbar_ax,
+            label=label,
+            extend=cmap_params["extend"],
         )
-    n_cmap = cm.ScalarMappable(norm=cmap_params["norm"], cmap=cmap_params["cmap"])
-    fig.subplots_adjust(right=0.85)
-    cbar_ax = fig.add_axes([0.9, 0.15, 0.03, 0.7])
-    fig.colorbar(
-        n_cmap,
-        cax=cbar_ax,
-        label=label,
-        extend=cmap_params["extend"],
-    )
 
 
 def _plot_faceted(arr, axs, row, col, hue, geometry, cmap_params=None, **kwargs):
@@ -148,9 +149,9 @@ def _plot_single_panel(arr, ax, hue, geometry, cmap_params, **kwargs):
             sub.xvec.to_geodataframe(geometry=geometry).plot(
                 vals,
                 ax=ax,
-                vmin=cmap_params["vmin"],
-                vmax=cmap_params["vmax"],
-                cmap=cmap_params["cmap"],
+                vmin=cmap_params.get("vmin", None),
+                vmax=cmap_params.get("vmax", None),
+                cmap=cmap_params.get("cmap", None),
                 **kwargs,
             )
         else:
@@ -160,9 +161,9 @@ def _plot_single_panel(arr, ax, hue, geometry, cmap_params, **kwargs):
             arr.xvec.to_geodataframe().reset_index().plot(
                 hue,
                 ax=ax,
-                vmin=cmap_params["vmin"],
-                vmax=cmap_params["vmax"],
-                cmap=cmap_params["cmap"],
+                vmin=cmap_params.get("vmin", None),
+                vmax=cmap_params.get("vmax", None),
+                cmap=cmap_params.get("cmap", None),
                 **kwargs,
             )
         else:
@@ -173,9 +174,9 @@ def _plot_single_panel(arr, ax, hue, geometry, cmap_params, **kwargs):
         arr.xvec.to_geodataframe(name=name, geometry=geometry).plot(
             name,
             ax=ax,
-            vmin=cmap_params["vmin"],
-            vmax=cmap_params["vmax"],
-            cmap=cmap_params["cmap"],
+            vmin=cmap_params.get("vmin", None),
+            vmax=cmap_params.get("vmax", None),
+            cmap=cmap_params.get("cmap", None),
             **kwargs,
         )
 
@@ -220,37 +221,30 @@ def _plot(
     fig, axs = _setup_axes(n_rows, n_cols, arr, geometry, crs, subplot_kws, figsize)
 
     # Setup color parameters if needed
-    cmap_params = (
-        _determine_cmap_params(
-            arr[hue].data,
-            vmin=vmin,
-            vmax=vmax,
-            cmap=cmap,
-            center=center,
-            robust=robust,
-            extend=extend,
-            levels=levels,
-            norm=norm,
-        )
-        if hue
-        else None
-    )
-    if (
+    if hue or (
         not hue
         and isinstance(arr, xr.DataArray)
         and not np.all(shapely.is_valid_input(arr.data))
     ):
-        cmap_params = _determine_cmap_params(
-            arr.data,
-            vmin=vmin,
-            vmax=vmax,
-            cmap=cmap,
-            center=center,
-            robust=robust,
-            extend=extend,
-            levels=levels,
-            norm=norm,
-        )
+        array = arr[hue].data if hue else arr.data
+
+        # object is categorical, not supported by _determine_cmap_params
+        if array.dtype != "object":
+            cmap_params = _determine_cmap_params(
+                array,
+                vmin=vmin,
+                vmax=vmax,
+                cmap=cmap,
+                center=center,
+                robust=robust,
+                extend=extend,
+                levels=levels,
+                norm=norm,
+            )
+        else:
+            cmap_params = {}
+    else:
+        cmap_params = {}
 
     # Handle simple case - single geometry with no faceting
     if not col and geometry in arr.xvec._geom_coords_all:
