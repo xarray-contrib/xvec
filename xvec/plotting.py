@@ -78,11 +78,12 @@ def _get_crs(arr, geometry=None):
     )
 
 
-def _setup_colorbar(fig, cmap_params, label=None):
+def _setup_legend(fig, cmap_params, label=None, array=None):
     from matplotlib import cm
     from matplotlib.colors import Normalize
+    from matplotlib.lines import Line2D
 
-    if cmap_params:
+    if "norm" in cmap_params:
         if not cmap_params["norm"]:
             cmap_params["norm"] = Normalize(
                 vmin=cmap_params["vmin"], vmax=cmap_params["vmax"]
@@ -95,6 +96,36 @@ def _setup_colorbar(fig, cmap_params, label=None):
             cax=cbar_ax,
             label=label,
             extend=cmap_params["extend"],
+        )
+    else:
+        if "cmap" not in cmap_params:
+            cmap_params["cmap"] = "tab10"
+
+        mn = 0
+        mx = len(cmap_params["categories"]) - 1
+
+        norm = Normalize(vmin=mn, vmax=mx)
+
+        n_cmap = cm.ScalarMappable(cmap=cmap_params["cmap"], norm=norm)
+        patches = []
+        for i in range(len(cmap_params["categories"])):
+            patches.append(
+                Line2D(
+                    [0],
+                    [0],
+                    linestyle="none",
+                    marker="o",
+                    markersize=10,
+                    markerfacecolor=n_cmap.to_rgba(i),
+                    markeredgewidth=0,
+                )
+            )
+        fig.get_axes()[-1].legend(
+            numpoints=1,
+            loc="upper left",
+            handles=patches,
+            labels=list(cmap_params["categories"]),
+            bbox_to_anchor=(1.1, 1.05),
         )
 
 
@@ -152,6 +183,7 @@ def _plot_single_panel(arr, ax, hue, geometry, cmap_params, **kwargs):
                 vmin=cmap_params.get("vmin", None),
                 vmax=cmap_params.get("vmax", None),
                 cmap=cmap_params.get("cmap", None),
+                categories=cmap_params.get("categories", None),
                 **kwargs,
             )
         else:
@@ -164,6 +196,7 @@ def _plot_single_panel(arr, ax, hue, geometry, cmap_params, **kwargs):
                 vmin=cmap_params.get("vmin", None),
                 vmax=cmap_params.get("vmax", None),
                 cmap=cmap_params.get("cmap", None),
+                categories=cmap_params.get("categories", None),
                 **kwargs,
             )
         else:
@@ -177,6 +210,7 @@ def _plot_single_panel(arr, ax, hue, geometry, cmap_params, **kwargs):
             vmin=cmap_params.get("vmin", None),
             vmax=cmap_params.get("vmax", None),
             cmap=cmap_params.get("cmap", None),
+            categories=cmap_params.get("categories", None),
             **kwargs,
         )
 
@@ -242,7 +276,9 @@ def _plot(
                 norm=norm,
             )
         else:
-            cmap_params = {}
+            cmap_params = {"categories": np.unique(array)}
+            if cmap:
+                cmap_params["cmap"] = cmap
     else:
         cmap_params = {}
 
@@ -272,12 +308,12 @@ def _plot(
 
     # Add colorbar if needed
     if hue:
-        _setup_colorbar(fig, cmap_params, label=hue)
+        _setup_legend(fig, cmap_params, label=hue, array=array)
     elif (
         isinstance(arr, xr.DataArray)
         and not geometry
         and not np.all(shapely.is_valid_input(arr))
     ):
-        _setup_colorbar(fig, cmap_params, label=label_from_attrs(arr))
+        _setup_legend(fig, cmap_params, label=label_from_attrs(arr), array=array)
 
     return fig, axs
