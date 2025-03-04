@@ -7,7 +7,7 @@ We can distinguish between two types of geometries in a DataArray or Dataset:
 - **coordinate geometry** - an array (typically one dimensional) is used as coordinates along one or more dimensions. A typical example would be an outcome of zonal statistics of a multi-dimensional raster, avoiding the need for _flattenning_ of the array to a data frame.
 - **variable geometry** - an array (typicially multi-dimensional) is used as a variable within a DataArray. This may encode evolving shapes of lava flows in time, trajectories, or growth of city limits.
 
-The Xvec package brings support for both of these to the Xarray ecosystem. It uses [Shapely](https://shapely.readthedocs.io/en/stable/)[^shapelyref] package, allowing a seamless interface between Xvec and [GeoPandas](https://geopandas.org/). See [this post](https://r-spatial.org/r/2022/09/12/vdc.html) by Edzer Pebesma on an introduction of the concept or the introduction of their implementation in Xvec in our [documentation](https://xvec.readthedocs.io/en/latest/intro.html).
+The Xvec package brings support for both of these to the Xarray ecosystem. It uses [Shapely](https://shapely.readthedocs.io/en/stable/) package, allowing a seamless interface between Xvec and [GeoPandas](https://geopandas.org/). See [this post](https://r-spatial.org/r/2022/09/12/vdc.html) by Edzer Pebesma on an introduction of the concept of coordinate geometry or [introduction](https://xvec.readthedocs.io/en/latest/intro.html) page in Xvec documentation.
 
 ## Project status
 
