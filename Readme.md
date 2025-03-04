@@ -1,8 +1,13 @@
 # Vector data cubes for Xarray
 
-> Where raster data cubes refer to data cubes with raster (x- and y-, or lon- and lat-) dimensions, vector data cubes are n-D arrays that have (at least) a single spatial dimension that maps to a set of (2-D) vector geometries. ([Edzer Pebesma](https://r-spatial.org/r/2022/09/12/vdc.html))
+In geospatial analysis, data cubes can be of two sorts. The first is a raster data cube, typically represented by an [Xarray](https://docs.xarray.dev/en/stable/) DataArray indexed either by `x` or `y` dimensions or `latitude` and `longitude`. The second is a vector data cube, which is an n-D array that has either at least one dimension indexed by a 2-D array of vector geometries ([Pebesma, 2022](https://r-spatial.org/r/2022/09/12/vdc.html)) or contains geometries as variables (e.g. moving features or time-evolving shapes), possibly both.
 
-Xvec combines [Xarray](http://xarray.pydata.org) n-D arrays and [shapely 2](https://shapely.readthedocs.io/en/latest/) planar vector geometries to create a support for vector data cubes in Python. See [this post](https://r-spatial.org/r/2022/09/12/vdc.html) by Edzer Pebesma on an introduction of the concept or the introduction of their implementation in Xvec in our [documentation](https://xvec.readthedocs.io/en/latest/intro.html).
+We can distinguish between two types of geometries in a DataArray or Dataset:
+
+- **coordinate geometry** - an array (typically one dimensional) is used as coordinates along one or more dimensions. A typical example would be an outcome of zonal statistics of a multi-dimensional raster, avoiding the need for _flattenning_ of the array to a data frame.
+- **variable geometry** - an array (typicially multi-dimensional) is used as a variable within a DataArray. This may encode evolving shapes of lava flows in time, trajectories, or growth of city limits.
+
+The Xvec package brings support for both of these to the Xarray ecosystem. It uses [Shapely](https://shapely.readthedocs.io/en/stable/) package, allowing a seamless interface between Xvec and [GeoPandas](https://geopandas.org/). See [this post](https://r-spatial.org/r/2022/09/12/vdc.html) by Edzer Pebesma on an introduction of the concept of coordinate geometry or [introduction](https://xvec.readthedocs.io/en/latest/intro.html) page in Xvec documentation.
 
 ## Project status
 
