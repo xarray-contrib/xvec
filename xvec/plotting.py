@@ -78,23 +78,55 @@ def _get_crs(arr, geometry=None):
     )
 
 
-def _setup_colorbar(fig, cmap_params, label=None):
+def _setup_legend(fig, cmap_params, label=None, array=None):
     from matplotlib import cm
     from matplotlib.colors import Normalize
+    from matplotlib.lines import Line2D
 
-    if not cmap_params["norm"]:
-        cmap_params["norm"] = Normalize(
-            vmin=cmap_params["vmin"], vmax=cmap_params["vmax"]
+    if "norm" in cmap_params:
+        if not cmap_params["norm"]:
+            cmap_params["norm"] = Normalize(
+                vmin=cmap_params["vmin"], vmax=cmap_params["vmax"]
+            )
+        n_cmap = cm.ScalarMappable(norm=cmap_params["norm"], cmap=cmap_params["cmap"])
+        fig.subplots_adjust(right=0.85)
+        cbar_ax = fig.add_axes([0.9, 0.15, 0.03, 0.7])
+        fig.colorbar(
+            n_cmap,
+            cax=cbar_ax,
+            label=label,
+            extend=cmap_params["extend"],
         )
-    n_cmap = cm.ScalarMappable(norm=cmap_params["norm"], cmap=cmap_params["cmap"])
-    fig.subplots_adjust(right=0.85)
-    cbar_ax = fig.add_axes([0.9, 0.15, 0.03, 0.7])
-    fig.colorbar(
-        n_cmap,
-        cax=cbar_ax,
-        label=label,
-        extend=cmap_params["extend"],
-    )
+    else:
+        if "cmap" not in cmap_params:
+            cmap_params["cmap"] = "tab10"
+
+        mn = 0
+        mx = len(cmap_params["categories"]) - 1
+
+        norm = Normalize(vmin=mn, vmax=mx)
+
+        n_cmap = cm.ScalarMappable(cmap=cmap_params["cmap"], norm=norm)
+        patches = []
+        for i in range(len(cmap_params["categories"])):
+            patches.append(
+                Line2D(
+                    [0],
+                    [0],
+                    linestyle="none",
+                    marker="o",
+                    markersize=10,
+                    markerfacecolor=n_cmap.to_rgba(i),
+                    markeredgewidth=0,
+                )
+            )
+        fig.get_axes()[-1].legend(
+            numpoints=1,
+            loc="upper left",
+            handles=patches,
+            labels=list(cmap_params["categories"]),
+            bbox_to_anchor=(1.1, 1.05),
+        )
 
 
 def _plot_faceted(arr, axs, row, col, hue, geometry, cmap_params=None, **kwargs):
@@ -148,9 +180,10 @@ def _plot_single_panel(arr, ax, hue, geometry, cmap_params, **kwargs):
             sub.xvec.to_geodataframe(geometry=geometry).plot(
                 vals,
                 ax=ax,
-                vmin=cmap_params["vmin"],
-                vmax=cmap_params["vmax"],
-                cmap=cmap_params["cmap"],
+                vmin=cmap_params.get("vmin", None),
+                vmax=cmap_params.get("vmax", None),
+                cmap=cmap_params.get("cmap", None),
+                categories=cmap_params.get("categories", None),
                 **kwargs,
             )
         else:
@@ -160,9 +193,10 @@ def _plot_single_panel(arr, ax, hue, geometry, cmap_params, **kwargs):
             arr.xvec.to_geodataframe().reset_index().plot(
                 hue,
                 ax=ax,
-                vmin=cmap_params["vmin"],
-                vmax=cmap_params["vmax"],
-                cmap=cmap_params["cmap"],
+                vmin=cmap_params.get("vmin", None),
+                vmax=cmap_params.get("vmax", None),
+                cmap=cmap_params.get("cmap", None),
+                categories=cmap_params.get("categories", None),
                 **kwargs,
             )
         else:
@@ -173,9 +207,10 @@ def _plot_single_panel(arr, ax, hue, geometry, cmap_params, **kwargs):
         arr.xvec.to_geodataframe(name=name, geometry=geometry).plot(
             name,
             ax=ax,
-            vmin=cmap_params["vmin"],
-            vmax=cmap_params["vmax"],
-            cmap=cmap_params["cmap"],
+            vmin=cmap_params.get("vmin", None),
+            vmax=cmap_params.get("vmax", None),
+            cmap=cmap_params.get("cmap", None),
+            categories=cmap_params.get("categories", None),
             **kwargs,
         )
 
@@ -220,37 +255,32 @@ def _plot(
     fig, axs = _setup_axes(n_rows, n_cols, arr, geometry, crs, subplot_kws, figsize)
 
     # Setup color parameters if needed
-    cmap_params = (
-        _determine_cmap_params(
-            arr[hue].data,
-            vmin=vmin,
-            vmax=vmax,
-            cmap=cmap,
-            center=center,
-            robust=robust,
-            extend=extend,
-            levels=levels,
-            norm=norm,
-        )
-        if hue
-        else None
-    )
-    if (
+    if hue or (
         not hue
         and isinstance(arr, xr.DataArray)
         and not np.all(shapely.is_valid_input(arr.data))
     ):
-        cmap_params = _determine_cmap_params(
-            arr.data,
-            vmin=vmin,
-            vmax=vmax,
-            cmap=cmap,
-            center=center,
-            robust=robust,
-            extend=extend,
-            levels=levels,
-            norm=norm,
-        )
+        array = arr[hue].data if hue else arr.data
+
+        # object is categorical, not supported by _determine_cmap_params
+        if array.dtype != "object":
+            cmap_params = _determine_cmap_params(
+                array,
+                vmin=vmin,
+                vmax=vmax,
+                cmap=cmap,
+                center=center,
+                robust=robust,
+                extend=extend,
+                levels=levels,
+                norm=norm,
+            )
+        else:
+            cmap_params = {"categories": np.unique(array)}
+            if cmap:
+                cmap_params["cmap"] = cmap
+    else:
+        cmap_params = {}
 
     # Handle simple case - single geometry with no faceting
     if not col and geometry in arr.xvec._geom_coords_all:
@@ -278,12 +308,12 @@ def _plot(
 
     # Add colorbar if needed
     if hue:
-        _setup_colorbar(fig, cmap_params, label=hue)
+        _setup_legend(fig, cmap_params, label=hue, array=array)
     elif (
         isinstance(arr, xr.DataArray)
         and not geometry
         and not np.all(shapely.is_valid_input(arr))
     ):
-        _setup_colorbar(fig, cmap_params, label=label_from_attrs(arr))
+        _setup_legend(fig, cmap_params, label=label_from_attrs(arr), array=array)
 
     return fig, axs
