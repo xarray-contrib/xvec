@@ -965,7 +965,9 @@ class XvecAccessor:
             if c in self._geom_coords_all:
                 # As of xarray 2024.4.0, the type is preserved in the case of non-multiindex
                 if df[c].dtype == "object":
-                    df[c] = gpd.GeoSeries(df[c], crs=self._obj[c].attrs.get("crs", None))
+                    df[c] = gpd.GeoSeries(
+                        df[c], crs=self._obj[c].attrs.get("crs", None)
+                    )
 
         if geometry is not None:
             if geometry not in self._geom_coords_all:  # variable geometry
