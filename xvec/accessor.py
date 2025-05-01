@@ -963,7 +963,8 @@ class XvecAccessor:
         # ensure CRS of all columns is preserved
         for c in df.columns:
             if c in self._geom_coords_all:
-                # As of xarray 2024.4.0, the type is preserved in the case of non-multiindex
+                # Even though xarray supports extension arrays as coords as of 2024.4.0, it is still possible
+                # that people will construct objects that have a geometry column with object dtype.
                 if df[c].dtype == "object":
                     df[c] = gpd.GeoSeries(
                         df[c], crs=self._obj[c].attrs.get("crs", None)
