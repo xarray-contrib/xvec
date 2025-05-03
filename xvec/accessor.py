@@ -960,11 +960,16 @@ class XvecAccessor:
                 if geometry is None:
                     geometry = df.index.name
                 df = df.reset_index()
-
         # ensure CRS of all columns is preserved
         for c in df.columns:
             if c in self._geom_coords_all:
-                df[c] = gpd.GeoSeries(df[c], crs=self._obj[c].attrs.get("crs", None))
+                # there is a geopandas bug that does not allow upcasting a series
+                # with a geometry dtype directly
+                df[c] = gpd.GeoSeries(
+                    df[c].values,
+                    crs=self._obj[c].attrs.get("crs", None),
+                    index=df[c].index,
+                )
 
         if geometry is not None:
             if geometry not in self._geom_coords_all:  # variable geometry
