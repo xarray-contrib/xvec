@@ -78,7 +78,7 @@ def _get_crs(arr, geometry=None):
     )
 
 
-def _setup_legend(fig, cmap_params, label=None, array=None):
+def _setup_legend(fig, cmap_params, label=None):
     from matplotlib import cm
     from matplotlib.colors import Normalize
     from matplotlib.lines import Line2D
@@ -235,8 +235,6 @@ def _plot(
     norm=None,
     **kwargs,
 ):
-    # TODO: support plotting of categorical data
-
     # Calculate grid dimensions
     if row and col:
         n_rows, n_cols = arr[row].shape[0], arr[col].shape[0]
@@ -291,6 +289,22 @@ def _plot(
         axs.set_ylabel(y_label, fontsize="small")
         return fig, axs
 
+    if not col and arr.ndim == 1:
+        arr.xvec.to_geodataframe().plot(arr.values, ax=axs, **kwargs)
+        axs.set_xlabel(x_label, fontsize="small")
+        axs.set_ylabel(y_label, fontsize="small")
+
+        # Add colorbar if needed
+        if hue:
+            _setup_legend(fig, cmap_params, label=hue)
+        elif (
+            isinstance(arr, xr.DataArray)
+            and not geometry
+            and not np.all(shapely.is_valid_input(arr))
+        ):
+            _setup_legend(fig, cmap_params, label=label_from_attrs(arr))
+        return fig, axs
+
     # Handle faceted plotting
     used_axes = _plot_faceted(arr, axs, row, col, hue, geometry, cmap_params, **kwargs)
 
@@ -308,12 +322,12 @@ def _plot(
 
     # Add colorbar if needed
     if hue:
-        _setup_legend(fig, cmap_params, label=hue, array=array)
+        _setup_legend(fig, cmap_params, label=hue)
     elif (
         isinstance(arr, xr.DataArray)
         and not geometry
         and not np.all(shapely.is_valid_input(arr))
     ):
-        _setup_legend(fig, cmap_params, label=label_from_attrs(arr), array=array)
+        _setup_legend(fig, cmap_params, label=label_from_attrs(arr))
 
     return fig, axs
