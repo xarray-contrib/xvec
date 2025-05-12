@@ -281,16 +281,8 @@ def _plot(
         cmap_params = {}
 
     # Handle simple case - single geometry with no faceting
-    if not col and geometry in arr.xvec._geom_coords_all:
-        arr[geometry].drop_vars([geometry]).xvec.to_geodataframe().plot(
-            ax=axs, **kwargs
-        )
-        axs.set_xlabel(x_label, fontsize="small")
-        axs.set_ylabel(y_label, fontsize="small")
-        return fig, axs
-
-    if not col and arr.ndim == 1:
-        arr.xvec.to_geodataframe().plot(arr.values, ax=axs, **kwargs)
+    if not col and isinstance(arr, xr.DataArray) and arr.ndim == 1:
+        arr.xvec.to_geodataframe(geometry=geometry).plot(arr.values, ax=axs, **kwargs)
         axs.set_xlabel(x_label, fontsize="small")
         axs.set_ylabel(y_label, fontsize="small")
 
@@ -299,10 +291,18 @@ def _plot(
             _setup_legend(fig, cmap_params, label=hue)
         elif (
             isinstance(arr, xr.DataArray)
-            and not geometry
+            # and not geometry
             and not np.all(shapely.is_valid_input(arr))
         ):
             _setup_legend(fig, cmap_params, label=label_from_attrs(arr))
+        return fig, axs
+
+    if not col and geometry in arr.xvec._geom_coords_all:
+        arr[geometry].drop_vars([geometry]).xvec.to_geodataframe().plot(
+            ax=axs, **kwargs
+        )
+        axs.set_xlabel(x_label, fontsize="small")
+        axs.set_ylabel(y_label, fontsize="small")
         return fig, axs
 
     # Handle faceted plotting

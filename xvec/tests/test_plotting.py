@@ -147,3 +147,19 @@ def test_categorical(glaciers):
     assert ax0.get_xlabel() == "Easting\n[metre]"
     assert ax0.get_ylabel() == "Northing\n[metre]"
     assert ax0.get_title() == "year = 1936.0"
+
+
+@image_comparison(
+    baseline_images=["single_custom_geometry"],
+    extensions=["png"],
+    style=[],
+    savefig_kwarg=dict(bbox_inches="tight"),
+)
+def test_single_custom_geometry(glaciers):
+    glaciers = glaciers.xvec.summarize_geometry(
+        dim="name", geom_array="geometry", aggfunc="concave_hull", ratio=0.25
+    )
+    f, ax = glaciers["length"].sum("year").xvec.plot(geometry="summary_geometry")
+
+    assert ax.get_xlabel() == "Easting\n[metre]"
+    assert ax.get_ylabel() == "Northing\n[metre]"
