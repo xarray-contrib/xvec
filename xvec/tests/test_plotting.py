@@ -70,6 +70,14 @@ def test_col_row(aggregated):
     assert ax[0][1].get_ylabel() == "level = 200"
 
 
+@image_comparison(baseline_images=["1d"], extensions=["png"], style=[])
+def test_1d(aggregated):
+    f, ax = aggregated.z.sel(level=200, month=1).xvec.plot()
+
+    assert ax.get_xlabel() == "Geodetic longitude\n[degree]"
+    assert ax.get_ylabel() == "Geodetic latitude\n[degree]"
+
+
 @image_comparison(baseline_images=["var_geom"], extensions=["png"], style=[])
 def test_var_geom(glaciers):
     f, ax = glaciers.geometry.xvec.plot(col="year")
@@ -123,3 +131,19 @@ def test_geom_switching(glaciers):
     f, ax = glaciers_w_sum.xvec.plot(geometry="summary_geometry")
     assert ax.get_xlabel() == "Easting\n[metre]"
     assert ax.get_ylabel() == "Northing\n[metre]"
+
+
+@image_comparison(
+    baseline_images=["categorical"],
+    extensions=["png"],
+    style=[],
+    savefig_kwarg=dict(bbox_inches="tight"),
+)
+def test_categorical(glaciers):
+    f, ax = glaciers.xvec.plot(col="year", geometry="geometry", hue="name")
+
+    assert ax.shape == (1, 3)
+    ax0 = ax[0][0]
+    assert ax0.get_xlabel() == "Easting\n[metre]"
+    assert ax0.get_ylabel() == "Northing\n[metre]"
+    assert ax0.get_title() == "year = 1936.0"
