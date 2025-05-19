@@ -334,6 +334,9 @@ def _zonal_stats_exactextract(
         ``"quantile(q=0.20)"``)
     name : str, optional
         Name of the dimension that will hold the ``geometry``, by default "geometry"
+    strategy : str, optional
+        The strategy to use for the extraction, by default "feature-sequential"
+        Use either "feature-sequential" and "raster-sequential".
 
     Returns
     -------
@@ -460,6 +463,9 @@ def _agg_exactextract(
         If True, all pixels touched by geometries will be considered. If False, only
         pixels whose center is within the polygon or that are selected by
         Bresenham’s line algorithm will be considered.
+    strategy : str, optional
+        The strategy to use for the extraction, by default "feature-sequential"
+        Use either "feature-sequential" and "raster-sequential".
 
     Returns
     -------
