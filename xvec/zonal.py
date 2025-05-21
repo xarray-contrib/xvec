@@ -309,6 +309,7 @@ def _zonal_stats_exactextract(
     y_coords: Hashable,
     stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
     name: str = "geometry",
+    **kwargs,
 ) -> xr.DataArray | xr.Dataset:
     """Extract the values from a dataset indexed by a set of geometries
 
@@ -363,7 +364,15 @@ def _zonal_stats_exactextract(
                 raise ValueError(f"{stat} is not a valid aggregation.")
 
         results, original_shape, coords_info, locs = _agg_exactextract(
-            acc, geometry, crs, x_coords, y_coords, stats, name, original_is_ds
+            acc,
+            geometry,
+            crs,
+            x_coords,
+            y_coords,
+            stats,
+            name,
+            original_is_ds,
+            **kwargs,
         )
         i = 0
         for stat in stats:  # type: ignore
@@ -393,7 +402,15 @@ def _zonal_stats_exactextract(
         )
     elif isinstance(stats, str):
         results, original_shape, coords_info, _ = _agg_exactextract(
-            acc, geometry, crs, x_coords, y_coords, stats, name, original_is_ds
+            acc,
+            geometry,
+            crs,
+            x_coords,
+            y_coords,
+            stats,
+            name,
+            original_is_ds,
+            **kwargs,
         )
         # Unstack the result
         arr = results.values.reshape(original_shape)
@@ -429,6 +446,7 @@ def _agg_exactextract(
     stats: str | Callable | Iterable[str | Callable | tuple] = "mean",
     name: str = "geometry",
     original_is_ds: bool = False,
+    strategy: str = "feature-sequential",
 ):
     """Extract the values from a dataset indexed by a set of geometries
 
@@ -458,6 +476,9 @@ def _agg_exactextract(
         If True, all pixels touched by geometries will be considered. If False, only
         pixels whose center is within the polygon or that are selected by
         Bresenham’s line algorithm will be considered.
+    strategy : str, optional
+        The strategy to use for the extraction, by default "feature-sequential"
+        Use either "feature-sequential" and "raster-sequential".
 
     Returns
     -------
@@ -492,7 +513,9 @@ def _agg_exactextract(
 
     # Aggregation result
     gdf = gpd.GeoDataFrame(geometry=geometry, crs=crs)
-    results = exactextract.exact_extract(rast=data, vec=gdf, ops=stats, output="pandas")
+    results = exactextract.exact_extract(
+        rast=data, vec=gdf, ops=stats, output="pandas", strategy=strategy
+    )
     # Get all the dimensions execpt x_coords, y_coords, they will be used to stack the
     # dataarray later
     if original_is_ds is True:

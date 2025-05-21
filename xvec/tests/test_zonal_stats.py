@@ -425,3 +425,34 @@ def test_variable_geometry_single(glaciers):
 
     assert result.sizes == {"year": 3, "name": 5, "band": 11}
     assert result.statistics.mean() == 13168.585
+
+
+def test_exactextract_strategy():
+    ds = xr.tutorial.open_dataset("eraint_uvz")
+    world = gpd.read_file(geodatasets.get_path("naturalearth land"))
+
+    result_feature_sequential = ds.z.xvec.zonal_stats(
+        world.geometry,
+        "longitude",
+        "latitude",
+        method="exactextract",
+        strategy="feature-sequential",
+    )
+    result_raster_sequential = ds.z.xvec.zonal_stats(
+        world.geometry,
+        "longitude",
+        "latitude",
+        method="exactextract",
+        strategy="raster-sequential",
+    )
+
+    xr.testing.assert_allclose(result_feature_sequential, result_raster_sequential)
+
+    with pytest.raises(KeyError):
+        ds.z.xvec.zonal_stats(
+            world.geometry,
+            "longitude",
+            "latitude",
+            method="exactextract",
+            strategy="invalid_strategy",
+        )
