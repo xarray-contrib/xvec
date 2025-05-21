@@ -309,7 +309,7 @@ def _zonal_stats_exactextract(
     y_coords: Hashable,
     stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
     name: str = "geometry",
-    strategy: str = "feature-sequential",
+    **kwargs,
 ) -> xr.DataArray | xr.Dataset:
     """Extract the values from a dataset indexed by a set of geometries
 
@@ -334,9 +334,6 @@ def _zonal_stats_exactextract(
         ``"quantile(q=0.20)"``)
     name : str, optional
         Name of the dimension that will hold the ``geometry``, by default "geometry"
-    strategy : str, optional
-        The strategy to use for the extraction, by default "feature-sequential"
-        Use either "feature-sequential" and "raster-sequential".
 
     Returns
     -------
@@ -375,7 +372,7 @@ def _zonal_stats_exactextract(
             stats,
             name,
             original_is_ds,
-            strategy,
+            **kwargs,
         )
         i = 0
         for stat in stats:  # type: ignore
@@ -413,7 +410,7 @@ def _zonal_stats_exactextract(
             stats,
             name,
             original_is_ds,
-            strategy,
+            **kwargs,
         )
         # Unstack the result
         arr = results.values.reshape(original_shape)
