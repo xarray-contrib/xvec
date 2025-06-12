@@ -7,46 +7,16 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import shapely
+import xproj
 from pyproj import CRS
 from xarray import DataArray, Variable, get_options
 from xarray.core.indexing import IndexSelResult
 from xarray.indexes import Index, PandasIndex
 
-
-def _format_crs(crs: CRS | None, max_width: int = 50) -> str:
-    if crs is not None:
-        srs = crs.to_string()
-    else:
-        srs = "None"
-
-    return srs if len(srs) <= max_width else " ".join([srs[:max_width], "..."])
+from xvec.utils import transform_geom
 
 
-def _get_common_crs(crs_set: set[CRS | None]) -> CRS | None:
-    # code taken from geopandas (BSD-3 Licence)
-
-    crs_not_none = [crs for crs in crs_set if crs is not None]
-    names = [crs.name for crs in crs_not_none]
-
-    if len(crs_not_none) == 0:
-        return None
-    if len(crs_not_none) == 1:
-        if len(crs_set) != 1:
-            warnings.warn(  # noqa: B028
-                "CRS not set for some of the concatenation inputs. "
-                f"Setting output's CRS as {names[0]} "
-                "(the single non-null CRS provided).",
-                stacklevel=3,
-            )
-        return crs_not_none[0]
-
-    raise ValueError(
-        f"cannot determine common CRS for concatenation inputs, got {names}. "
-        # "Use `to_crs()` to transform geometries to the same CRS before merging."
-    )
-
-
-class GeometryIndex(Index):
+class GeometryIndex(Index, xproj.ProjIndexMixin):
     """An CRS-aware, Xarray-compatible index for vector geometries.
 
     This index can be set from any 1-dimensional coordinate of
@@ -89,6 +59,30 @@ class GeometryIndex(Index):
         """
         return self._crs
 
+    def _proj_set_crs(
+        self: GeometryIndex, spatial_ref: Hashable, crs: CRS
+    ) -> GeometryIndex:
+        # Returns a geometry index shallow copy with a replaced CRS, without transformation
+        # (XProj integration via xproj.ProjIndexMixin)
+        # Note: XProj already handles the case of overriding any existing CRS
+        return GeometryIndex(self._index, crs=crs)
+
+    def _proj_to_crs(
+        self: GeometryIndex, spatial_ref: Hashable, crs: CRS
+    ) -> GeometryIndex:
+        # Returns a new geometry index with a replaced CRS and transformed geometries
+        # (XProj integration via xproj.ProjIndexMixin)
+        # Note: XProj already handles the case of overriding any existing CRS
+
+        # XProj redirects to `._proj_set_crs()` if this index's CRS is undefined
+        assert self.crs is not None
+
+        result = transform_geom(np.asarray(self._index.index), self.crs, crs)
+        index = PandasIndex(
+            result, self._index.dim, coord_dtype=self._index.coord_dtype
+        )
+        return GeometryIndex(index, crs=crs)
+
     @property
     def sindex(self) -> shapely.STRtree:
         """Returns the spatial index, i.e., a :class:`shapely.STRtree` object.
@@ -99,25 +93,14 @@ class GeometryIndex(Index):
             self._sindex = shapely.STRtree(self._index.index)
         return self._sindex
 
-    def _check_crs(self, other_crs: CRS | None, allow_none: bool = False) -> bool:
-        """Check if the index's projection is the same than the given one.
-        If allow_none is True, empty CRS is treated as the same.
-        """
-        if allow_none:
-            if self.crs is None or other_crs is None:
-                return True
-        if not self.crs == other_crs:
-            return False
-        return True
-
     def _crs_mismatch_raise(
         self, other_crs: CRS | None, warn: bool = False, stacklevel: int = 3
     ) -> None:
         """Raise a CRS mismatch error or warning with the information
         on the assigned CRS.
         """
-        srs = _format_crs(self.crs, max_width=50)
-        other_srs = _format_crs(other_crs, max_width=50)
+        srs = xproj.format_crs(self.crs, max_width=50)
+        other_srs = xproj.format_crs(other_crs, max_width=50)
 
         # TODO: expand message with reproject suggestion
         msg = (
@@ -152,7 +135,7 @@ class GeometryIndex(Index):
         positions: Iterable[Iterable[int]] | None = None,
     ) -> GeometryIndex:
         crs_set = {idx.crs for idx in indexes}
-        crs = _get_common_crs(crs_set)
+        crs = xproj.get_common_crs(crs_set)
 
         indexes_ = [idx._index for idx in indexes]
         index = PandasIndex.concat(indexes_, dim, positions)
@@ -232,14 +215,14 @@ class GeometryIndex(Index):
     ) -> bool:
         if not isinstance(other, GeometryIndex):
             return False
-        if not self._check_crs(other.crs, allow_none=True):
+        if not self._proj_crs_equals(other, allow_none=True):
             return False
         return self._index.equals(other._index, exclude=exclude)
 
     def join(
         self: GeometryIndex, other: GeometryIndex, how: str = "inner"
     ) -> GeometryIndex:
-        if not self._check_crs(other.crs, allow_none=True):
+        if not self._proj_crs_equals(other, allow_none=True):
             self._crs_mismatch_raise(other.crs)
 
         index = self._index.join(other._index, how=how)
@@ -251,7 +234,7 @@ class GeometryIndex(Index):
         method: str | None = None,
         tolerance: int | float | Iterable[int | float] | None = None,
     ) -> dict[Hashable, Any]:
-        if not self._check_crs(other.crs, allow_none=True):
+        if not self._proj_crs_equals(other, allow_none=True):
             self._crs_mismatch_raise(other.crs)
 
         return self._index.reindex_like(
@@ -273,11 +256,11 @@ class GeometryIndex(Index):
         if max_width is None:
             max_width = get_options()["display_width"]
 
-        srs = _format_crs(self.crs, max_width=max_width)
+        srs = xproj.format_crs(self.crs, max_width=max_width)
         return f"{self.__class__.__name__} (crs={srs})"
 
     def __repr__(self) -> str:
-        srs = _format_crs(self.crs)
+        srs = xproj.format_crs(self.crs)
         shape = self._index.index.shape[0]
         if shape == 0:
             return f"GeometryIndex([], crs={srs})"

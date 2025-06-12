@@ -51,9 +51,7 @@ def test_concat(geom_dataset, geom_array, geom_dataset_no_index, geom_dataset_no
     xr.testing.assert_identical(actual, expected)
 
     # mixed CRS / no CRS
-    with pytest.warns(
-        UserWarning, match="CRS not set for some of the concatenation inputs"
-    ):
+    with pytest.warns(UserWarning, match="CRS is undefined for some of the inputs"):
         xr.concat([geom_dataset, geom_dataset_no_crs], "geom")
 
 

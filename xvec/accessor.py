@@ -9,10 +9,12 @@ import numpy as np
 import pandas as pd
 import shapely
 import xarray as xr
-from pyproj import CRS, Transformer
+import xproj  # noqa: F401
+from pyproj import CRS
 
 from .index import GeometryIndex
 from .plotting import _plot
+from .utils import transform_geom
 from .zonal import (
     _variable_zonal,
     _zonal_stats_exactextract,
@@ -22,13 +24,6 @@ from .zonal import (
 
 if TYPE_CHECKING:
     from geopandas import GeoDataFrame
-
-try:
-    import xproj  # noqa: F401
-
-    HAS_XPROJ = True
-except ImportError:
-    HAS_XPROJ = False
 
 
 @xr.register_dataarray_accessor("xvec")
@@ -361,7 +356,7 @@ class XvecAccessor:
                     "handling projection information."
                 )
 
-            data = _obj[key]
+            data = _obj[key].data
             data_crs = self._obj.xindexes[key].crs  # type: ignore
 
             # transformation code taken from geopandas (BSD 3-clause license)
@@ -376,25 +371,7 @@ class XvecAccessor:
             if data_crs.is_exact_same(crs):
                 pass
 
-            transformer = Transformer.from_crs(data_crs, crs, always_xy=True)
-
-            has_z = shapely.has_z(data)
-
-            result = np.empty_like(data)
-
-            coordinates = shapely.get_coordinates(data[~has_z], include_z=False)
-            new_coords = transformer.transform(coordinates[:, 0], coordinates[:, 1])
-            result[~has_z] = shapely.set_coordinates(
-                data[~has_z].copy(), np.array(new_coords).T
-            )
-
-            coords_z = shapely.get_coordinates(data[has_z], include_z=True)
-            new_coords_z = transformer.transform(
-                coords_z[:, 0], coords_z[:, 1], coords_z[:, 2]
-            )
-            result[has_z] = shapely.set_coordinates(
-                data[has_z].copy(), np.array(new_coords_z).T
-            )
+            result = transform_geom(data, data_crs, crs)
 
             transformed[key] = (result, crs)
 
@@ -973,9 +950,7 @@ class XvecAccessor:
 
         if geometry is not None:
             if geometry not in self._geom_coords_all:  # variable geometry
-                return df.set_geometry(
-                    geometry, crs=self._obj.proj.crs if HAS_XPROJ else None
-                )
+                return df.set_geometry(geometry, crs=self._obj.proj.crs)
 
             # coordinate geometry
             return df.set_geometry(
@@ -987,7 +962,7 @@ class XvecAccessor:
             name if name else (self._obj.name if hasattr(self._obj, "name") else None)
         )
         if name is not None and shapely.is_valid_input(df[name]).all():
-            return df.set_geometry(name, crs=self._obj.proj.crs if HAS_XPROJ else None)
+            return df.set_geometry(name, crs=self._obj.proj.crs)
 
         warnings.warn(
             "No active geometry column to be set. The resulting object "
@@ -1525,7 +1500,7 @@ class XvecAccessor:
         if isinstance(obj, xr.DataArray):
             if np.all(shapely.is_valid_input(obj.data)):
                 obj = shapely.to_wkb(obj)
-                if HAS_XPROJ and obj.proj.crs:
+                if obj.proj.crs:
                     obj.attrs["crs"] = obj.proj.crs.to_json()
                 obj.attrs["wkb_encoded_geometry"] = True
 
@@ -1533,7 +1508,7 @@ class XvecAccessor:
             for data in obj.data_vars:
                 if np.all(shapely.is_valid_input(obj[data].data)):
                     obj[data] = shapely.to_wkb(obj[data])
-                    if HAS_XPROJ and obj[data].proj.crs:
+                    if obj[data].proj.crs:
                         obj[data].attrs["crs"] = obj[data].proj.crs.to_json()
                     obj[data].attrs["wkb_encoded_geometry"] = True
 
@@ -1565,7 +1540,7 @@ class XvecAccessor:
         if isinstance(obj, xr.DataArray):
             if obj.attrs.get("wkb_encoded_geometry", False):
                 obj.data = shapely.from_wkb(obj)
-                if HAS_XPROJ and "crs" in obj.attrs:
+                if "crs" in obj.attrs:
                     obj = obj.proj.assign_crs(
                         spatial_ref=json.loads(obj.attrs.pop("crs")),
                         allow_override=True,
@@ -1576,7 +1551,7 @@ class XvecAccessor:
             for data in obj.data_vars:
                 if obj[data].attrs.get("wkb_encoded_geometry", False):
                     obj[data].data = shapely.from_wkb(obj[data])
-                    if HAS_XPROJ and "crs" in obj[data].attrs:
+                    if "crs" in obj[data].attrs:
                         obj = obj.proj.assign_crs(
                             spatial_ref=json.loads(obj[data].attrs.pop("crs")),
                             allow_override=True,
@@ -1675,9 +1650,7 @@ class XvecAccessor:
         return (
             self._obj.assign_coords(summary_geometry=(dim, summary))
             .set_xindex("summary_geometry")
-            .xvec.set_geom_indexes(
-                "summary_geometry", crs=self._obj.proj.crs if HAS_XPROJ else None
-            )
+            .xvec.set_geom_indexes("summary_geometry", crs=self._obj.proj.crs)
         )
 
     def plot(
