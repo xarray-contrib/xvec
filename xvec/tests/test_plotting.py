@@ -82,7 +82,7 @@ def test_1d(aggregated):
     baseline_images=["void_dimension"], extensions=["png"], style=[], tol=0.01
 )
 def test_void_dimension():
-    ds = xr.tutorial.open_dataset("eraint_uvz")
+    ds = xr.tutorial.open_dataset("eraint_uvz").load()
     counties = gpd.read_file(geodatasets.get_path("geoda natregimes")).to_crs(4326)
 
     ds.sel(month=1, level=[200]).z.xvec.zonal_stats(
@@ -95,7 +95,7 @@ def test_void_dimension():
 
 @image_comparison(baseline_images=["unnamed"], extensions=["png"], style=[], tol=0.01)
 def test_unnamed():
-    ds = xr.tutorial.open_dataset("eraint_uvz")
+    ds = xr.tutorial.open_dataset("eraint_uvz").load()
     counties = gpd.read_file(geodatasets.get_path("geoda natregimes")).to_crs(4326)
 
     arr = ds.sel(month=1, level=[200]).z
