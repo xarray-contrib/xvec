@@ -10,10 +10,11 @@ import pandas as pd
 import shapely
 import xarray as xr
 import xproj  # noqa: F401
-from pyproj import CRS, Transformer
+from pyproj import CRS
 
 from .index import GeometryIndex
 from .plotting import _plot
+from .utils import transform_geom
 from .zonal import (
     _variable_zonal,
     _zonal_stats_exactextract,
@@ -355,7 +356,7 @@ class XvecAccessor:
                     "handling projection information."
                 )
 
-            data = _obj[key]
+            data = _obj[key].data
             data_crs = self._obj.xindexes[key].crs  # type: ignore
 
             # transformation code taken from geopandas (BSD 3-clause license)
@@ -370,25 +371,7 @@ class XvecAccessor:
             if data_crs.is_exact_same(crs):
                 pass
 
-            transformer = Transformer.from_crs(data_crs, crs, always_xy=True)
-
-            has_z = shapely.has_z(data)
-
-            result = np.empty_like(data)
-
-            coordinates = shapely.get_coordinates(data[~has_z], include_z=False)
-            new_coords = transformer.transform(coordinates[:, 0], coordinates[:, 1])
-            result[~has_z] = shapely.set_coordinates(
-                data[~has_z].copy(), np.array(new_coords).T
-            )
-
-            coords_z = shapely.get_coordinates(data[has_z], include_z=True)
-            new_coords_z = transformer.transform(
-                coords_z[:, 0], coords_z[:, 1], coords_z[:, 2]
-            )
-            result[has_z] = shapely.set_coordinates(
-                data[has_z].copy(), np.array(new_coords_z).T
-            )
+            result = transform_geom(data, data_crs, crs)
 
             transformed[key] = (result, crs)
 

@@ -13,6 +13,8 @@ from xarray import DataArray, Variable, get_options
 from xarray.core.indexing import IndexSelResult
 from xarray.indexes import Index, PandasIndex
 
+from xvec.utils import transform_geom
+
 
 class GeometryIndex(Index, xproj.ProjIndexMixin):
     """An CRS-aware, Xarray-compatible index for vector geometries.
@@ -56,6 +58,30 @@ class GeometryIndex(Index, xproj.ProjIndexMixin):
         :class:`pyproj.crs.CRS` object.
         """
         return self._crs
+
+    def _proj_set_crs(
+        self: GeometryIndex, spatial_ref: Hashable, crs: CRS
+    ) -> GeometryIndex:
+        # Returns a geometry index shallow copy with a replaced CRS, without transformation
+        # (XProj integration via xproj.ProjIndexMixin)
+        # Note: XProj already handles the case of overriding any existing CRS
+        return GeometryIndex(self._index, crs=crs)
+
+    def _proj_to_crs(
+        self: GeometryIndex, spatial_ref: Hashable, crs: CRS
+    ) -> GeometryIndex:
+        # Returns a new geometry index with a replaced CRS and transformed geometries
+        # (XProj integration via xproj.ProjIndexMixin)
+        # Note: XProj already handles the case of overriding any existing CRS
+
+        # XProj redirects to `._proj_set_crs()` if this index's CRS is undefined
+        assert self.crs is not None
+
+        result = transform_geom(np.asarray(self._index.index), self.crs, crs)
+        index = PandasIndex(
+            result, self._index.dim, coord_dtype=self._index.coord_dtype
+        )
+        return GeometryIndex(index, crs=crs)
 
     @property
     def sindex(self) -> shapely.STRtree:
