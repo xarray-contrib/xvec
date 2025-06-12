@@ -227,12 +227,14 @@ class GeometryIndex(Index):
             # (see https://github.com/pydata/xarray/issues/7099)
             return self._sel_sindex(labels, method, tolerance)  # type: ignore
 
-    def equals(self, other: Index) -> bool:
+    def equals(
+        self, other: Index, *, exclude: frozenset[Hashable] | None = None
+    ) -> bool:
         if not isinstance(other, GeometryIndex):
             return False
         if not self._check_crs(other.crs, allow_none=True):
             return False
-        return self._index.equals(other._index)
+        return self._index.equals(other._index, exclude=exclude)
 
     def join(
         self: GeometryIndex, other: GeometryIndex, how: str = "inner"
