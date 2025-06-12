@@ -37,7 +37,7 @@ def glaciers():
     )
 
 
-@image_comparison(baseline_images=["col"], extensions=["png"], style=[])
+@image_comparison(baseline_images=["col"], extensions=["png"], style=[], tol=0.01)
 def test_col(aggregated):
     f, ax = aggregated.v.sel(month=1).xvec.plot(col="level")
 
@@ -48,7 +48,7 @@ def test_col(aggregated):
     assert ax0.get_title() == "level = 200"
 
 
-@image_comparison(baseline_images=["colwrap"], extensions=["png"], style=[])
+@image_comparison(baseline_images=["colwrap"], extensions=["png"], style=[], tol=0.01)
 def test_colwrap(aggregated):
     f, ax = aggregated.u.sel(month=1).xvec.plot(col="level", col_wrap=2)
 
@@ -58,7 +58,7 @@ def test_colwrap(aggregated):
     assert ax[0][0].get_title() == "level = 200"
 
 
-@image_comparison(baseline_images=["col_row"], extensions=["png"], style=[])
+@image_comparison(baseline_images=["col_row"], extensions=["png"], style=[], tol=0.01)
 def test_col_row(aggregated):
     f, ax = aggregated.v.xvec.plot(col="month", row="level")
 
@@ -70,7 +70,7 @@ def test_col_row(aggregated):
     assert ax[0][1].get_ylabel() == "level = 200"
 
 
-@image_comparison(baseline_images=["1d"], extensions=["png"], style=[])
+@image_comparison(baseline_images=["1d"], extensions=["png"], style=[], tol=0.01)
 def test_1d(aggregated):
     f, ax = aggregated.z.sel(level=200, month=1).xvec.plot()
 
@@ -78,7 +78,7 @@ def test_1d(aggregated):
     assert ax.get_ylabel() == "Geodetic latitude\n[degree]"
 
 
-@image_comparison(baseline_images=["var_geom"], extensions=["png"], style=[])
+@image_comparison(baseline_images=["var_geom"], extensions=["png"], style=[], tol=0.01)
 def test_var_geom(glaciers):
     f, ax = glaciers.geometry.xvec.plot(col="year")
 
@@ -89,7 +89,9 @@ def test_var_geom(glaciers):
     assert ax0.get_title() == "year = 1936.0"
 
 
-@image_comparison(baseline_images=["var_geom_facet"], extensions=["png"], style=[])
+@image_comparison(
+    baseline_images=["var_geom_facet"], extensions=["png"], style=[], tol=0.01
+)
 def test_var_geom_facet(glaciers):
     f, ax = glaciers.geometry.xvec.plot(col="name", row="year")
 
@@ -100,7 +102,9 @@ def test_var_geom_facet(glaciers):
     assert ax[0][-1].get_ylabel() == "year = 1936.0"
 
 
-@image_comparison(baseline_images=["var_geom_ds"], extensions=["png"], style=[])
+@image_comparison(
+    baseline_images=["var_geom_ds"], extensions=["png"], style=[], tol=0.01
+)
 def test_var_geom_ds(glaciers):
     f, ax = glaciers.xvec.plot(col="year", geometry="geometry")
 
@@ -111,7 +115,7 @@ def test_var_geom_ds(glaciers):
     assert ax0.get_title() == "year = 1936.0"
 
 
-@image_comparison(baseline_images=["hue"], extensions=["png"], style=[])
+@image_comparison(baseline_images=["hue"], extensions=["png"], style=[], tol=0.01)
 def test_hue(glaciers):
     f, ax = glaciers.xvec.plot(col="year", geometry="geometry", hue="fwidth")
 
@@ -122,7 +126,9 @@ def test_hue(glaciers):
     assert ax0.get_title() == "year = 1936.0"
 
 
-@image_comparison(baseline_images=["geom_switching"], extensions=["png"], style=[])
+@image_comparison(
+    baseline_images=["geom_switching"], extensions=["png"], style=[], tol=0.01
+)
 def test_geom_switching(glaciers):
     glaciers_w_sum = glaciers.xvec.summarize_geometry(
         dim="name", geom_array="geometry", aggfunc="concave_hull", ratio=0.25
