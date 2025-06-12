@@ -281,8 +281,18 @@ def _plot(
         cmap_params = {}
 
     # Handle simple case - single geometry with no faceting
-    if not col and isinstance(arr, xr.DataArray) and arr.ndim == 1:
-        arr.xvec.to_geodataframe(geometry=geometry).plot(arr.values, ax=axs, **kwargs)
+    if not col and isinstance(arr, xr.DataArray) and n_cols == 1 and n_rows == 1:
+        if arr.ndim == 2:
+            arr = arr.squeeze()
+        arr.xvec.to_geodataframe(geometry=geometry, name="plotting").plot(
+            arr.values,
+            ax=axs,
+            vmin=cmap_params.get("vmin", None),
+            vmax=cmap_params.get("vmax", None),
+            cmap=cmap_params.get("cmap", None),
+            categories=cmap_params.get("categories", None),
+            **kwargs,
+        )
         axs.set_xlabel(x_label, fontsize="small")
         axs.set_ylabel(y_label, fontsize="small")
 
@@ -298,7 +308,7 @@ def _plot(
         return fig, axs
 
     if not col and geometry in arr.xvec._geom_coords_all:
-        arr[geometry].drop_vars([geometry]).xvec.to_geodataframe().plot(
+        arr[geometry].drop_vars([geometry]).xvec.to_geodataframe(name="plotting").plot(
             ax=axs, **kwargs
         )
         axs.set_xlabel(x_label, fontsize="small")
