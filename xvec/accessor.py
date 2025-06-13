@@ -985,6 +985,7 @@ class XvecAccessor:
         method: str = "rasterize",
         all_touched: bool = False,
         n_jobs: int = -1,
+        nodata: Any = None,
         **kwargs: dict[str, Any],
     ) -> xr.DataArray | xr.Dataset:
         """Extract the values from a dataset indexed by a set of geometries
@@ -1062,6 +1063,9 @@ class XvecAccessor:
             Number of parallel threads to use. It is recommended to set this to the
             number of physical cores of the CPU. ``-1`` uses all available cores.
             Applies only if ``method="iterate"``.
+        nodata : Any
+            Value representing missing data. If not specified, the value is included in
+            the aggregation.
         **kwargs : optional
             Keyword arguments to be passed to the aggregation function
             (e.g., ``Dataset.quantile(**kwargs)``).
@@ -1152,6 +1156,7 @@ class XvecAccessor:
                 y_coords=y_coords,
                 stats=stats,
                 all_touched=all_touched,
+                nodata=nodata,
             )
 
         if method == "rasterize":
@@ -1163,6 +1168,7 @@ class XvecAccessor:
                 stats=stats,
                 name=name,
                 all_touched=all_touched,
+                nodata=nodata,
                 **kwargs,
             )
         elif method == "iterate":
@@ -1175,6 +1181,7 @@ class XvecAccessor:
                 name=name,
                 all_touched=all_touched,
                 n_jobs=n_jobs,
+                nodata=nodata,
                 **kwargs,
             )
         elif method == "exactextract":
@@ -1185,6 +1192,7 @@ class XvecAccessor:
                 y_coords=y_coords,
                 stats=stats,
                 name=name,
+                nodata=nodata,
                 **kwargs,
             )
         else:

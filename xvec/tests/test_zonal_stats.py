@@ -456,3 +456,19 @@ def test_exactextract_strategy():
             method="exactextract",
             strategy="invalid_strategy",
         )
+
+
+@pytest.mark.parametrize("method", ["rasterize", "iterate", "exactextract"])
+def test_nodata(method):
+    ds = xr.tutorial.open_dataset("eraint_uvz")
+    world = gpd.read_file(geodatasets.get_path("naturalearth land"))
+
+    arr = ds.z.where(ds.z > ds.z.mean(), -9999)
+    unmasked = arr.xvec.zonal_stats(
+        world.geometry, "longitude", "latitude", method=method
+    )
+    masked = arr.xvec.zonal_stats(
+        world.geometry, "longitude", "latitude", method=method, nodata=-9999
+    )
+
+    assert unmasked.mean() < masked.mean()

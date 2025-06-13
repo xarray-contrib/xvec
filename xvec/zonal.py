@@ -33,6 +33,7 @@ def _zonal_stats_rasterize(
     stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
     name: str = "geometry",
     all_touched: bool = False,
+    nodata: Any = None,
     **kwargs,
 ) -> xr.DataArray | xr.Dataset:
     try:
@@ -70,6 +71,11 @@ def _zonal_stats_rasterize(
     unique.remove(length)
 
     obj = acc._obj.copy()
+
+    # mask out nodata - note that this casts whole array to float
+    if nodata is not None:
+        obj = obj.where(obj != nodata)
+
     if isinstance(obj, xr.Dataset):
         obj = obj.assign_coords(
             __labels__=xr.DataArray(labels, dims=(y_coords, x_coords))
@@ -124,6 +130,7 @@ def _zonal_stats_iterative(
     name: str = "geometry",
     all_touched: bool = False,
     n_jobs: int = -1,
+    nodata: Any = None,
     **kwargs: dict[str, Any],
 ) -> xr.DataArray | xr.Dataset:
     """Extract the values from a dataset indexed by a set of geometries
@@ -158,6 +165,9 @@ def _zonal_stats_iterative(
     n_jobs : int, optional
         Number of parallel threads to use.
         It is recommended to set this to the number of physical cores in the CPU.
+    nodata : Any
+        Value representing missing data. If not specified, the value is included in
+        the aggregation.
     **kwargs : optional
         Keyword arguments to be passed to the aggregation function
         (as ``Dataset.mean(**kwargs)``).
@@ -198,6 +208,7 @@ def _zonal_stats_iterative(
             y_coords,
             stats=stats,
             all_touched=all_touched,
+            nodata=nodata,
             **kwargs,
         )
         for geom in geometry
@@ -224,6 +235,7 @@ def _agg_geom(
     y_coords: str | None = None,
     stats: str | Callable | Iterable[str | Callable | tuple] = "mean",
     all_touched: bool = False,
+    nodata: Any = None,
     **kwargs,
 ):
     """Aggregate the values from a dataset over a polygon geometry.
@@ -250,6 +262,9 @@ def _agg_geom(
         If True, all pixels touched by geometries will be considered. If False, only
         pixels whose center is within the polygon or that are selected by
         Bresenham’s line algorithm will be considered.
+    nodata : Any
+        Value representing missing data. If not specified, the value is included in
+        the aggregation.
 
     Returns
     -------
@@ -270,6 +285,8 @@ def _agg_geom(
         all_touched=all_touched,
     )
     masked = acc._obj.where(xr.DataArray(mask, dims=(y_coords, x_coords)))
+    if nodata is not None:
+        masked = masked.where(masked != nodata)
     if pd.api.types.is_list_like(stats):
         agg = {}
         for stat in stats:  # type: ignore
@@ -309,6 +326,7 @@ def _zonal_stats_exactextract(
     y_coords: Hashable,
     stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
     name: str = "geometry",
+    nodata: Any = None,
     **kwargs,
 ) -> xr.DataArray | xr.Dataset:
     """Extract the values from a dataset indexed by a set of geometries
@@ -334,6 +352,9 @@ def _zonal_stats_exactextract(
         ``"quantile(q=0.20)"``)
     name : str, optional
         Name of the dimension that will hold the ``geometry``, by default "geometry"
+    nodata : Any
+        Value representing missing data. If not specified, the value is included in
+        the aggregation.
 
     Returns
     -------
@@ -372,6 +393,7 @@ def _zonal_stats_exactextract(
             stats,
             name,
             original_is_ds,
+            nodata=nodata,
             **kwargs,
         )
         i = 0
@@ -410,6 +432,7 @@ def _zonal_stats_exactextract(
             stats,
             name,
             original_is_ds,
+            nodata=nodata,
             **kwargs,
         )
         # Unstack the result
@@ -447,6 +470,7 @@ def _agg_exactextract(
     name: str = "geometry",
     original_is_ds: bool = False,
     strategy: str = "feature-sequential",
+    nodata: Any = None,
 ):
     """Extract the values from a dataset indexed by a set of geometries
 
@@ -476,6 +500,9 @@ def _agg_exactextract(
         If True, all pixels touched by geometries will be considered. If False, only
         pixels whose center is within the polygon or that are selected by
         Bresenham’s line algorithm will be considered.
+    nodata : Any
+        Value representing missing data. If not specified, the value is included in
+        the aggregation.
     strategy : str, optional
         The strategy to use for the extraction, by default "feature-sequential"
         Use either "feature-sequential" and "raster-sequential".
@@ -511,6 +538,10 @@ def _agg_exactextract(
     # Check the order of dimensions
     data = data.transpose("location", y_coords, x_coords)
 
+    # mask nodata
+    if nodata is not None:
+        data = data.where(data != nodata)
+
     # Aggregation result
     gdf = gpd.GeoDataFrame(geometry=geometry, crs=crs)
     results = exactextract.exact_extract(
@@ -537,7 +568,16 @@ def _agg_exactextract(
 
 
 def _get_mean(
-    geom_arr, obj, x_coords, y_coords, transform, all_touched, stats, dims, **kwargs
+    geom_arr,
+    obj,
+    x_coords,
+    y_coords,
+    transform,
+    all_touched,
+    stats,
+    dims,
+    nodata,
+    **kwargs,
 ):
     from rasterio import features
 
@@ -552,6 +592,10 @@ def _get_mean(
         all_touched=all_touched,
     )
     masked = obj.where(xr.DataArray(mask, dims=(y_coords, x_coords)))
+
+    if nodata is not None:
+        masked = masked.where(masked != nodata)
+
     if pd.api.types.is_list_like(stats):
         agg = {}
         for stat in stats:  # type: ignore
@@ -589,6 +633,7 @@ def _variable_zonal(
     y_coords: Hashable,
     stats="mean",
     all_touched: bool = False,
+    nodata: Any = None,
 ):
     transform = acc._obj.rio.transform()
     dims = variable_geometry.dims
@@ -597,7 +642,7 @@ def _variable_zonal(
 
     for x in stacked:
         m = _get_mean(
-            x, acc._obj, x_coords, y_coords, transform, all_touched, stats, dims
+            x, acc._obj, x_coords, y_coords, transform, all_touched, stats, dims, nodata
         )
         m.name = "statistics"
         r.append(m)
