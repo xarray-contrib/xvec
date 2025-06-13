@@ -78,6 +78,37 @@ def test_1d(aggregated):
     assert ax.get_ylabel() == "Geodetic latitude\n[degree]"
 
 
+@image_comparison(
+    baseline_images=["void_dimension"], extensions=["png"], style=[], tol=0.01
+)
+def test_void_dimension():
+    ds = xr.tutorial.open_dataset("eraint_uvz").load()
+    counties = gpd.read_file(geodatasets.get_path("geoda natregimes")).to_crs(4326)
+
+    ds.sel(month=1, level=[200]).z.xvec.zonal_stats(
+        counties.geometry,
+        x_coords="longitude",
+        y_coords="latitude",
+        all_touched=True,
+    ).xvec.plot()
+
+
+@image_comparison(baseline_images=["unnamed"], extensions=["png"], style=[], tol=0.01)
+def test_unnamed():
+    ds = xr.tutorial.open_dataset("eraint_uvz").load()
+    counties = gpd.read_file(geodatasets.get_path("geoda natregimes")).to_crs(4326)
+
+    arr = ds.sel(month=1, level=[200]).z
+    arr.name = None
+
+    arr.xvec.zonal_stats(
+        counties.geometry,
+        x_coords="longitude",
+        y_coords="latitude",
+        all_touched=True,
+    ).sel(level=200).xvec.plot()
+
+
 @image_comparison(baseline_images=["var_geom"], extensions=["png"], style=[], tol=0.01)
 def test_var_geom(glaciers):
     f, ax = glaciers.geometry.xvec.plot(col="year")
