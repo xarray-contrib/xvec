@@ -133,7 +133,7 @@ def _plot_faceted(arr, axs, row, col, hue, geometry, cmap_params=None, **kwargs)
                 )
                 if i_r == 0:
                     axs[0, i_c].set_title(
-                        f"{col} = {arr[col][i_c].item()}", fontsize="small"
+                        f"{col} = {arr[col][i_c].astype(str).item()}", fontsize="small"
                     )
                 if i_c == len(arr[col]) - 1:
                     axs[i_r, -1].yaxis.set_label_position("right")
@@ -154,7 +154,9 @@ def _plot_faceted(arr, axs, row, col, hue, geometry, cmap_params=None, **kwargs)
                 cmap_params,
                 **kwargs,
             )
-            axs_flat[i_c].set_title(f"{col} = {arr[col][i_c].item()}", fontsize="small")
+            axs_flat[i_c].set_title(
+                f"{col} = {arr[col][i_c].astype(str).item()}", fontsize="small"
+            )
         return arr[col].shape[0]  # Return used axes count
 
 
