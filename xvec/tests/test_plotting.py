@@ -1,5 +1,6 @@
 import geodatasets
 import geopandas as gpd
+import pandas as pd
 import pytest
 import xarray as xr
 import xproj  # noqa: F401
@@ -30,6 +31,7 @@ def glaciers():
     glaciers_df = gpd.read_file(
         "https://github.com/loreabad6/post/raw/refs/heads/main/inst/extdata/svalbard.gpkg"
     )
+    glaciers_df["year"] = pd.to_datetime(glaciers_df["year"].astype(int), format="%Y")
     return (
         glaciers_df.set_index(["name", "year"])
         .to_xarray()
@@ -117,7 +119,7 @@ def test_var_geom(glaciers):
     ax0 = ax[0][0]
     assert ax0.get_xlabel() == "Easting\n[metre]"
     assert ax0.get_ylabel() == "Northing\n[metre]"
-    assert ax0.get_title() == "year = 1936.0"
+    assert ax0.get_title() == "year = 1936-01-01"
 
 
 @image_comparison(
@@ -130,7 +132,7 @@ def test_var_geom_facet(glaciers):
     assert ax[2][0].get_xlabel() == "Easting\n[metre]"
     assert ax[0][0].get_ylabel() == "Northing\n[metre]"
     assert ax[0][0].get_title() == "name = Austre Brøggerbreen"
-    assert ax[0][-1].get_ylabel() == "year = 1936.0"
+    assert ax[0][-1].get_ylabel() == "year = 1936-01-01"
 
 
 @image_comparison(
@@ -143,7 +145,7 @@ def test_var_geom_ds(glaciers):
     ax0 = ax[0][0]
     assert ax0.get_xlabel() == "Easting\n[metre]"
     assert ax0.get_ylabel() == "Northing\n[metre]"
-    assert ax0.get_title() == "year = 1936.0"
+    assert ax0.get_title() == "year = 1936-01-01"
 
 
 @image_comparison(baseline_images=["hue"], extensions=["png"], style=[], tol=0.01)
@@ -154,7 +156,7 @@ def test_hue(glaciers):
     ax0 = ax[0][0]
     assert ax0.get_xlabel() == "Easting\n[metre]"
     assert ax0.get_ylabel() == "Northing\n[metre]"
-    assert ax0.get_title() == "year = 1936.0"
+    assert ax0.get_title() == "year = 1936-01-01"
 
 
 @image_comparison(
@@ -183,7 +185,7 @@ def test_categorical(glaciers):
     ax0 = ax[0][0]
     assert ax0.get_xlabel() == "Easting\n[metre]"
     assert ax0.get_ylabel() == "Northing\n[metre]"
-    assert ax0.get_title() == "year = 1936.0"
+    assert ax0.get_title() == "year = 1936-01-01"
 
 
 @image_comparison(
