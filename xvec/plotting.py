@@ -5,6 +5,7 @@ import numpy as np
 import shapely
 import xarray as xr
 import xproj  # noqa: F401
+from xarray.core.formatting import format_item
 from xarray.plot.utils import _determine_cmap_params, label_from_attrs
 
 
@@ -122,7 +123,7 @@ def _plot_faceted(arr, axs, row, col, hue, geometry, cmap_params=None, **kwargs)
         for i_r, row_val in enumerate(arr[row]):
             for i_c, col_val in enumerate(arr[col]):
                 _plot_single_panel(
-                    arr.sel({row: [row_val.item()], col: [col_val.item()]}).drop_vars(
+                    arr.sel({row: [row_val.values], col: [col_val.values]}).drop_vars(
                         [col, row]
                     ),
                     axs[i_r, i_c],
@@ -133,12 +134,13 @@ def _plot_faceted(arr, axs, row, col, hue, geometry, cmap_params=None, **kwargs)
                 )
                 if i_r == 0:
                     axs[0, i_c].set_title(
-                        f"{col} = {arr[col][i_c].astype(str).item()}", fontsize="small"
+                        f"{col} = {format_item(arr[col][i_c].values)}",
+                        fontsize="small",
                     )
                 if i_c == len(arr[col]) - 1:
                     axs[i_r, -1].yaxis.set_label_position("right")
                     axs[i_r, -1].set_ylabel(
-                        f"{row} = {arr[row][i_r].item()}",
+                        f"{row} = {format_item(arr[row][i_r].values)}",
                         fontsize="small",
                         rotation=270,
                         labelpad=12,
@@ -155,7 +157,7 @@ def _plot_faceted(arr, axs, row, col, hue, geometry, cmap_params=None, **kwargs)
                 **kwargs,
             )
             axs_flat[i_c].set_title(
-                f"{col} = {arr[col][i_c].astype(str).item()}", fontsize="small"
+                f"{col} = {format_item(arr[col][i_c].values)}", fontsize="small"
             )
         return arr[col].shape[0]  # Return used axes count
 
