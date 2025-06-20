@@ -658,7 +658,8 @@ class XvecAccessor:
         xr.DataArray
             A DataArray with the same shape as the original, where the elements matching the predicate are set to True.
         """
-        cube_data = self._obj.data.ravel()
+        # need to replace nan with None
+        cube_data = self._obj.where(~self._obj.isnull(), None).data.ravel()
         tree = shapely.STRtree(cube_data)
         indices = tree.query(geometry, predicate=predicate, distance=distance)
         if indices.ndim == 1:

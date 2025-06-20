@@ -581,17 +581,22 @@ def _get_mean(
 ):
     from rasterio import features
 
-    mask = features.geometry_mask(
-        [geom_arr.item()],
-        out_shape=(
-            obj[y_coords].shape[0],
-            obj[x_coords].shape[0],
-        ),
-        transform=transform,
-        invert=True,
-        all_touched=all_touched,
-    )
-    masked = obj.where(xr.DataArray(mask, dims=(y_coords, x_coords)))
+    if pd.isna(geom_arr.item()):
+        masked = obj.where(
+            xr.DataArray(np.full_like(obj.data, False), dims=(y_coords, x_coords))
+        )
+    else:
+        mask = features.geometry_mask(
+            [geom_arr.item()],
+            out_shape=(
+                obj[y_coords].shape[0],
+                obj[x_coords].shape[0],
+            ),
+            transform=transform,
+            invert=True,
+            all_touched=all_touched,
+        )
+        masked = obj.where(xr.DataArray(mask, dims=(y_coords, x_coords)))
 
     if nodata is not None:
         masked = masked.where(masked != nodata)
