@@ -495,7 +495,7 @@ def _zonal_stats_exactextract(
 
 def _variable_zonal_exactextract(
     acc,
-    geometry: Sequence[shapely.Geometry] | xr.DataArray,
+    geometry: xr.DataArray,
     x_coords: Hashable,
     y_coords: Hashable,
     stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
@@ -612,8 +612,8 @@ def _variable_zonal_exactextract(
             ),
         )
 
-    if original_is_ds:
-        result = result.to_dataset("variable")
+    if original_is_ds and isinstance(result, xr.DataArray):
+        result = result.to_dataset("variable")  # type: ignore
         acc._obj = original_ds
 
     result.attrs = acc._obj.attrs
@@ -633,7 +633,7 @@ def _agg_exactextract(
     x_coords: Hashable,
     y_coords: Hashable,
     stats: str | Callable | Iterable[str | Callable | tuple] = "mean",
-    name: str = "geometry",
+    name: Hashable = "geometry",
     original_is_ds: bool = False,
     strategy: Literal["feature-sequential", "raster-sequential"] = "raster-sequential",
     nodata: Any = None,
