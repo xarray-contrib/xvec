@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import gc
 from collections.abc import Callable, Hashable, Iterable, Sequence
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -454,6 +454,10 @@ def _zonal_stats_exactextract(
 
     vec_cube.attrs = acc._obj.attrs
 
+    if isinstance(acc._obj, xr.Dataset):
+        for var in vec_cube.variables:
+            vec_cube[var].attrs = acc._obj[var].attrs
+
     if original_is_ds:
         acc._obj = original_ds
 
@@ -469,7 +473,7 @@ def _agg_exactextract(
     stats: str | Callable | Iterable[str | Callable | tuple] = "mean",
     name: str = "geometry",
     original_is_ds: bool = False,
-    strategy: str = "feature-sequential",
+    strategy: Literal["feature-sequential", "raster-sequential"] = "raster-sequential",
     nodata: Any = None,
 ):
     """Extract the values from a dataset indexed by a set of geometries
@@ -504,7 +508,7 @@ def _agg_exactextract(
         Value representing missing data. If not specified, the value is included in
         the aggregation.
     strategy : str, optional
-        The strategy to use for the extraction, by default "feature-sequential"
+        The strategy to use for the extraction, by default "raster-sequential"
         Use either "feature-sequential" and "raster-sequential".
 
     Returns
@@ -653,5 +657,7 @@ def _variable_zonal(
         r.append(m)
 
     combined = xr.combine_by_coords(r)
+
+    combined.attrs = acc._obj.attrs
 
     return combined

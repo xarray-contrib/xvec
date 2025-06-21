@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import warnings
 from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -987,6 +987,9 @@ class XvecAccessor:
         all_touched: bool = False,
         n_jobs: int = -1,
         nodata: Any = None,
+        strategy: Literal[
+            "feature-sequential", "raster-sequential"
+        ] = "raster-sequential",
         **kwargs: dict[str, Any],
     ) -> xr.DataArray | xr.Dataset:
         """Extract the values from a dataset indexed by a set of geometries
@@ -1067,6 +1070,10 @@ class XvecAccessor:
         nodata : Any
             Value representing missing data. If not specified, the value is included in
             the aggregation.
+        strategy : str, optional
+            The strategy for ``exactextract`` method to use for the extraction, by
+            default "raster-sequential". Use either "feature-sequential" and
+            "raster-sequential". See :func:`exactextract.exact_extract` for details.
         **kwargs : optional
             Keyword arguments to be passed to the aggregation function
             (e.g., ``Dataset.quantile(**kwargs)``).
@@ -1194,6 +1201,7 @@ class XvecAccessor:
                 stats=stats,
                 name=name,
                 nodata=nodata,
+                strategy=strategy,
                 **kwargs,
             )
         else:
