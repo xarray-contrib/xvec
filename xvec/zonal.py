@@ -11,6 +11,35 @@ import xarray as xr
 from xarray.groupers import UniqueGrouper
 
 
+def _get_method(variable):
+    # Check for exactextract availability first (preferred method)
+    try:
+        import exactextract  # noqa: F401
+        import geopandas as gpd  # noqa: F401
+
+        return "exactextract"
+    except ImportError:
+        pass
+
+    # Fall back to rioxarray-based methods
+    try:
+        import rioxarray  # noqa: F401
+
+        if not variable:
+            return "rasterize"
+
+        # For variable geometry, need joblib
+        try:
+            import joblib  # noqa: F401
+
+            return "iterate"
+        except ImportError:
+            return ImportError
+
+    except ImportError:
+        raise ImportError("Insufficient dependencies to determine a method.")  # noqa: B904
+
+
 def _agg_rasterize(groups, stats, **kwargs):
     if isinstance(stats, str):
         return getattr(groups, stats)(**kwargs)
@@ -464,6 +493,139 @@ def _zonal_stats_exactextract(
     return vec_cube
 
 
+def _variable_zonal_exactextract(
+    acc,
+    geometry: Sequence[shapely.Geometry] | xr.DataArray,
+    x_coords: Hashable,
+    y_coords: Hashable,
+    stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
+    nodata: Any = None,
+    **kwargs,
+) -> xr.DataArray | xr.Dataset:
+    """Extract the values using variable geometry
+
+    The CRS of the raster and that of geometry need to be equal.
+    Xvec does not verify their equality.
+
+    Parameters
+    ----------
+    geometry : Sequence[shapely.Geometry]
+        An arrray-like (1-D) of shapely geometries, like a numpy array or
+        :class:`geopandas.GeoSeries`.
+    x_coords : Hashable
+        name of the coordinates containing ``x`` coordinates (i.e. the first value
+        in the coordinate pair encoding the vertex of the polygon)
+    y_coords : Hashable
+        name of the coordinates containing ``y`` coordinates (i.e. the second value
+        in the coordinate pair encoding the vertex of the polygon)
+    stats : Hashable
+        Spatial aggregation statistic method, by default "mean". Any of the
+        strings that can be used to construct :py:class:`Operation` objects
+        supported by :func:`exactextract.exact_extract` (e.g., ``"mean"``,
+        ``"quantile(q=0.20)"``)
+    nodata : Any
+        Value representing missing data. If not specified, the value is included in
+        the aggregation.
+
+    Returns
+    -------
+    Dataset | DataArray
+        A subset of the original object with N-1 dimensions indexed by
+        the the GeometryIndex.
+
+    """
+    if not geometry.proj.crs:
+        raise AttributeError(
+            "Geometry input does not have a Coordinate Reference System (CRS)."
+        )
+
+    if not hasattr(geometry, "name"):
+        raise AttributeError("Geometry input does not have a name.")
+
+    # the input should be xarray.DataArray (easier manipulation)
+    original_is_ds = False
+    if not isinstance(acc._obj, xr.core.dataarray.DataArray):
+        original_ds = acc._obj
+        acc._obj = acc._obj.to_dataarray()
+        original_is_ds = True
+
+    if isinstance(stats, str):
+        results, original_shape, _, _ = _agg_exactextract(
+            acc,
+            geometry.stack(all_coords=geometry.dims).data,
+            geometry.proj.crs,
+            x_coords,
+            y_coords,
+            stats,
+            geometry.name,
+            original_is_ds,
+            nodata=nodata,
+            **kwargs,
+        )
+        # Unstack the results
+        shape = list(geometry.shape) + original_shape[1:]
+        arr = results.values.reshape(shape)
+        coords = dict(geometry.coords) | dict(acc._obj.coords)
+        coords.pop(x_coords)
+        coords.pop(y_coords)
+
+        dims = list(geometry.dims + acc._obj.dims)
+        dims.remove(x_coords)
+        dims.remove(y_coords)
+
+        result = xr.DataArray(arr, coords=coords, dims=dims, name="zonal_statistics")
+
+    elif isinstance(stats, list):
+        results, original_shape, _, locs = _agg_exactextract(
+            acc,
+            geometry.stack(all_coords=geometry.dims).data,
+            geometry.proj.crs,
+            x_coords,
+            y_coords,
+            stats,
+            geometry.name,
+            original_is_ds,
+            nodata=nodata,
+            **kwargs,
+        )
+        shape = list(geometry.shape) + original_shape[1:]
+        coords = dict(geometry.coords) | dict(acc._obj.coords)
+        coords.pop(x_coords)
+        coords.pop(y_coords)
+        dims = list(geometry.dims + acc._obj.dims)
+        dims.remove(x_coords)
+        dims.remove(y_coords)
+
+        i = 0
+        agg = {}
+        for stat in stats:  # type: ignore
+            df = results.iloc[:, i : i + locs]
+            # Unstack the results
+
+            arr = df.values.reshape(shape)
+            agg[stat] = xr.DataArray(arr, coords=coords, dims=dims, name=stat)
+
+        result = xr.concat(
+            agg.values(),
+            dim=xr.DataArray(
+                list(agg.keys()), name="zonal_statistics", dims="zonal_statistics"
+            ),
+        )
+
+    if original_is_ds:
+        result = result.to_dataset("variable")
+        acc._obj = original_ds
+
+    result.attrs = acc._obj.attrs
+
+    if isinstance(acc._obj, xr.Dataset):
+        for var in acc._obj.variables:
+            if var not in (x_coords, y_coords):
+                result[var].attrs = acc._obj[var].attrs
+
+    return result
+
+
 def _agg_exactextract(
     acc,
     geometry,
@@ -632,6 +794,7 @@ def _get_mean(
     else:
         raise ValueError(f"{stats} is not a valid aggregation.")
     result = result.expand_dims({dim: [geom_arr[dim].item()] for dim in dims})
+
     return result
 
 
@@ -642,21 +805,42 @@ def _variable_zonal(
     y_coords: Hashable,
     stats="mean",
     all_touched: bool = False,
+    n_jobs: int = -1,
     nodata: Any = None,
 ):
+    try:
+        import rioxarray  # noqa: F401
+    except ImportError as err:
+        raise ImportError(
+            "The rioxarray package is required for `zonal_stats()`. "
+            "You can install it using 'conda install -c conda-forge rioxarray' or "
+            "'pip install rioxarray'."
+        ) from err
+
+    try:
+        from joblib import Parallel, delayed  # type: ignore
+    except ImportError as err:
+        raise ImportError(
+            "The joblib package is required for `xvec._spatial_agg()`. "
+            "You can install it using 'conda install -c conda-forge joblib' or "
+            "'pip install joblib'."
+        ) from err
     transform = acc._obj.rio.transform()
     dims = variable_geometry.dims
     stacked = variable_geometry.stack(all_coords=variable_geometry.dims)
     r = []
 
-    for x in stacked:
-        m = _get_mean(
+    r = Parallel(n_jobs=n_jobs)(
+        delayed(_get_mean)(
             x, acc._obj, x_coords, y_coords, transform, all_touched, stats, dims, nodata
         )
-        m.name = "statistics"
-        r.append(m)
+        for x in stacked
+    )
 
     combined = xr.combine_by_coords(r)
+
+    if isinstance(combined, xr.DataArray) and not combined.name:
+        combined.name = "zonal_statistics"
 
     combined.attrs = acc._obj.attrs
 
