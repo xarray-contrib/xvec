@@ -603,7 +603,7 @@ def _variable_zonal_exactextract(
             # Unstack the results
 
             arr = df.values.reshape(shape)
-            agg[stat] = xr.DataArray(arr, coords=coords, dims=dims, name=stat)
+            agg[stat] = xr.DataArray(arr, coords=coords, dims=dims)
 
         result = xr.concat(
             agg.values(),
