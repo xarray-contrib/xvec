@@ -30,7 +30,7 @@ def glaciers():
     return glaciers, sentinel_2
 
 
-@pytest.mark.parametrize("method", ["rasterize", "iterate", "exactextract"])
+@pytest.mark.parametrize("method", [None, "rasterize", "iterate", "exactextract"])
 def test_structure(method):
     da = xr.DataArray(
         np.ones((10, 10, 5)),
@@ -45,7 +45,7 @@ def test_structure(method):
     polygon2 = shapely.geometry.Polygon([(6, 22), (9, 22), (9, 29), (6, 26)])
     polygons = gpd.GeoSeries([polygon1, polygon2], crs="EPSG:4326")
 
-    if method == "exactextract":
+    if method in ["exactextract", None]:
         expected = xr.DataArray(
             np.array([[12.0] * 5, [16.5] * 5]),
             coords={
@@ -117,13 +117,13 @@ def test_match():
     xr.testing.assert_allclose(rasterize, iterate)
 
 
-@pytest.mark.parametrize("method", ["rasterize", "iterate", "exactextract"])
+@pytest.mark.parametrize("method", [None, "rasterize", "iterate", "exactextract"])
 def test_dataset(method):
     ds = xr.tutorial.open_dataset("eraint_uvz")
     world = gpd.read_file(geodatasets.get_path("naturalearth land"))
     result = ds.xvec.zonal_stats(world.geometry, "longitude", "latitude", method=method)
 
-    if method == "exactextract":
+    if method in ["exactextract", None]:
         xr.testing.assert_allclose(
             xr.Dataset(
                 {
@@ -147,7 +147,7 @@ def test_dataset(method):
         )
 
 
-@pytest.mark.parametrize("method", ["rasterize", "iterate", "exactextract"])
+@pytest.mark.parametrize("method", [None, "rasterize", "iterate", "exactextract"])
 def test_dataarray(method):
     ds = xr.tutorial.open_dataset("eraint_uvz")
     world = gpd.read_file(geodatasets.get_path("naturalearth land"))
@@ -157,13 +157,13 @@ def test_dataarray(method):
 
     assert result.shape == (127, 2, 3)
     assert result.dims == ("geometry", "month", "level")
-    if method == "exactextract":
+    if method in ["exactextract", None]:
         assert result.mean() == pytest.approx(61625.53438858)
     else:
         assert result.mean() == pytest.approx(61367.76185577)
 
 
-@pytest.mark.parametrize("method", ["rasterize", "iterate", "exactextract"])
+@pytest.mark.parametrize("method", [None, "rasterize", "iterate", "exactextract"])
 def test_stat(method):
     ds = xr.tutorial.open_dataset("eraint_uvz")
     world = gpd.read_file(geodatasets.get_path("naturalearth land"))
@@ -174,7 +174,7 @@ def test_stat(method):
     median_ = ds.z.xvec.zonal_stats(
         world.geometry, "longitude", "latitude", method=method, stats="median"
     )
-    if method == "exactextract":
+    if method in ["exactextract", None]:
         quantile_ = ds.z.xvec.zonal_stats(
             world.geometry,
             "longitude",
@@ -192,7 +192,7 @@ def test_stat(method):
             q=0.2,
         )
 
-    if method == "exactextract":
+    if method in ["exactextract", None]:
         assert mean_.mean() == pytest.approx(61625.53438858)
         assert median_.mean() == pytest.approx(61628.67168691)
         assert quantile_.mean() == pytest.approx(61540.75632235)
@@ -308,11 +308,11 @@ def test_callable(method):
     xr.testing.assert_identical(da_agg, da_std)
 
 
-@pytest.mark.parametrize("method", ["rasterize", "iterate", "exactextract"])
+@pytest.mark.parametrize("method", [None, "rasterize", "iterate", "exactextract"])
 def test_multiple(method):
     ds = xr.tutorial.open_dataset("eraint_uvz")
     world = gpd.read_file(geodatasets.get_path("naturalearth land"))
-    if method == "exactextract":
+    if method in ["exactextract", None]:
         result = ds.xvec.zonal_stats(
             world.geometry[:10].boundary,
             "longitude",
@@ -366,7 +366,7 @@ def test_multiple(method):
         ).all()
 
 
-@pytest.mark.parametrize("method", ["rasterize", "iterate", "exactextract"])
+@pytest.mark.parametrize("method", [None, "rasterize", "iterate", "exactextract"])
 def test_invalid(method):
     ds = xr.tutorial.open_dataset("eraint_uvz")
     world = gpd.read_file(geodatasets.get_path("naturalearth land"))
@@ -394,7 +394,25 @@ def test_invalid(method):
         )
 
 
-def test_variable_geometry_multiple(glaciers):
+@pytest.mark.parametrize("method", [None, "iterate", "exactextract"])
+def test_variable_geometry_multiple(glaciers, method):
+    da, sentinel_2 = glaciers
+
+    result = sentinel_2.xvec.zonal_stats(
+        da.geometry,
+        x_coords="x",
+        y_coords="y",
+        stats=[
+            "mean",
+            "sum",
+        ],
+        method=method,
+    )
+
+    assert result.sizes == {"year": 3, "name": 5, "zonal_statistics": 2, "band": 11}
+
+
+def test_variable_geometry_iterate_custom(glaciers):
     da, sentinel_2 = glaciers
 
     result = sentinel_2.xvec.zonal_stats(
@@ -407,13 +425,15 @@ def test_variable_geometry_multiple(glaciers):
             ("numpymean", np.nanmean),
             np.nanmean,
         ],
+        method="iterate",
     )
 
     assert result.sizes == {"year": 3, "name": 5, "zonal_statistics": 4, "band": 11}
-    assert result.statistics.mean() == 17067828
+    assert result.mean() == 17067828
 
 
-def test_variable_geometry_single(glaciers):
+@pytest.mark.parametrize("method", [None, "iterate", "exactextract"])
+def test_variable_geometry_single(glaciers, method):
     da, sentinel_2 = glaciers
 
     result = sentinel_2.xvec.zonal_stats(
@@ -421,10 +441,15 @@ def test_variable_geometry_single(glaciers):
         x_coords="x",
         y_coords="y",
         stats="mean",
+        method=method,
     )
 
     assert result.sizes == {"year": 3, "name": 5, "band": 11}
-    assert result.statistics.mean() == 13168.585
+
+    if method in ("exactextract", None):
+        assert result.mean() == pytest.approx(13168.076)
+    else:
+        assert result.mean() == 13168.585
 
 
 def test_exactextract_strategy():
@@ -458,7 +483,7 @@ def test_exactextract_strategy():
         )
 
 
-@pytest.mark.parametrize("method", ["rasterize", "iterate", "exactextract"])
+@pytest.mark.parametrize("method", [None, "rasterize", "iterate", "exactextract"])
 def test_nodata(method):
     ds = xr.tutorial.open_dataset("eraint_uvz")
     world = gpd.read_file(geodatasets.get_path("naturalearth land"))

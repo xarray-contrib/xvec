@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import warnings
 from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -16,7 +16,9 @@ from .index import GeometryIndex
 from .plotting import _plot
 from .utils import transform_geom
 from .zonal import (
+    _get_method,
     _variable_zonal,
+    _variable_zonal_exactextract,
     _zonal_stats_exactextract,
     _zonal_stats_iterative,
     _zonal_stats_rasterize,
@@ -983,10 +985,13 @@ class XvecAccessor:
         stats: str | Callable | Sequence[str | Callable | tuple] = "mean",
         name: str = "geometry",
         index: bool | None = None,
-        method: str = "rasterize",
+        method: str | None = None,
         all_touched: bool = False,
         n_jobs: int = -1,
         nodata: Any = None,
+        strategy: Literal[
+            "feature-sequential", "raster-sequential"
+        ] = "raster-sequential",
         **kwargs: dict[str, Any],
     ) -> xr.DataArray | xr.Dataset:
         """Extract the values from a dataset indexed by a set of geometries
@@ -1002,10 +1007,10 @@ class XvecAccessor:
 
         Parameters
         ----------
-        geometry : Sequence[shapely.Geometry]
+        geometry : Sequence[shapely.Geometry] | xr.DataArray
             An arrray-like (1-D) of shapely geometries, like a numpy array or
-            :class:`geopandas.GeoSeries`. Polygon and LineString geometry types are
-            supported.
+            :class:`geopandas.GeoSeries` or xr.DataArray holding variable geometry.
+            Polygon and LineString geometry types are supported.
         x_coords : Hashable
             name of the coordinates containing ``x`` coordinates (i.e. the first value
             in the coordinate pair encoding the vertex of the polygon)
@@ -1042,7 +1047,8 @@ class XvecAccessor:
 
             ``"rasterize"``
                 uses :func:`rasterio.features.rasterize` and is faster, but can lead to
-                loss of information in case of small polygons or lines.
+                loss of information in case of small polygons or lines. Not supported
+                for zonal stats using variable geometry (n-D array of geometry).
 
             ``"iterate"``
                 iterates over geometries and uses
@@ -1054,7 +1060,8 @@ class XvecAccessor:
                 that is covered by the polygon and uses
                 :func:`exactextract.exact_extract`.
 
-            The default is ``"rasterize"``.
+            The default is selected based on the availability of engines in the order
+            of priority 1. ``"exactextract"``, 2. ``"rasterize"`` 3. ``"iterate"``.
         all_touched : bool, optional
             If True, all pixels touched by geometries will be considered. If False, only
             pixels whose center is within the polygon or that are selected by
@@ -1067,6 +1074,10 @@ class XvecAccessor:
         nodata : Any
             Value representing missing data. If not specified, the value is included in
             the aggregation.
+        strategy : str, optional
+            The strategy for ``exactextract`` method to use for the extraction, by
+            default "raster-sequential". Use either "feature-sequential" and
+            "raster-sequential". See :func:`exactextract.exact_extract` for details.
         **kwargs : optional
             Keyword arguments to be passed to the aggregation function
             (e.g., ``Dataset.quantile(**kwargs)``).
@@ -1149,16 +1160,39 @@ class XvecAccessor:
         --------
         extract_points : extraction of values for the raster object for points
         """
+
         if isinstance(geometry, xr.DataArray) and len(geometry.dims) > 1:
-            return _variable_zonal(
-                self,
-                variable_geometry=geometry,
-                x_coords=x_coords,
-                y_coords=y_coords,
-                stats=stats,
-                all_touched=all_touched,
-                nodata=nodata,
+            if method is None:
+                method = _get_method(variable=True)
+
+            if method == "iterate":
+                return _variable_zonal(
+                    self,
+                    variable_geometry=geometry,
+                    x_coords=x_coords,
+                    y_coords=y_coords,
+                    stats=stats,
+                    all_touched=all_touched,
+                    n_jobs=n_jobs,
+                    nodata=nodata,
+                )
+            if method == "exactextract":
+                return _variable_zonal_exactextract(
+                    self,
+                    geometry=geometry,
+                    x_coords=x_coords,
+                    y_coords=y_coords,
+                    stats=stats,
+                    nodata=nodata,
+                    strategy=strategy,
+                )
+            raise ValueError(
+                f"Method '{method}' is not supported for zonal statistics based on "
+                "variable geometry. Use one of `exactextract` or `iterate`."
             )
+
+        if method is None:
+            method = _get_method(variable=False)
 
         if method == "rasterize":
             result = _zonal_stats_rasterize(
@@ -1194,6 +1228,7 @@ class XvecAccessor:
                 stats=stats,
                 name=name,
                 nodata=nodata,
+                strategy=strategy,
                 **kwargs,
             )
         else:
