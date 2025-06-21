@@ -23,6 +23,7 @@ def aggregated():
         x_coords="longitude",
         y_coords="latitude",
         all_touched=True,
+        method="rasterize",
     )
 
 
@@ -92,6 +93,7 @@ def test_void_dimension():
         x_coords="longitude",
         y_coords="latitude",
         all_touched=True,
+        method="rasterize",
     ).xvec.plot()
 
 
@@ -108,6 +110,7 @@ def test_unnamed():
         x_coords="longitude",
         y_coords="latitude",
         all_touched=True,
+        method="rasterize",
     ).sel(level=200).xvec.plot()
 
 
