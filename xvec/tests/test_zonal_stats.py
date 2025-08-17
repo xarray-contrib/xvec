@@ -148,6 +148,36 @@ def test_dataset(method):
 
 
 @pytest.mark.parametrize("method", [None, "rasterize", "iterate", "exactextract"])
+def test_dataset_flat(method):
+    ds = xr.tutorial.open_dataset("eraint_uvz").isel(month=0).isel(level=0)
+    world = gpd.read_file(geodatasets.get_path("naturalearth land"))
+    result = ds.xvec.zonal_stats(world.geometry, "longitude", "latitude", method=method)
+
+    if method in ["exactextract", None]:
+        xr.testing.assert_allclose(
+            xr.Dataset(
+                {
+                    "z": np.array(114857.63685302),
+                    "u": np.array(9.84182437),
+                    "v": np.array(-0.00330402),
+                }
+            ),
+            result.mean(),
+        )
+    else:
+        xr.testing.assert_allclose(
+            xr.Dataset(
+                {
+                    "z": np.array(114302.08524294),
+                    "u": np.array(9.5196515),
+                    "v": np.array(0.29297792),
+                }
+            ),
+            result.drop_vars(['month', 'level']).mean(),
+        )
+
+
+@pytest.mark.parametrize("method", [None, "rasterize", "iterate", "exactextract"])
 def test_dataarray(method):
     ds = xr.tutorial.open_dataset("eraint_uvz")
     world = gpd.read_file(geodatasets.get_path("naturalearth land"))
@@ -161,6 +191,22 @@ def test_dataarray(method):
         assert result.mean() == pytest.approx(61625.53438858)
     else:
         assert result.mean() == pytest.approx(61367.76185577)
+
+
+@pytest.mark.parametrize("method", [None, "rasterize", "iterate", "exactextract"])
+def test_dataarray_flat(method):
+    ds = xr.tutorial.open_dataset("eraint_uvz")
+    world = gpd.read_file(geodatasets.get_path("naturalearth land"))
+    result = ds.z.isel(month=0).isel(level=0).xvec.zonal_stats(
+        world.geometry, "longitude", "latitude", method=method
+    )
+
+    assert result.shape == (127,)
+    assert result.dims == ("geometry",)
+    if method in ["exactextract", None]:
+        assert result.mean() == pytest.approx(114857.63685302)
+    else:
+        assert result.mean() == pytest.approx(114302.08524294)
 
 
 @pytest.mark.parametrize("method", [None, "rasterize", "iterate", "exactextract"])
