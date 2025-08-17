@@ -719,10 +719,10 @@ def _agg_exactextract(
     results = exactextract.exact_extract(
         rast=data, vec=gdf, ops=stats, output="pandas", strategy=strategy
     )
-    # Get all the dimensions execpt x_coords, y_coords, they will be used to stack the
+    # Get all the dimensions except x_coords, y_coords, they will be used to stack the
     # dataarray later
     if original_is_ds is True:
-        # Get the original dataset information to use for unstacking the resulte later
+        # Get the original dataset information to use for unstacking the result later
         coords_info = {name: geometry}
         original_shape = [len(geometry)]
         if arr_dims:
@@ -731,7 +731,7 @@ def _agg_exactextract(
                 if dim != "variable":
                     coords_info[dim] = acc._obj[dim].values
     else:
-        # Get the original dataarray information to use for unstacking the resulte later
+        # Get the original dataarray information to use for unstacking the result later
         coords_info = {name: geometry}
         original_shape = [len(geometry)]
         if arr_dims:
