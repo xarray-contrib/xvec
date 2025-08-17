@@ -698,8 +698,14 @@ def _agg_exactextract(
 
     # Stack the other dimensions into one dimension called "location"
     arr_dims = tuple(dim for dim in acc._obj.dims if dim not in [x_coords, y_coords])
-    data = acc._obj.stack(location=arr_dims)
-    locs = data.location.size
+    if arr_dims:
+        # Stack non-spatial dimensions if they exist
+        data = acc._obj.stack(location=arr_dims)
+        locs = data.location.size
+    else:
+        # No additional dimensions to stack, create a dummy "location" dimension
+        data = acc._obj.expand_dims("location")
+        locs = 1
 
     # Check the order of dimensions
     data = data.transpose("location", y_coords, x_coords)
@@ -719,17 +725,19 @@ def _agg_exactextract(
         # Get the original dataset information to use for unstacking the resulte later
         coords_info = {name: geometry}
         original_shape = [len(geometry)]
-        for dim in arr_dims:
-            original_shape.append(acc._obj[dim].size)
-            if dim != "variable":
-                coords_info[dim] = acc._obj[dim].values
+        if arr_dims:
+            for dim in arr_dims:
+                original_shape.append(acc._obj[dim].size)
+                if dim != "variable":
+                    coords_info[dim] = acc._obj[dim].values
     else:
         # Get the original dataarray information to use for unstacking the resulte later
         coords_info = {name: geometry}
         original_shape = [len(geometry)]
-        for dim in arr_dims:
-            original_shape.append(acc._obj[dim].size)
-            coords_info[dim] = acc._obj[dim].values
+        if arr_dims:
+            for dim in arr_dims:
+                original_shape.append(acc._obj[dim].size)
+                coords_info[dim] = acc._obj[dim].values
     return results, original_shape, coords_info, locs
 
 
