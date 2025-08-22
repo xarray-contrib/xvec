@@ -173,7 +173,7 @@ def test_dataset_flat(method):
                     "v": np.array(0.29297792),
                 }
             ),
-            result.drop_vars(['month', 'level']).mean(),
+            result.drop_vars(["month", "level"]).mean(),
         )
 
 
@@ -197,8 +197,10 @@ def test_dataarray(method):
 def test_dataarray_flat(method):
     ds = xr.tutorial.open_dataset("eraint_uvz")
     world = gpd.read_file(geodatasets.get_path("naturalearth land"))
-    result = ds.z.isel(month=0).isel(level=0).xvec.zonal_stats(
-        world.geometry, "longitude", "latitude", method=method
+    result = (
+        ds.z.isel(month=0)
+        .isel(level=0)
+        .xvec.zonal_stats(world.geometry, "longitude", "latitude", method=method)
     )
 
     assert result.shape == (127,)
