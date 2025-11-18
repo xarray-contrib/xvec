@@ -201,7 +201,7 @@ def test_single_custom_geometry(glaciers):
     glaciers = glaciers.xvec.summarize_geometry(
         dim="name", geom_array="geometry", aggfunc="concave_hull", ratio=0.25
     )
-    f, ax = glaciers["length"].sum("year").xvec.plot(geometry="summary_geometry")
+    f, ax = glaciers[["length"]].sum("year").xvec.plot(geometry="summary_geometry")
 
     assert ax.get_xlabel() == "Easting\n[metre]"
     assert ax.get_ylabel() == "Northing\n[metre]"
