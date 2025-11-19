@@ -956,6 +956,7 @@ class XvecAccessor:
                 return df.set_geometry(geometry, crs=self._obj.proj.crs)
 
             # coordinate geometry
+            df[geometry] = self._obj[geometry].values
             return df.set_geometry(
                 geometry, crs=self._obj[geometry].attrs.get("crs", None)
             )  # type: ignore
