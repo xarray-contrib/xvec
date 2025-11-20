@@ -956,6 +956,12 @@ class XvecAccessor:
                 return df.set_geometry(geometry, crs=self._obj.proj.crs)
 
             # coordinate geometry
+            # Workaround for xarray 2025.10.1 bug where coordinates with names
+            # different from dimension names are not included in to_dataframe()
+            # See: https://github.com/pydata/xarray/issues/9903
+            if len(df.index) == len(self._obj[geometry].values):
+                df[geometry] = self._obj[geometry].values
+
             return df.set_geometry(
                 geometry, crs=self._obj[geometry].attrs.get("crs", None)
             )  # type: ignore
