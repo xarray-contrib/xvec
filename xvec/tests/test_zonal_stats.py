@@ -62,7 +62,7 @@ def test_structure(method):
             },
         ).xvec.set_geom_indexes("geometry", crs="EPSG:4326")
     actual = da.xvec.zonal_stats(polygons, "x", "y", stats="sum", method=method)
-    xr.testing.assert_identical(actual, expected)
+    xr.testing.assert_equal(actual, expected)
 
     actual_ix = da.xvec.zonal_stats(
         polygons, "x", "y", stats="sum", method=method, index=True

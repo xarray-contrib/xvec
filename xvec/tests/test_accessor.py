@@ -676,8 +676,8 @@ def test_extract_points_array():
     )
 
 
-def test_cf_roundtrip(all_datasets):
-    ds = all_datasets
+def test_cf_roundtrip(all_geomindex_datasets):
+    ds = all_geomindex_datasets
     copy = ds.copy(deep=True)
     encoded = ds.xvec.encode_cf()
 
@@ -694,8 +694,8 @@ def test_cf_roundtrip(all_datasets):
     xr.testing.assert_identical(ds, copy)
 
 
-def test_encode_decode_wkb_roundtrip(all_datasets):
-    ds = all_datasets
+def test_encode_decode_wkb_roundtrip(all_geomindex_datasets):
+    ds = all_geomindex_datasets
     encoded = ds.xvec.encode_wkb()
     for name, da in encoded.coords.items():
         if name in ds.xvec._geom_coords_all:
