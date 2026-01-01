@@ -196,3 +196,16 @@ def traffic_dataset(geom_array):
 )
 def all_datasets(request):
     return request.getfixturevalue(request.param)
+
+
+@pytest.fixture(
+    params=[
+        "first_geom_dataset",
+        "multi_geom_dataset",
+        "multi_geom_multi_crs_dataset",
+        "traffic_dataset",
+    ],
+    scope="session",
+)
+def all_geomindex_datasets(request):
+    return request.getfixturevalue(request.param)
