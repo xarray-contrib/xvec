@@ -518,11 +518,12 @@ def test_to_geodataframe_wide(geom_array, traffic_counts_array_named):
     )
 
     expected = pd.DataFrame(
+        1.0,
         columns=pd.MultiIndex.from_product(
-            [["traffic_counts"], ["car", "bike", "walk"]], names=["mode", ""]
+            [["traffic_counts"], ["car", "bike", "walk"]], names=["", "mode"]
         ),
         index=range(2),
-    ).fillna(1.0)
+    ).astype(float)
     expected["origin"] = geom_array
     expected = expected.set_geometry("origin", crs=26915)
 
@@ -551,11 +552,12 @@ def test_to_geodataframe_wide(geom_array, traffic_counts_array_named):
     ).xvec.set_geom_indexes(["origin"], crs=26915)
 
     expected = pd.DataFrame(
+        1.0,
         columns=pd.MultiIndex.from_product(
-            [["count", "time"], ["car", "bike", "walk"]], names=["mode", ""]
+            [["count", "time"], ["car", "bike", "walk"]], names=["", "mode"]
         ),
         index=range(2),
-    ).fillna(1.0)
+    ).astype(float)
     expected["origin"] = geom_array
     expected = expected.set_geometry("origin", crs=26915)
 
