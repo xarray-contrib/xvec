@@ -4,9 +4,11 @@ channels:
 dependencies:
   - python
   # required
-  - shapely=2
+  - shapely >=2
   - xarray
   - cf_xarray
+  - rioxarray
+  - exactextract
   # testing
   - pytest
   - pytest-cov
