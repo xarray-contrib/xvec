@@ -21,6 +21,8 @@ dependencies:
   - pyogrio
   - xproj
   - matplotlib
+  - scipy
+  - netCDF4
   - pip
   - pip:
     - exactextract

@@ -22,6 +22,8 @@ dependencies:
   - pyogrio
   - xproj
   - matplotlib
+  - scipy
+  - netCDF4
   - pip
   - pip:
       - git+https://github.com/shapely/shapely.git@main
