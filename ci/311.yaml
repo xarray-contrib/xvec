@@ -22,3 +22,5 @@ dependencies:
   - pyogrio
   - xproj
   - matplotlib
+  - scipy
+  - netCDF4

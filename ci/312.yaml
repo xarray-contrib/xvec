@@ -23,5 +23,7 @@ dependencies:
   - mypy
   - xproj
   - matplotlib
+  - scipy
+  - netCDF4
 
 
