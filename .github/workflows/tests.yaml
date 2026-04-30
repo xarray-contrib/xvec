@@ -33,10 +33,10 @@ jobs:
 
     steps:
       - name: checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: setup micromamba
-        uses: mamba-org/setup-micromamba@v1
+        uses: mamba-org/setup-micromamba@v3
         with:
           environment-file: ${{ matrix.environment-file }}
           micromamba-version: "latest"
@@ -52,7 +52,7 @@ jobs:
         if: contains(matrix.environment-file, 'ci/312.yaml') && contains(matrix.os, 'ubuntu')
         run: mypy xvec/ --install-types --ignore-missing-imports --non-interactive
 
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v6
 
       - name: Generate and publish the report
         if: |
