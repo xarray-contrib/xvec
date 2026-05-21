@@ -50,7 +50,7 @@ jobs:
 
       - name: run tests
         id: status
-        run: pytest -v . --cov=xvec --cov-append --cov-report term-missing --cov-report xml --color=yes 
+        run: pytest -v .
 
       - name: run mypy
         if: contains(matrix.environment-file, 'ci/312.yaml') && contains(matrix.os, 'ubuntu')
