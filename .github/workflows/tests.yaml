@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
-        environment-file: [ci/313.yaml]
+        environment-file: [ci/314.yaml]
         include:
           - environment-file: ci/310.yaml
             os: ubuntu-latest
@@ -25,11 +25,15 @@ jobs:
             os: ubuntu-latest
           - environment-file: ci/312.yaml
             os: ubuntu-latest
+          - environment-file: ci/313.yaml
+            os: ubuntu-latest
           - environment-file: ci/dev.yaml
             os: ubuntu-latest
     defaults:
       run:
         shell: bash -l {0}
+    permissions:
+      issues: write
 
     steps:
       - name: checkout repo
@@ -60,6 +64,6 @@ jobs:
           && steps.status.outcome == 'failure'
           && github.event_name == 'schedule'
           && github.repository_owner == 'xarray-contrib'
-        uses: xarray-contrib/issue-from-pytest-log@v1
+        uses: scientific-python/issue-from-pytest-log@v1
         with:
           log-path: pytest-log.jsonl
