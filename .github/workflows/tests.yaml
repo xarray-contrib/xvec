@@ -32,6 +32,8 @@ jobs:
     defaults:
       run:
         shell: bash -l {0}
+    permissions:
+      issues: write
 
     steps:
       - name: checkout repo
@@ -48,7 +50,7 @@ jobs:
 
       - name: run tests
         id: status
-        run: pytest -v . --cov=xvec --cov-append --cov-report term-missing --cov-report xml --color=yes --report-log pytest-log.jsonl
+        run: pytest -v . --cov=xvec --cov-append --cov-report term-missing --cov-report xml --color=yes 
 
       - name: run mypy
         if: contains(matrix.environment-file, 'ci/312.yaml') && contains(matrix.os, 'ubuntu')
@@ -62,6 +64,6 @@ jobs:
           && steps.status.outcome == 'failure'
           && github.event_name == 'schedule'
           && github.repository_owner == 'xarray-contrib'
-        uses: xarray-contrib/issue-from-pytest-log@v1
+        uses: scientific-python/issue-from-pytest-log@v1
         with:
           log-path: pytest-log.jsonl
