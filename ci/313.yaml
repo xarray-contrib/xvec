@@ -9,6 +9,7 @@ dependencies:
   - rioxarray
   - joblib
   - rasterio
+  - exactextract
   - tqdm
   - pyproj
   # testing
@@ -24,5 +25,3 @@ dependencies:
   - scipy
   - netCDF4
   - pip
-  - pip:
-    - exactextract
